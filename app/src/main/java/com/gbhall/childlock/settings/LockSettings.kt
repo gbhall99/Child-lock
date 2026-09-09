@@ -4,17 +4,30 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.gbhall.childlock.gesture.Corner
 import com.gbhall.childlock.gesture.CornerPair
+import com.gbhall.childlock.gesture.VolumePattern
 
-enum class GestureType { CORNER_HOLD, BADGE_PIN, VOLUME_CHORD }
+enum class GestureType {
+    /** Volume press pattern; locks and unlocks. Needs the accessibility guard. */
+    VOLUME_SEQUENCE,
+    CORNER_HOLD,
+    BADGE_PIN,
+    VOLUME_CHORD;
+
+    /** Gestures that only the accessibility guard can see. */
+    val needsGuard: Boolean get() = this == VOLUME_SEQUENCE || this == VOLUME_CHORD
+}
 
 data class LockSettings(
-    val gesture: GestureType = GestureType.CORNER_HOLD,
+    val gesture: GestureType = GestureType.VOLUME_SEQUENCE,
     /** Hold duration for corner hold and volume chord; long-press duration for the badge PIN. */
     val holdMs: Long = 1500,
     val cornerPair: CornerPair = CornerPair.TOP_LEFT_BOTTOM_RIGHT,
     val badgeCorner: Corner = Corner.TOP_LEFT,
     val pinHash: String? = null,
     val pinLength: Int = 0,
+    val volumePattern: VolumePattern = VolumePattern.UP_THEN_DOWN,
+    /** 1 = press the pattern once, 2 = twice in a row. */
+    val volumeRepeats: Int = 1,
     val keepScreenOn: Boolean = true,
     val armDelaySec: Int = 5,
     val blockKeys: Boolean = true,
@@ -42,12 +55,14 @@ class SettingsRepository private constructor(context: Context) {
         context.applicationContext.getSharedPreferences("childlock", Context.MODE_PRIVATE)
 
     fun load(): LockSettings = LockSettings(
-        gesture = prefs.enum(KEY_GESTURE, GestureType.CORNER_HOLD),
+        gesture = prefs.enum(KEY_GESTURE, GestureType.VOLUME_SEQUENCE),
         holdMs = prefs.getLong(KEY_HOLD_MS, 1500).coerceIn(LockSettings.MIN_HOLD_MS, LockSettings.MAX_HOLD_MS),
         cornerPair = prefs.enum(KEY_CORNER_PAIR, CornerPair.TOP_LEFT_BOTTOM_RIGHT),
         badgeCorner = prefs.enum(KEY_BADGE_CORNER, Corner.TOP_LEFT),
         pinHash = prefs.getString(KEY_PIN_HASH, null),
         pinLength = prefs.getInt(KEY_PIN_LENGTH, 0),
+        volumePattern = prefs.enum(KEY_VOLUME_PATTERN, VolumePattern.UP_THEN_DOWN),
+        volumeRepeats = prefs.getInt(KEY_VOLUME_REPEATS, 1).coerceIn(1, 2),
         keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
         armDelaySec = prefs.getInt(KEY_ARM_DELAY, 5).coerceIn(LockSettings.MIN_ARM_DELAY_SEC, LockSettings.MAX_ARM_DELAY_SEC),
         blockKeys = prefs.getBoolean(KEY_BLOCK_KEYS, true),
@@ -63,6 +78,8 @@ class SettingsRepository private constructor(context: Context) {
             .putString(KEY_BADGE_CORNER, s.badgeCorner.name)
             .putString(KEY_PIN_HASH, s.pinHash)
             .putInt(KEY_PIN_LENGTH, s.pinLength)
+            .putString(KEY_VOLUME_PATTERN, s.volumePattern.name)
+            .putInt(KEY_VOLUME_REPEATS, s.volumeRepeats)
             .putBoolean(KEY_KEEP_SCREEN_ON, s.keepScreenOn)
             .putInt(KEY_ARM_DELAY, s.armDelaySec)
             .putBoolean(KEY_BLOCK_KEYS, s.blockKeys)
@@ -72,6 +89,13 @@ class SettingsRepository private constructor(context: Context) {
     }
 
     inline fun update(block: (LockSettings) -> LockSettings) = save(block(load()))
+
+    /** The caller must keep a strong reference to [listener]; SharedPreferences holds it weakly. */
+    fun addChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) =
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+
+    fun removeChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) =
+        prefs.unregisterOnSharedPreferenceChangeListener(listener)
 
     private inline fun <reified E : Enum<E>> SharedPreferences.enum(key: String, default: E): E {
         val name = getString(key, null) ?: return default
@@ -85,6 +109,8 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_BADGE_CORNER = "badge_corner"
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_PIN_LENGTH = "pin_length"
+        private const val KEY_VOLUME_PATTERN = "volume_pattern"
+        private const val KEY_VOLUME_REPEATS = "volume_repeats"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_ARM_DELAY = "arm_delay_sec"
         private const val KEY_BLOCK_KEYS = "block_keys"

@@ -67,23 +67,31 @@ tap the pencil, and drag the tile into the active area.
 
 ## Using it
 
-**Lock, from the call:** pull down Quick Settings, tap *Child Lock*, close the
-shade. The lock engages about two seconds later; a short toast confirms it.
+**Default: the volume-button pattern.** While on the call, press volume up
+then volume down, quickly (within about a second). A message says "Child Lock
+on" and touch is frozen. Press the same pattern again to unlock. No screen
+touching, no shade, no app switching. It needs the accessibility guard, which
+the setup script enables. In the app you can flip the order to down-then-up,
+or require the pattern twice in a row if your child has a knack for the volume
+rocker.
 
-**Lock, from the app:** open Child Lock, tap *Arm lock*. You are returned to
-the previous app and the lock engages after the arm delay (5 s by default).
+**Other ways to lock:** pull down Quick Settings and tap *Child Lock* (locks
+about two seconds later, so you can close the shade), or open the app and tap
+*Arm lock from here*, which returns you to the previous app and locks after
+the arm delay (5 s by default).
 
-**Unlock (default gesture):** press one finger in the top-left corner and one
-in the bottom-right corner at the same time and hold for 1.5 s. A ring fills
-around the badge, the phone buzzes, and touch is back. Any third finger or a
-finger drifting out of its corner restarts the timer.
+**Other ways to unlock,** selectable in the app:
 
-Other gestures are available in the app:
-
+- **Two-finger corner hold.** One finger in the top-left corner and one in the
+  bottom-right at the same time, held for 1.5 s. A ring fills around the badge
+  and the phone buzzes. This always works as a backup, whatever gesture is
+  selected.
 - **Badge long-press then PIN.** Hold the badge until a keypad appears beside
   it, then type your PIN. Three wrong PINs hide the keypad for 30 seconds.
-- **Volume chord.** Hold volume up and volume down together. Needs the
-  accessibility guard. The corner hold keeps working as a fallback.
+- **Volume chord.** Hold volume up and volume down together for the hold time.
+
+The screen uses a colour-blind-safe palette (blue, orange, grey; no red or
+green) and every status also carries a distinct symbol and word.
 
 ## What the lock does and does not stop
 

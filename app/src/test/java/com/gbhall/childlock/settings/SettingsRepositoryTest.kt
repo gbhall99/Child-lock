@@ -3,6 +3,7 @@ package com.gbhall.childlock.settings
 import com.gbhall.childlock.TestSupport
 import com.gbhall.childlock.gesture.Corner
 import com.gbhall.childlock.gesture.CornerPair
+import com.gbhall.childlock.gesture.VolumePattern
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -24,7 +25,9 @@ class SettingsRepositoryTest {
     @Test
     fun `defaults are sane`() {
         val s = repo.load()
-        assertEquals(GestureType.CORNER_HOLD, s.gesture)
+        assertEquals(GestureType.VOLUME_SEQUENCE, s.gesture)
+        assertEquals(VolumePattern.UP_THEN_DOWN, s.volumePattern)
+        assertEquals(1, s.volumeRepeats)
         assertEquals(1500L, s.holdMs)
         assertEquals(CornerPair.TOP_LEFT_BOTTOM_RIGHT, s.cornerPair)
         assertEquals(Corner.TOP_LEFT, s.badgeCorner)
@@ -39,6 +42,7 @@ class SettingsRepositoryTest {
         val wanted = LockSettings(
             gesture = GestureType.BADGE_PIN, holdMs = 2200, cornerPair = CornerPair.TOP_RIGHT_BOTTOM_LEFT,
             badgeCorner = Corner.BOTTOM_RIGHT, pinHash = "abc", pinLength = 6, keepScreenOn = false,
+            volumePattern = VolumePattern.DOWN_THEN_UP, volumeRepeats = 2,
             armDelaySec = 8, blockKeys = false, blockShade = false, relaunchApp = false,
         )
         repo.save(wanted)
@@ -57,7 +61,7 @@ class SettingsRepositoryTest {
     @Test
     fun `unknown enum names fall back to defaults`() {
         TestSupport.app.getSharedPreferences("childlock", 0).edit().putString("gesture", "LASER").commit()
-        assertEquals(GestureType.CORNER_HOLD, repo.load().gesture)
+        assertEquals(GestureType.VOLUME_SEQUENCE, repo.load().gesture)
     }
 
     @Test

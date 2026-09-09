@@ -10,7 +10,6 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -23,28 +22,40 @@ import com.gbhall.childlock.R
 import com.gbhall.childlock.gesture.Corner
 import com.gbhall.childlock.gesture.CornerPair
 import com.gbhall.childlock.gesture.PinHasher
+import com.gbhall.childlock.gesture.VolumePattern
 import com.gbhall.childlock.guard.ForegroundTracker
 import com.gbhall.childlock.guard.GuardAccessibilityService
 import com.gbhall.childlock.lock.LockController
 import com.gbhall.childlock.lock.LockState
+import com.gbhall.childlock.settings.GestureText
 import com.gbhall.childlock.settings.GestureType
 import com.gbhall.childlock.settings.LockSettings
 import com.gbhall.childlock.settings.SettingsRepository
 
 class MainActivity : Activity() {
     private lateinit var repo: SettingsRepository
-    private lateinit var statusText: TextView
+
+    // Status card
+    private lateinit var stateChipHolder: LinearLayout
+    private lateinit var lockHow: TextView
+    private lateinit var unlockHow: TextView
+    private lateinit var guardWarning: View
     private lateinit var armButton: Button
     private lateinit var armHint: TextView
-    private lateinit var overlayStatus: TextView
+
+    // Permissions card
+    private lateinit var overlayChipHolder: LinearLayout
     private lateinit var notificationRow: View
-    private lateinit var notificationStatus: TextView
-    private lateinit var accessibilityStatus: TextView
+    private lateinit var notificationChipHolder: LinearLayout
+    private lateinit var accessibilityChipHolder: LinearLayout
     private lateinit var restrictedHint: View
-    private lateinit var pinStatus: TextView
+
+    // Gesture card
+    private lateinit var sequenceSection: View
+    private lateinit var holdSection: View
     private lateinit var cornerPairSection: View
     private lateinit var pinSection: View
-    private lateinit var unlockHelp: TextView
+    private lateinit var pinChipHolder: LinearLayout
 
     private val stateListener: (LockState) -> Unit = { renderStatus(it) }
 
@@ -59,6 +70,7 @@ class MainActivity : Activity() {
         super.onResume()
         refreshPermissions()
         renderStatus(LockController.state)
+        renderGestureDependents(repo.load())
     }
 
     override fun onDestroy() {
@@ -83,51 +95,74 @@ class MainActivity : Activity() {
             addView(optionsCard(s))
             addView(safetyCard())
         }
-        renderGestureDependents(s) // all labels exist now
         return ScrollView(this).apply {
             isFillViewport = true
+            setBackgroundColor(if (isNight) 0xFF141519.toInt() else 0xFFF2F4F8.toInt())
             addView(page, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
     }
 
-    private fun statusCard(s: LockSettings) = card(getString(R.string.section_status)) {
-        statusText = body("")
-        addView(statusText)
-        armButton = Button(context).apply {
-            text = getString(R.string.arm_button)
-            textSize = 18f
-            setOnClickListener { arm() }
-        }
-        addView(armButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)).apply { topMargin = dp(8) })
+    private fun chipHolder() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+
+    private fun setChip(holder: LinearLayout, text: String, tone: Tone, large: Boolean = false) {
+        holder.removeAllViews()
+        holder.addView(chip(text, tone, large))
+    }
+
+    private fun statusCard(s: LockSettings) = card(null) {
+        stateChipHolder = chipHolder()
+        addView(stateChipHolder)
+
+        addView(body(getString(R.string.how_to_lock), secondary = true, size = 12f).apply {
+            setPadding(0, dp(14), 0, 0)
+            isAllCaps = true
+            letterSpacing = 0.06f
+        })
+        lockHow = body("")
+        addView(lockHow)
+        addView(body(getString(R.string.how_to_unlock), secondary = true, size = 12f).apply {
+            setPadding(0, dp(8), 0, 0)
+            isAllCaps = true
+            letterSpacing = 0.06f
+        })
+        unlockHow = body("")
+        addView(unlockHow)
+
+        guardWarning = chip(getString(R.string.guard_warning), Tone.ATTENTION)
+        addView(guardWarning, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(8)
+        })
+
+        armButton = primaryButton(getString(R.string.arm_button)) { arm() }
+        addView(armButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)).apply { topMargin = dp(16) })
         armHint = body(getString(R.string.arm_hint, s.armDelaySec), secondary = true, size = 13f)
         addView(armHint)
     }
 
     private fun permissionsCard() = card(getString(R.string.section_permissions)) {
-        overlayStatus = body("", secondary = true, size = 13f)
-        addView(row(getString(R.string.perm_overlay), getString(R.string.perm_overlay_desc), actionButton(R.string.grant) {
+        overlayChipHolder = chipHolder()
+        addView(row(getString(R.string.perm_overlay), getString(R.string.perm_overlay_desc), actionButton(getString(R.string.grant)) {
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-        }))
-        addView(overlayStatus)
-        restrictedHint = row(getString(R.string.restricted_title), getString(R.string.restricted_desc), actionButton(R.string.app_info) {
+        }, overlayChipHolder))
+        restrictedHint = row(getString(R.string.restricted_title), getString(R.string.restricted_desc), actionButton(getString(R.string.app_info)) {
             startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
         })
         addView(restrictedHint)
+        addView(divider())
 
-        notificationStatus = body("", secondary = true, size = 13f)
-        notificationRow = row(getString(R.string.perm_notifications), getString(R.string.perm_notifications_desc), actionButton(R.string.allow) {
+        notificationChipHolder = chipHolder()
+        notificationRow = row(getString(R.string.perm_notifications), getString(R.string.perm_notifications_desc), actionButton(getString(R.string.allow)) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
             }
-        })
+        }, notificationChipHolder)
         addView(notificationRow)
-        addView(notificationStatus)
+        addView(divider())
 
-        accessibilityStatus = body("", secondary = true, size = 13f)
-        addView(row(getString(R.string.perm_accessibility), getString(R.string.perm_accessibility_desc), actionButton(R.string.open) {
+        accessibilityChipHolder = chipHolder()
+        addView(row(getString(R.string.perm_accessibility), getString(R.string.perm_accessibility_desc), actionButton(getString(R.string.open)) {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        }))
-        addView(accessibilityStatus)
+        }, accessibilityChipHolder))
     }
 
     private fun gestureCard(s: LockSettings) = card(getString(R.string.section_gesture)) {
@@ -135,6 +170,7 @@ class MainActivity : Activity() {
         addView(
             radioGroup(
                 listOf(
+                    getString(R.string.gesture_volume_sequence) to getString(R.string.gesture_volume_sequence_desc),
                     getString(R.string.gesture_corner_hold) to getString(R.string.gesture_corner_hold_desc),
                     getString(R.string.gesture_badge_pin) to getString(R.string.gesture_badge_pin_desc),
                     getString(R.string.gesture_volume_chord) to getString(R.string.gesture_volume_chord_desc),
@@ -145,16 +181,40 @@ class MainActivity : Activity() {
                 renderGestureDependents(repo.load())
             },
         )
-        addView(
-            seekRow(
-                getString(R.string.hold_duration),
-                (LockSettings.MIN_HOLD_MS / 100).toInt(), (LockSettings.MAX_HOLD_MS / 100).toInt(), (s.holdMs / 100).toInt(),
-                format = { String.format("%.1f s", it / 10f) },
-            ) { tenths -> repo.update { it.copy(holdMs = tenths * 100L) } },
-        )
+        addView(divider())
+
+        sequenceSection = vertical {
+            addView(body(getString(R.string.volume_pattern)).apply { typeface = android.graphics.Typeface.DEFAULT_BOLD })
+            val patterns = VolumePattern.entries
+            addView(
+                radioGroup(
+                    listOf(
+                        getString(R.string.pattern_option_up_down) to null,
+                        getString(R.string.pattern_option_down_up) to null,
+                    ),
+                    patterns.indexOf(s.volumePattern),
+                ) { index ->
+                    repo.update { it.copy(volumePattern = patterns[index]) }
+                    renderGestureDependents(repo.load())
+                },
+            )
+            addView(switchRow(getString(R.string.pattern_twice_title), getString(R.string.pattern_twice_desc), s.volumeRepeats >= 2) { v ->
+                repo.update { it.copy(volumeRepeats = if (v) 2 else 1) }
+                renderGestureDependents(repo.load())
+            })
+            addView(body(getString(R.string.fallback_note), secondary = true, size = 13f))
+        }
+        addView(sequenceSection)
+
+        holdSection = seekRow(
+            getString(R.string.hold_duration),
+            (LockSettings.MIN_HOLD_MS / 100).toInt(), (LockSettings.MAX_HOLD_MS / 100).toInt(), (s.holdMs / 100).toInt(),
+            format = { String.format("%.1f s", it / 10f) },
+        ) { tenths -> repo.update { it.copy(holdMs = tenths * 100L) } }
+        addView(holdSection)
 
         cornerPairSection = vertical {
-            addView(body(getString(R.string.corner_pair), size = 15f))
+            addView(body(getString(R.string.corner_pair)).apply { typeface = android.graphics.Typeface.DEFAULT_BOLD })
             val pairs = CornerPair.entries
             addView(
                 radioGroup(
@@ -169,13 +229,13 @@ class MainActivity : Activity() {
         addView(cornerPairSection)
 
         pinSection = vertical {
-            pinStatus = body("", secondary = true, size = 13f)
-            addView(row(getString(R.string.pin_title), null, actionButton(R.string.pin_set) { showPinDialog() }))
-            addView(pinStatus)
+            pinChipHolder = chipHolder()
+            addView(row(getString(R.string.pin_title), null, actionButton(getString(R.string.pin_set)) { showPinDialog() }, pinChipHolder))
         }
         addView(pinSection)
 
-        addView(body(getString(R.string.badge_corner), size = 15f))
+        addView(divider())
+        addView(body(getString(R.string.badge_corner)).apply { typeface = android.graphics.Typeface.DEFAULT_BOLD })
         val corners = Corner.entries
         addView(
             radioGroup(
@@ -203,6 +263,7 @@ class MainActivity : Activity() {
         addView(switchRow(getString(R.string.keep_screen_on), getString(R.string.keep_screen_on_desc), s.keepScreenOn) { v ->
             repo.update { it.copy(keepScreenOn = v) }
         })
+        addView(divider())
         addView(body(getString(R.string.hardening_note), secondary = true, size = 13f))
         addView(switchRow(getString(R.string.block_keys), getString(R.string.block_keys_desc), s.blockKeys) { v ->
             repo.update { it.copy(blockKeys = v) }
@@ -215,15 +276,8 @@ class MainActivity : Activity() {
         })
     }
 
-    private fun safetyCard() = card(getString(R.string.section_unlock)) {
-        unlockHelp = body("")
-        addView(unlockHelp)
-        addView(body(getString(R.string.safety_note), secondary = true, size = 13f))
-    }
-
-    private fun actionButton(label: Int, onClick: () -> Unit) = Button(this).apply {
-        text = getString(label)
-        setOnClickListener { onClick() }
+    private fun safetyCard() = card(getString(R.string.section_safety)) {
+        addView(body(getString(R.string.safety_note), secondary = true, size = 14f))
     }
 
     // ---- behaviour --------------------------------------------------------
@@ -272,42 +326,46 @@ class MainActivity : Activity() {
 
     private fun refreshPermissions() {
         val overlay = Settings.canDrawOverlays(this)
-        overlayStatus.text = getString(if (overlay) R.string.status_granted else R.string.status_required)
+        setChip(overlayChipHolder, getString(if (overlay) R.string.status_granted else R.string.status_needed), if (overlay) Tone.GOOD else Tone.ATTENTION)
         armButton.isEnabled = overlay
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-            notificationStatus.text = getString(if (granted) R.string.status_granted else R.string.status_recommended)
+            setChip(notificationChipHolder, getString(if (granted) R.string.status_granted else R.string.status_recommended), if (granted) Tone.GOOD else Tone.NEUTRAL)
         } else {
             notificationRow.visibility = View.GONE
-            notificationStatus.visibility = View.GONE
         }
 
         val a11y = GuardAccessibilityService.isEnabled(this)
-        accessibilityStatus.text = getString(if (a11y) R.string.status_enabled else R.string.status_optional)
+        setChip(accessibilityChipHolder, getString(if (a11y) R.string.status_enabled else R.string.status_off), if (a11y) Tone.GOOD else Tone.NEUTRAL)
         val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && (!overlay || !a11y)
         restrictedHint.visibility = if (restricted) View.VISIBLE else View.GONE
+        renderGestureDependents(repo.load())
     }
 
     private fun renderStatus(state: LockState) {
-        statusText.text = when (state) {
-            LockState.Unlocked -> getString(R.string.status_unlocked)
-            is LockState.Arming -> getString(R.string.status_arming)
-            is LockState.Locked -> getString(R.string.status_locked)
+        when (state) {
+            LockState.Unlocked -> setChip(stateChipHolder, getString(R.string.state_unlocked), Tone.NEUTRAL, large = true)
+            is LockState.Arming -> setChip(stateChipHolder, getString(R.string.state_arming), Tone.PENDING, large = true)
+            is LockState.Locked -> setChip(stateChipHolder, getString(R.string.state_locked), Tone.ACTIVE, large = true)
         }
     }
 
     private fun renderGestureDependents(s: LockSettings) {
-        cornerPairSection.visibility = if (s.gesture == GestureType.BADGE_PIN) View.GONE else View.VISIBLE
-        pinSection.visibility = if (s.gesture == GestureType.BADGE_PIN) View.VISIBLE else View.GONE
-        pinStatus.text = if (s.hasPin) getString(R.string.pin_status_set, s.pinLength) else getString(R.string.pin_status_unset)
-        unlockHelp.text = getString(
-            when (s.gesture) {
-                GestureType.CORNER_HOLD -> R.string.hint_corner_hold
-                GestureType.BADGE_PIN -> R.string.hint_badge_pin
-                GestureType.VOLUME_CHORD -> R.string.hint_volume_chord
-            },
+        val isSequence = s.gesture == GestureType.VOLUME_SEQUENCE
+        val isPin = s.gesture == GestureType.BADGE_PIN
+        sequenceSection.visibility = if (isSequence) View.VISIBLE else View.GONE
+        holdSection.visibility = if (isSequence) View.GONE else View.VISIBLE
+        cornerPairSection.visibility = if (isPin) View.GONE else View.VISIBLE
+        pinSection.visibility = if (isPin) View.VISIBLE else View.GONE
+        setChip(
+            pinChipHolder,
+            if (s.hasPin) getString(R.string.pin_status_set, s.pinLength) else getString(R.string.pin_status_unset),
+            if (s.hasPin) Tone.GOOD else Tone.ATTENTION,
         )
+        lockHow.text = GestureText.lockHint(this, s)
+        unlockHow.text = GestureText.unlockHint(this, s)
+        guardWarning.visibility = if (s.gesture.needsGuard && !GuardAccessibilityService.isEnabled(this)) View.VISIBLE else View.GONE
     }
 
     private fun toast(resId: Int) = Toast.makeText(this, resId, Toast.LENGTH_SHORT).show()

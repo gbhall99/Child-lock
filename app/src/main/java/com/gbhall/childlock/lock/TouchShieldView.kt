@@ -76,7 +76,7 @@ class TouchShieldView(
     /** Corner hold is always available as a safety fallback, even in volume-chord mode. */
     private val gesture: UnlockGesture = when (settings.gesture) {
         GestureType.BADGE_PIN -> BadgePinGesture(settings.holdMs, this)
-        GestureType.CORNER_HOLD, GestureType.VOLUME_CHORD ->
+        GestureType.CORNER_HOLD, GestureType.VOLUME_CHORD, GestureType.VOLUME_SEQUENCE ->
             CornerHoldGesture(settings.holdMs, settings.cornerPair, this)
     }
 

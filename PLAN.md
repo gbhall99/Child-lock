@@ -57,7 +57,12 @@ alone, and the setup screen explains what each extra permission adds.
 
 ## 3. Unlock gesture
 
-Recommended default: **two-finger diagonal corner hold**.
+Shipped default (added after hands-on use): **volume-button pattern**. A quick
+volume up then down (or down then up, optionally twice) both locks and unlocks,
+via the accessibility service, with no screen touching. The corner hold below
+remains as the always-available fallback.
+
+Original recommended default: **two-finger diagonal corner hold**.
 - One finger held inside the top-left corner zone (about 15% of width and height).
 - A second finger held inside the bottom-right corner zone at the same time.
 - Both held for 1.5 s with no third finger down and no finger leaving its zone.

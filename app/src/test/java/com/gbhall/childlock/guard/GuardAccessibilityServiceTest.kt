@@ -69,6 +69,7 @@ class GuardAccessibilityServiceTest {
 
     @Test
     fun `back and volume are swallowed while locked, other keys are not`() {
+        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.CORNER_HOLD) }
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
         assertTrue(service.onKeyEvent(key(KeyEvent.KEYCODE_BACK)))
@@ -78,7 +79,7 @@ class GuardAccessibilityServiceTest {
 
     @Test
     fun `block keys off lets keys through unless the volume chord needs them`() {
-        SettingsRepository.get(TestSupport.app).update { it.copy(blockKeys = false) }
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockKeys = false, gesture = GestureType.CORNER_HOLD) }
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
         assertFalse(service.onKeyEvent(key(KeyEvent.KEYCODE_BACK)))
@@ -117,6 +118,75 @@ class GuardAccessibilityServiceTest {
         service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP, down = false))
         TestSupport.idle(2000)
         assertTrue(LockController.isLocked)
+    }
+
+    private fun tap(code: Int, t: Long) {
+        service.onKeyEvent(KeyEvent(t, t, KeyEvent.ACTION_DOWN, code, 0))
+        service.onKeyEvent(KeyEvent(t, t + 60, KeyEvent.ACTION_UP, code, 0))
+    }
+
+    @Test
+    fun `volume pattern while unlocked arms the lock immediately and is not consumed`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        ForegroundTracker.lastApp = "com.example.call"
+        assertFalse(service.onKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 0)))
+        assertFalse(service.onKeyEvent(KeyEvent(0, 50, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0)))
+        assertFalse(service.onKeyEvent(KeyEvent(300, 300, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
+        val intent = org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService
+        org.junit.Assert.assertNotNull("lock service should start", intent)
+        assertEquals(com.gbhall.childlock.lock.LockOverlayService.ACTION_LOCK, intent.action)
+        assertEquals(0L, intent.getLongExtra(com.gbhall.childlock.lock.LockOverlayService.EXTRA_DELAY_MS, -1))
+        assertEquals("com.example.call", intent.getStringExtra(com.gbhall.childlock.lock.LockOverlayService.EXTRA_PACKAGE))
+    }
+
+    @Test
+    fun `volume pattern while locked unlocks`() {
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 1000)
+        assertTrue(LockController.isLocked)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1300)
+        TestSupport.idle()
+        assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    @Test
+    fun `wrong order or slow presses do not unlock`() {
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1000)
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 1300)
+        TestSupport.idle()
+        assertTrue(LockController.isLocked)
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 5000)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 7000)
+        TestSupport.idle()
+        assertTrue(LockController.isLocked)
+    }
+
+    @Test
+    fun `held key auto-repeat counts as one press`() {
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        service.onKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 0))
+        service.onKeyEvent(KeyEvent(0, 200, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 1))
+        service.onKeyEvent(KeyEvent(0, 400, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 2))
+        service.onKeyEvent(KeyEvent(0, 500, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0))
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 700)
+        TestSupport.idle()
+        assertEquals("up (held), down should still complete", LockState.Unlocked, LockController.state)
+    }
+
+    @Test
+    fun `changing the pattern in settings takes effect without reconnecting`() {
+        SettingsRepository.get(TestSupport.app).update { it.copy(volumePattern = com.gbhall.childlock.gesture.VolumePattern.DOWN_THEN_UP) }
+        TestSupport.idle()
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1000)
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 1300)
+        TestSupport.idle()
+        assertEquals(LockState.Unlocked, LockController.state)
     }
 
     @Test

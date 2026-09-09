@@ -19,6 +19,7 @@ import android.view.WindowManager
 import android.widget.Toast
 import com.gbhall.childlock.ChildLockApp
 import com.gbhall.childlock.R
+import com.gbhall.childlock.settings.GestureText
 import com.gbhall.childlock.settings.SettingsRepository
 import com.gbhall.childlock.ui.MainActivity
 
@@ -33,9 +34,14 @@ class LockOverlayService : Service() {
     private var overlay: OverlayRoot? = null
     private var pendingAttach: Runnable? = null
 
+    private var wasLocked = false
+
     private val stateListener: (LockState) -> Unit = { state ->
+        if (state is LockState.Locked) wasLocked = true
         if (state is LockState.Unlocked) {
             teardown()
+            if (wasLocked) toast(R.string.toast_unlocked)
+            wasLocked = false
             stopSelf()
         }
     }
@@ -114,7 +120,7 @@ class LockOverlayService : Service() {
             windowManager.addView(root, params)
             overlay = root
             LockController.set(LockState.Locked(protectedPackage, SystemClock.uptimeMillis()))
-            updateNotification(getString(R.string.notif_locked, unlockHint(settings.gesture)))
+            updateNotification(getString(R.string.notif_locked, GestureText.unlockHint(this, settings)))
             toast(R.string.toast_locked)
         } catch (e: Exception) {
             // Half-locking is worse than not locking: fail loudly and stay unlocked.
@@ -130,14 +136,6 @@ class LockOverlayService : Service() {
         teardown()
         stopSelf()
     }
-
-    private fun unlockHint(gesture: com.gbhall.childlock.settings.GestureType): String = getString(
-        when (gesture) {
-            com.gbhall.childlock.settings.GestureType.CORNER_HOLD -> R.string.hint_corner_hold
-            com.gbhall.childlock.settings.GestureType.BADGE_PIN -> R.string.hint_badge_pin
-            com.gbhall.childlock.settings.GestureType.VOLUME_CHORD -> R.string.hint_volume_chord
-        },
-    )
 
     private fun teardown() {
         pendingAttach?.let(handler::removeCallbacks)

@@ -6,6 +6,7 @@ import android.app.KeyguardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -16,9 +17,13 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
+import android.widget.Toast
+import com.gbhall.childlock.R
 import com.gbhall.childlock.gesture.GestureEvent
 import com.gbhall.childlock.gesture.HardwareKey
+import com.gbhall.childlock.gesture.UnlockGesture
 import com.gbhall.childlock.gesture.VolumeChordGesture
+import com.gbhall.childlock.gesture.VolumeSequenceGesture
 import com.gbhall.childlock.lock.LockController
 import com.gbhall.childlock.lock.LockState
 import com.gbhall.childlock.settings.GestureType
@@ -26,25 +31,26 @@ import com.gbhall.childlock.settings.LockSettings
 import com.gbhall.childlock.settings.SettingsRepository
 
 /**
- * Optional hardening. Completely passive while unlocked (it only remembers the
- * foreground app). While locked it swallows back and volume keys, closes the
- * notification shade, and brings the protected app back if the child leaves it.
+ * Optional hardening. While unlocked it only remembers the foreground app and
+ * listens (without consuming) for the volume pattern that arms the lock.
+ * While locked it swallows back and volume keys, closes the notification
+ * shade, brings the protected app back if the child leaves it, and recognises
+ * the volume gesture that unlocks.
  */
 class GuardAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var settings = LockSettings()
-    private var chord: VolumeChordGesture? = null
+    private var keyGesture: UnlockGesture? = null
     private var lastRelaunchMs = 0L
     private var lastShadeDismissMs = 0L
     private val launchable = HashMap<String, Boolean>()
 
-    private val stateListener: (LockState) -> Unit = { state ->
-        if (state is LockState.Locked) onLocked() else onUnlocked()
-    }
+    private val stateListener: (LockState) -> Unit = { rebuildKeyGesture() }
+    private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> rebuildKeyGesture() }
 
     private val tick = object : Runnable {
         override fun run() {
-            val g = chord ?: return
+            val g = keyGesture ?: return
             g.onTick(SystemClock.uptimeMillis())
             if (g.wantsTicks) handler.postDelayed(this, TICK_MS)
         }
@@ -61,31 +67,47 @@ class GuardAccessibilityService : AccessibilityService() {
                 AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         }
         isConnected = true
+        SettingsRepository.get(this).addChangeListener(settingsListener)
         LockController.addListener(stateListener)
-        stateListener(LockController.state)
+        rebuildKeyGesture()
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
         isConnected = false
         LockController.removeListener(stateListener)
-        onUnlocked()
+        SettingsRepository.get(this).removeChangeListener(settingsListener)
+        keyGesture = null
+        handler.removeCallbacks(tick)
         return super.onUnbind(intent)
     }
 
-    private fun onLocked() {
+    /** Which key gesture applies right now depends on both settings and lock state. */
+    private fun rebuildKeyGesture() {
         settings = SettingsRepository.get(this).load()
-        chord = if (settings.gesture == GestureType.VOLUME_CHORD) {
-            VolumeChordGesture(settings.holdMs) { event ->
-                if (event == GestureEvent.Unlocked) LockController.unlock()
-            }
-        } else {
-            null
+        handler.removeCallbacks(tick)
+        val locked = LockController.isLocked
+        keyGesture = when (settings.gesture) {
+            GestureType.VOLUME_SEQUENCE ->
+                VolumeSequenceGesture(settings.volumePattern, settings.volumeRepeats, ::onKeyGestureEvent)
+            GestureType.VOLUME_CHORD ->
+                if (locked) VolumeChordGesture(settings.holdMs, ::onKeyGestureEvent) else null
+            GestureType.CORNER_HOLD, GestureType.BADGE_PIN -> null
         }
     }
 
-    private fun onUnlocked() {
-        chord = null
-        handler.removeCallbacks(tick)
+    private fun onKeyGestureEvent(event: GestureEvent) {
+        if (event != GestureEvent.Unlocked) return
+        when (LockController.state) {
+            is LockState.Locked -> LockController.unlock()
+            is LockState.Arming -> Unit
+            LockState.Unlocked -> {
+                if (!Settings.canDrawOverlays(this)) {
+                    Toast.makeText(this, R.string.toast_no_overlay_permission, Toast.LENGTH_SHORT).show()
+                } else if (!LockController.requestLock(this, ForegroundTracker.lastApp, 0)) {
+                    Toast.makeText(this, R.string.toast_lock_failed, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -102,19 +124,23 @@ class GuardAccessibilityService : AccessibilityService() {
     }
 
     public override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (!LockController.isLocked) return false
         val key = when (event.keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> HardwareKey.VOLUME_UP
             KeyEvent.KEYCODE_VOLUME_DOWN -> HardwareKey.VOLUME_DOWN
             KeyEvent.KEYCODE_BACK -> HardwareKey.BACK
             else -> return false
         }
-        chord?.let { g ->
-            g.onKey(key, event.action == KeyEvent.ACTION_DOWN, event.eventTime)
-            handler.removeCallbacks(tick)
-            if (g.wantsTicks) handler.postDelayed(tick, TICK_MS)
+        val locked = LockController.isLocked
+        if (event.repeatCount == 0) { // a held key auto-repeats; count it once
+            keyGesture?.let { g ->
+                g.onKey(key, event.action == KeyEvent.ACTION_DOWN, event.eventTime)
+                handler.removeCallbacks(tick)
+                if (g.wantsTicks) handler.postDelayed(tick, TICK_MS)
+            }
         }
-        return GuardPolicy.consumeKey(key, settings.blockKeys, chordActive = chord != null)
+        // While unlocked the phone must behave normally: observe only, never consume.
+        if (!locked) return false
+        return GuardPolicy.consumeKey(key, settings.blockKeys, chordActive = keyGesture != null)
     }
 
     override fun onInterrupt() = Unit
@@ -127,11 +153,10 @@ class GuardAccessibilityService : AccessibilityService() {
         val screenHeight = resources.displayMetrics.heightPixels
         val bounds = android.graphics.Rect()
         for (w in windows) {
-            val isSystem = w.type == AccessibilityWindowInfo.TYPE_SYSTEM
-            if (!isSystem) continue
+            if (w.type != AccessibilityWindowInfo.TYPE_SYSTEM) continue
             w.getBoundsInScreen(bounds)
             // Cheap size check first; only then pay for the window root.
-            if (!GuardPolicy.isShadeWindow(true, bounds.height(), screenHeight, SYSTEM_UI)) continue
+            if (!GuardPolicy.isShadeWindow(true, bounds.height(), screenHeight, GuardPolicy.SYSTEM_UI)) continue
             val pkg = w.root?.packageName?.toString()
             if (GuardPolicy.isShadeWindow(true, bounds.height(), screenHeight, pkg)) return true
         }
@@ -177,7 +202,6 @@ class GuardAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "GuardService"
-        private const val SYSTEM_UI = GuardPolicy.SYSTEM_UI
         private const val TICK_MS = 33L
 
         @Volatile
