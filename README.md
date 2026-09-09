@@ -26,7 +26,16 @@ that sits over every other app.
 
 ## First-time setup
 
-### The easy way: one script over adb
+### In the app
+
+The first time Child Lock opens it runs a short setup assistant: one step at
+a time, one tap each, and it detects completion when you come back. Two steps
+are required (Display over other apps, Accessibility guard), two are optional
+(notifications, the Quick Settings tile, which Android adds after a single
+confirmation). If Android shows "App was denied access" for a sideloaded
+install, the assistant explains the one-time "Allow restricted settings" fix.
+
+### Even less effort: one script over adb
 
 Enable USB debugging on the phone (Settings → About phone → tap Build number
 seven times, then Settings → System → Developer options → USB debugging),
@@ -92,6 +101,11 @@ the arm delay (5 s by default).
 
 The screen uses a colour-blind-safe palette (blue, orange, grey; no red or
 green) and every status also carries a distinct symbol and word.
+
+**About the floating accessibility button.** Android itself never shows an
+icon for the guard. If you see a floating accessibility button, it is the
+"Child Lock guard shortcut" toggle on the guard's settings page; the app
+detects it and offers to take you there to turn it off.
 
 **Knowing the state.** A large "Child Lock ON" or "OFF" banner appears on
 screen for a moment at every change, and while locked a solid blue padlock

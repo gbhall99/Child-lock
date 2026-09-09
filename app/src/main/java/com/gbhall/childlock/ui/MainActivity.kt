@@ -60,6 +60,7 @@ class MainActivity : Activity() {
     private lateinit var notificationRow: View
     private lateinit var notificationChip: LinearLayout
     private lateinit var notificationAction: View
+    private lateinit var shortcutHint: View
 
     // Gesture
     private lateinit var sequenceSection: View
@@ -79,6 +80,10 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        if (!repo.setupDismissed && SetupActivity.isNeeded(this)) {
+            startActivity(Intent(this, SetupActivity::class.java))
+            return
+        }
         refreshPermissions()
         renderStatus(LockController.state)
     }
@@ -162,7 +167,7 @@ class MainActivity : Activity() {
         addView(stepRow(R.drawable.ic_lock_open, getString(R.string.how_to_unlock), unlockHow))
 
         guardWarning = callout(getString(R.string.guard_warning), actionButton(getString(R.string.fix)) {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            startActivity(GuardAccessibilityService.settingsIntent(this@MainActivity))
         })
         addView(guardWarning, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(10)
@@ -209,7 +214,7 @@ class MainActivity : Activity() {
         addView(divider())
 
         guardChip = chipHolder()
-        guardAction = actionButton(getString(R.string.enable)) { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        guardAction = actionButton(getString(R.string.enable)) { startActivity(GuardAccessibilityService.settingsIntent(this@MainActivity)) }
         addView(row(getString(R.string.perm_accessibility), getString(R.string.perm_accessibility_desc), guardAction, guardChip, R.drawable.ic_shield))
         addView(divider())
 
@@ -221,6 +226,15 @@ class MainActivity : Activity() {
         }
         notificationRow = row(getString(R.string.perm_notifications), getString(R.string.perm_notifications_desc), notificationAction, notificationChip, R.drawable.ic_bell)
         addView(notificationRow)
+        shortcutHint = callout(getString(R.string.shortcut_button_desc), actionButton(getString(R.string.open)) {
+            startActivity(GuardAccessibilityService.settingsIntent(this@MainActivity))
+        })
+        addView(shortcutHint, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+        addView(divider())
+        addView(row(getString(R.string.setup_assistant), getString(R.string.setup_assistant_desc), actionButton(getString(R.string.open)) {
+            repo.setupDismissed = false
+            startActivity(Intent(this@MainActivity, SetupActivity::class.java))
+        }, null, R.drawable.ic_check))
     }
 
     private fun gestureCard(s: LockSettings) = card(getString(R.string.section_gesture), R.drawable.ic_touch) {
@@ -413,6 +427,7 @@ class MainActivity : Activity() {
 
         val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && (!overlay || !a11y)
         restrictedHint.visibility = if (restricted) View.VISIBLE else View.GONE
+        shortcutHint.visibility = if (a11y && GuardAccessibilityService.isShortcutButtonOn(this)) View.VISIBLE else View.GONE
         renderGestureDependents(repo.load())
     }
 

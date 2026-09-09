@@ -132,6 +132,7 @@ class GuardAccessibilityServiceTest {
         assertFalse(service.onKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 0)))
         assertFalse(service.onKeyEvent(KeyEvent(0, 50, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0)))
         assertFalse(service.onKeyEvent(KeyEvent(300, 300, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
+        TestSupport.idle()
         val intent = org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService
         org.junit.Assert.assertNotNull("lock service should start", intent)
         assertEquals(com.gbhall.childlock.lock.LockOverlayService.ACTION_LOCK, intent.action)
@@ -190,21 +191,36 @@ class GuardAccessibilityServiceTest {
     }
 
     @Test
-    fun `a release mirrors its press even if the lock engaged in between`() {
+    fun `presses may be swallowed but releases always pass through`() {
         org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
-        // Press 1 (up) and press 2 (down) both pass through while unlocked...
+        // Unlocked: everything passes.
         assertFalse(service.onKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 0)))
         assertFalse(service.onKeyEvent(KeyEvent(0, 60, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0)))
         assertFalse(service.onKeyEvent(KeyEvent(300, 300, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
-        // ...the pattern completed and the lock engaged before the release arrived.
+        TestSupport.idle() // the posted lock request runs (and starts the service)
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
-        assertFalse("release must pass through like its press", service.onKeyEvent(KeyEvent(300, 360, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
-        // A fresh press while locked is swallowed, and so is its release after unlocking.
+        assertFalse("release after locking still passes", service.onKeyEvent(KeyEvent(300, 360, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
+        // Locked: the press is swallowed, its repeats too, but never the release.
         assertTrue(service.onKeyEvent(KeyEvent(1000, 1000, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 0)))
-        LockController.unlock()
+        assertTrue(service.onKeyEvent(KeyEvent(1000, 1200, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 1)))
+        assertFalse(service.onKeyEvent(KeyEvent(1000, 1300, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0)))
+    }
+
+    @Test
+    fun `key callback returns before the lock state listeners run`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
-        assertTrue(service.onKeyEvent(KeyEvent(1000, 1060, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0)))
+        var heard = false
+        val l: (LockState) -> Unit = { if (it == LockState.Unlocked) heard = true }
+        LockController.addListener(l)
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 2000)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 2300)
+        assertFalse("listeners must not run inside onKeyEvent", heard)
+        TestSupport.idle()
+        assertTrue(heard)
+        LockController.removeListener(l)
     }
 
     @Test

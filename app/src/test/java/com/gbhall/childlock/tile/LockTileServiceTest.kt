@@ -39,6 +39,16 @@ class LockTileServiceTest {
     }
 
     @Test
+    fun `tile remembers whether it is in quick settings`() {
+        val repo = com.gbhall.childlock.settings.SettingsRepository.get(TestSupport.app)
+        val t = tile()
+        t.onTileAdded()
+        assertEquals(true, repo.tileAdded)
+        t.onTileRemoved()
+        assertEquals(false, repo.tileAdded)
+    }
+
+    @Test
     fun `tap while locked does nothing`() {
         LockController.set(LockState.Locked("com.example.call", 0))
         tile().onClick()

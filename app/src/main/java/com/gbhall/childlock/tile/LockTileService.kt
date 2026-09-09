@@ -10,6 +10,7 @@ import com.gbhall.childlock.R
 import com.gbhall.childlock.guard.ForegroundTracker
 import com.gbhall.childlock.lock.LockController
 import com.gbhall.childlock.lock.LockState
+import com.gbhall.childlock.settings.SettingsRepository
 import com.gbhall.childlock.ui.MainActivity
 
 /**
@@ -19,6 +20,16 @@ import com.gbhall.childlock.ui.MainActivity
  */
 class LockTileService : TileService() {
     private val listener: (LockState) -> Unit = { render(it) }
+
+    override fun onTileAdded() {
+        super.onTileAdded()
+        SettingsRepository.get(this).tileAdded = true
+    }
+
+    override fun onTileRemoved() {
+        SettingsRepository.get(this).tileAdded = false
+        super.onTileRemoved()
+    }
 
     override fun onStartListening() {
         super.onStartListening()

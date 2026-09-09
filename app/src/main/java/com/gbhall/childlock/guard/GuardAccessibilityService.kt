@@ -129,7 +129,13 @@ class GuardAccessibilityService : AccessibilityService() {
 
     private fun onKeyGestureEvent(event: GestureEvent) {
         if (event != GestureEvent.Unlocked) return
-        when (LockController.state) {
+        // Decide now, act later: the key callback must return immediately.
+        val stateAtPress = LockController.state
+        handler.post { toggleLock(stateAtPress) }
+    }
+
+    private fun toggleLock(stateAtPress: LockState) {
+        when (stateAtPress) {
             is LockState.Locked -> LockController.unlock()
             is LockState.Arming -> Unit
             LockState.Unlocked -> {
@@ -155,6 +161,15 @@ class GuardAccessibilityService : AccessibilityService() {
         if (settings.relaunchApp) maybeRelaunch(locked.protectedPackage)
     }
 
+    /**
+     * Must answer fast: the system gives us 500 ms, then treats the key as not
+     * consumed. So no heavy work happens here; gesture results are posted.
+     *
+     * Only presses (and their auto-repeats) are ever consumed. A release always
+     * passes through: a stray release is harmless, but a swallowed release
+     * leaves the input dispatcher believing the key is still held, and it keeps
+     * synthesising repeats straight to the app, which is how the volume drained.
+     */
     public override fun onKeyEvent(event: KeyEvent): Boolean {
         val key = when (event.keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> HardwareKey.VOLUME_UP
@@ -173,10 +188,8 @@ class GuardAccessibilityService : AccessibilityService() {
             if (g.wantsTicks) handler.postDelayed(tick, TICK_MS)
         }
         if (!down) {
-            // A release must mirror its press. If the press went through to the
-            // system, the release must too, even if we locked in between;
-            // otherwise Android sees a stuck key and keeps changing the volume.
-            return consumedKeys.remove(event.keyCode)
+            consumedKeys.remove(event.keyCode)
+            return false
         }
         // While unlocked the phone must behave normally: observe only, never consume.
         val consume = LockController.isLocked && GuardPolicy.consumeKey(key, settings.blockKeys, chordActive = keyGesture != null)
@@ -251,6 +264,31 @@ class GuardAccessibilityService : AccessibilityService() {
         @Volatile
         var isConnected: Boolean = false
             private set
+
+        private fun component(context: Context) = ComponentName(context, GuardAccessibilityService::class.java)
+
+        /**
+         * True when Android's floating accessibility button is pointed at this
+         * service. The app never asks for it; the Settings UI offers it as a
+         * shortcut when the service is enabled. It is the only icon Android adds.
+         */
+        fun isShortcutButtonOn(context: Context): Boolean {
+            val flat = component(context).flattenToString()
+            val targets = Settings.Secure.getString(context.contentResolver, "accessibility_button_targets") ?: return false
+            return targets.split(':').any { it.equals(flat, ignoreCase = true) }
+        }
+
+        /** Opens accessibility settings scrolled to (and highlighting) this service where the OS supports it. */
+        fun settingsIntent(context: Context): Intent {
+            val flat = component(context).flattenToString()
+            return Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                putExtra(EXTRA_FRAGMENT_ARG_KEY, flat)
+                putExtra(EXTRA_SHOW_FRAGMENT_ARGS, android.os.Bundle().apply { putString(EXTRA_FRAGMENT_ARG_KEY, flat) })
+            }
+        }
+
+        private const val EXTRA_FRAGMENT_ARG_KEY = ":settings:fragment_args_key"
+        private const val EXTRA_SHOW_FRAGMENT_ARGS = ":settings:show_fragment_args"
 
         /** True when the user has enabled this service in accessibility settings. */
         fun isEnabled(context: Context): Boolean {

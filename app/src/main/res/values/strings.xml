@@ -32,6 +32,24 @@
     <string name="accessibility_summary">Volume-button lock toggle and hardening for Child Lock</string>
 
     <string name="section_setup">Set up</string>
+    <string name="setup_title">Set up Child Lock</string>
+    <string name="setup_progress">%1$d of %2$d done. Each step is one tap, then come back here.</string>
+    <string name="setup_all_done">All set. Hand the phone over whenever you like.</string>
+    <string name="setup_overlay_desc">Tap Open, flip the switch on, come back.</string>
+    <string name="setup_guard_desc">Tap Open, choose Child Lock guard, switch it on and allow. Enables the volume gestures and swipe blocking.</string>
+    <string name="setup_notifications_desc">A silent entry in the shade while locked, no icon.</string>
+    <string name="setup_tile">Quick Settings tile</string>
+    <string name="setup_tile_desc">A one-tap way to lock from the shade. Android will ask you to confirm.</string>
+    <string name="setup_tile_manual">Pull down Quick Settings, tap the pencil, and drag Child Lock in.</string>
+    <string name="setup_open">Open</string>
+    <string name="setup_add">Add</string>
+    <string name="setup_optional">Optional</string>
+    <string name="setup_done">Start using Child Lock</string>
+    <string name="setup_done_later">Finish the required steps above</string>
+    <string name="setup_skip">Skip for now</string>
+    <string name="setup_assistant">Setup assistant</string>
+    <string name="setup_assistant_desc">Walk through the steps again.</string>
+    <string name="shortcut_button_desc">Android added a floating accessibility button. Child Lock does not need it: open the guard’s page and turn off “Child Lock guard shortcut”.</string>
     <string name="section_gesture">Lock and unlock with</string>
     <string name="section_advanced">More options</string>
 

@@ -25,7 +25,11 @@ import org.robolectric.shadows.ShadowSettings
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [26, 35])
 class MainActivityTest {
-    @Before fun setUp() { TestSupport.clearSettings(); TestSupport.resetLock() }
+    @Before fun setUp() {
+        TestSupport.clearSettings()
+        TestSupport.resetLock()
+        SettingsRepository.get(TestSupport.app).setupDismissed = true
+    }
     @After fun tearDown() = TestSupport.resetLock()
 
     private fun armButton(activity: MainActivity): Button {

@@ -94,6 +94,19 @@ class SettingsRepository private constructor(context: Context) {
 
     inline fun update(block: (LockSettings) -> LockSettings) = save(block(load()))
 
+    // Setup-assistant bookkeeping, deliberately outside LockSettings.
+    var tileAdded: Boolean
+        get() = prefs.getBoolean(KEY_TILE_ADDED, false)
+        set(v) = prefs.edit().putBoolean(KEY_TILE_ADDED, v).apply()
+
+    var setupDismissed: Boolean
+        get() = prefs.getBoolean(KEY_SETUP_DISMISSED, false)
+        set(v) = prefs.edit().putBoolean(KEY_SETUP_DISMISSED, v).apply()
+
+    var overlayAttempted: Boolean
+        get() = prefs.getBoolean(KEY_OVERLAY_ATTEMPTED, false)
+        set(v) = prefs.edit().putBoolean(KEY_OVERLAY_ATTEMPTED, v).apply()
+
     /** The caller must keep a strong reference to [listener]; SharedPreferences holds it weakly. */
     fun addChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) =
         prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -121,6 +134,9 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_BLOCK_SHADE = "block_shade"
         private const val KEY_RELAUNCH = "relaunch_app"
         private const val KEY_BLOCK_GESTURES = "block_gestures"
+        private const val KEY_TILE_ADDED = "tile_added"
+        private const val KEY_SETUP_DISMISSED = "setup_dismissed"
+        private const val KEY_OVERLAY_ATTEMPTED = "overlay_attempted"
 
         @Volatile private var instance: SettingsRepository? = null
 

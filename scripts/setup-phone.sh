@@ -34,6 +34,11 @@ case "$current" in
   *) adb shell settings put secure enabled_accessibility_services "$current:$GUARD" ;;
 esac
 adb shell settings put secure accessibility_enabled 1
+# Make sure Android's floating accessibility button is not pointed at the guard.
+targets=$(adb shell settings get secure accessibility_button_targets | tr -d '\r')
+case "$targets" in
+  *"$GUARD"*) adb shell settings put secure accessibility_button_targets "$(echo "$targets" | sed "s#$GUARD##; s#::#:#; s#^:##; s#:\$##")" ;;
+esac
 
 echo "Adding the Quick Settings tile"
 adb shell cmd statusbar add-tile "$TILE" 2>/dev/null || echo "  (could not add the tile automatically; add it from the Quick Settings editor)"

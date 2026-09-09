@@ -33,6 +33,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.SetupActivity"
+            android:exported="false"
+            android:label="@string/setup_title" />
+
         <service
             android:name=".lock.LockOverlayService"
             android:exported="false"

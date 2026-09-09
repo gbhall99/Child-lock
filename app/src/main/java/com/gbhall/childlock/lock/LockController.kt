@@ -62,10 +62,15 @@ object LockController {
     /** Releases the lock or cancels a pending arm. The service observes this and tears down. */
     fun unlock() = set(LockState.Unlocked)
 
+    /**
+     * State changes synchronously; listeners always hear about it on a later
+     * main-loop turn. Callers such as the accessibility key filter must return
+     * quickly, and listeners do heavy work (window add/remove, binder calls).
+     */
     internal fun set(newState: LockState) {
         if (newState == state) return
         state = newState
-        if (Looper.myLooper() == Looper.getMainLooper()) notify(newState) else mainHandler.post { notify(newState) }
+        mainHandler.post { notify(newState) }
     }
 
     private fun notify(s: LockState) {
