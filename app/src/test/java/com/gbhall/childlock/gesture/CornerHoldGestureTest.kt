@@ -123,3 +123,18 @@ class CornerHoldGestureTest {
         assertFalse(gesture.wantsTicks)
     }
 }
+
+class CornerZoneTest {
+    @Test
+    fun `zones are squares off the shorter side, so portrait and landscape agree`() {
+        val f = 0.22f
+        // Portrait 1080x2400: zone = 237px.
+        assertTrue(com.gbhall.childlock.gesture.Corner.TOP_LEFT.contains(200f, 200f, 1080, 2400, f))
+        assertFalse(com.gbhall.childlock.gesture.Corner.TOP_LEFT.contains(200f, 400f, 1080, 2400, f))
+        assertTrue(com.gbhall.childlock.gesture.Corner.BOTTOM_RIGHT.contains(1000f, 2300f, 1080, 2400, f))
+        // Landscape 2400x1080: same 237px zone measured from the other edges.
+        assertTrue(com.gbhall.childlock.gesture.Corner.TOP_RIGHT.contains(2300f, 100f, 2400, 1080, f))
+        assertTrue(com.gbhall.childlock.gesture.Corner.BOTTOM_LEFT.contains(100f, 1000f, 2400, 1080, f))
+        assertFalse(com.gbhall.childlock.gesture.Corner.BOTTOM_LEFT.contains(400f, 1000f, 2400, 1080, f))
+    }
+}

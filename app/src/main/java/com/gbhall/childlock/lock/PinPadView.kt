@@ -6,6 +6,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.content.res.ColorStateList
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.GridLayout
@@ -26,6 +28,8 @@ class PinPadView(
     private val density = resources.displayMetrics.density
     private val display = TextView(context)
     private val entered = StringBuilder()
+    private val handler = Handler(Looper.getMainLooper())
+    private val restore = Runnable { render() }
     var onKeyPressed: (() -> Unit)? = null
 
     init {
@@ -106,7 +110,8 @@ class PinPadView(
     fun showError() {
         entered.setLength(0)
         display.text = context.getString(R.string.pin_wrong)
-        postDelayed({ render() }, 900)
+        handler.removeCallbacks(restore)
+        handler.postDelayed(restore, 900)
     }
 
     private fun render() {

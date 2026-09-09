@@ -8,6 +8,8 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
@@ -69,6 +71,7 @@ class TouchShieldView(
 
     private var progress = 0f
     private var disposed = false
+    private val handler = Handler(Looper.getMainLooper())
 
     /** Corner hold is always available as a safety fallback, even in volume-chord mode. */
     private val gesture: UnlockGesture = when (settings.gesture) {
@@ -81,7 +84,7 @@ class TouchShieldView(
         override fun run() {
             if (disposed) return
             gesture.onTick(SystemClock.uptimeMillis())
-            if (gesture.wantsTicks) postDelayed(this, TICK_MS)
+            if (gesture.wantsTicks) handler.postDelayed(this, TICK_MS)
         }
     }
 
@@ -152,10 +155,8 @@ class TouchShieldView(
             }
         }
         gesture.onTouch(TouchSample(action, pointers, event.eventTime))
-        if (gesture.wantsTicks) {
-            removeCallbacks(tick)
-            postDelayed(tick, TICK_MS)
-        }
+        handler.removeCallbacks(tick)
+        if (gesture.wantsTicks) handler.postDelayed(tick, TICK_MS)
         return true // consume everything: this is the whole point
     }
 
@@ -215,7 +216,7 @@ class TouchShieldView(
 
     fun dispose() {
         disposed = true
-        removeCallbacks(tick)
+        handler.removeCallbacks(tick)
         gesture.reset()
     }
 

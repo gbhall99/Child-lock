@@ -97,5 +97,10 @@ class SettingsRepository private constructor(context: Context) {
             instance ?: synchronized(this) {
                 instance ?: SettingsRepository(context).also { instance = it }
             }
+
+        /** Tests create a fresh Application per case; drop the cached instance so it follows. */
+        internal fun resetForTests() {
+            instance = null
+        }
     }
 }

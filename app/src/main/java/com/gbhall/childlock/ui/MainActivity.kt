@@ -83,6 +83,7 @@ class MainActivity : Activity() {
             addView(optionsCard(s))
             addView(safetyCard())
         }
+        renderGestureDependents(s) // all labels exist now
         return ScrollView(this).apply {
             isFillViewport = true
             addView(page, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -188,7 +189,6 @@ class MainActivity : Activity() {
                 horizontal = true,
             ) { index -> repo.update { it.copy(badgeCorner = corners[index]) } },
         )
-        renderGestureDependents(s)
     }
 
     private fun optionsCard(s: LockSettings) = card(getString(R.string.section_options)) {

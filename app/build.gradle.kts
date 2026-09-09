@@ -25,6 +25,10 @@ android {
         }
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -42,4 +46,5 @@ kotlin {
 // to audit for something that sits over every other app.
 dependencies {
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
 }

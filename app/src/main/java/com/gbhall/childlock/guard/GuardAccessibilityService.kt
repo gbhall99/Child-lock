@@ -50,7 +50,7 @@ class GuardAccessibilityService : AccessibilityService() {
         }
     }
 
-    override fun onServiceConnected() {
+    public override fun onServiceConnected() {
         super.onServiceConnected()
         serviceInfo = (serviceInfo ?: AccessibilityServiceInfo()).apply {
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED
@@ -101,25 +101,20 @@ class GuardAccessibilityService : AccessibilityService() {
         if (settings.relaunchApp) maybeRelaunch(locked.protectedPackage)
     }
 
-    override fun onKeyEvent(event: KeyEvent): Boolean {
+    public override fun onKeyEvent(event: KeyEvent): Boolean {
         if (!LockController.isLocked) return false
-        val down = event.action == KeyEvent.ACTION_DOWN
-        return when (event.keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                chord?.let { g ->
-                    val key = if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) HardwareKey.VOLUME_UP else HardwareKey.VOLUME_DOWN
-                    g.onKey(key, down, event.eventTime)
-                    handler.removeCallbacks(tick)
-                    if (g.wantsTicks) handler.postDelayed(tick, TICK_MS)
-                }
-                settings.blockKeys || chord != null
-            }
-            KeyEvent.KEYCODE_BACK -> {
-                chord?.onKey(HardwareKey.BACK, down, event.eventTime)
-                settings.blockKeys
-            }
-            else -> false
+        val key = when (event.keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> HardwareKey.VOLUME_UP
+            KeyEvent.KEYCODE_VOLUME_DOWN -> HardwareKey.VOLUME_DOWN
+            KeyEvent.KEYCODE_BACK -> HardwareKey.BACK
+            else -> return false
         }
+        chord?.let { g ->
+            g.onKey(key, event.action == KeyEvent.ACTION_DOWN, event.eventTime)
+            handler.removeCallbacks(tick)
+            if (g.wantsTicks) handler.postDelayed(tick, TICK_MS)
+        }
+        return GuardPolicy.consumeKey(key, settings.blockKeys, chordActive = chord != null)
     }
 
     override fun onInterrupt() = Unit
@@ -132,19 +127,20 @@ class GuardAccessibilityService : AccessibilityService() {
         val screenHeight = resources.displayMetrics.heightPixels
         val bounds = android.graphics.Rect()
         for (w in windows) {
-            if (w.type != AccessibilityWindowInfo.TYPE_SYSTEM) continue
+            val isSystem = w.type == AccessibilityWindowInfo.TYPE_SYSTEM
+            if (!isSystem) continue
             w.getBoundsInScreen(bounds)
-            // The status bar is a thin system window; the open shade is a tall one.
-            if (bounds.height() < screenHeight * SHADE_MIN_HEIGHT_FRACTION) continue
-            val pkg = w.root?.packageName?.toString() ?: continue
-            if (pkg == SYSTEM_UI) return true
+            // Cheap size check first; only then pay for the window root.
+            if (!GuardPolicy.isShadeWindow(true, bounds.height(), screenHeight, SYSTEM_UI)) continue
+            val pkg = w.root?.packageName?.toString()
+            if (GuardPolicy.isShadeWindow(true, bounds.height(), screenHeight, pkg)) return true
         }
         return false
     }
 
     private fun dismissShade() {
         val now = SystemClock.uptimeMillis()
-        if (now - lastShadeDismissMs < SHADE_DISMISS_DEBOUNCE_MS) return
+        if (now - lastShadeDismissMs < GuardPolicy.SHADE_DISMISS_DEBOUNCE_MS) return
         lastShadeDismissMs = now
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)
@@ -155,12 +151,17 @@ class GuardAccessibilityService : AccessibilityService() {
 
     private fun maybeRelaunch(protectedPackage: String?) {
         if (protectedPackage == null) return
-        val foreground = rootInActiveWindow?.packageName?.toString() ?: return
-        if (foreground == protectedPackage || foreground == packageName || foreground == SYSTEM_UI) return
-        if (foreground == defaultDialer() || foreground.contains("incallui")) return // never fight a real phone call
-        if (getSystemService(KeyguardManager::class.java).isKeyguardLocked) return
         val now = SystemClock.uptimeMillis()
-        if (now - lastRelaunchMs < RELAUNCH_DEBOUNCE_MS) return
+        val decision = GuardPolicy.relaunchDecision(
+            protectedPackage = protectedPackage,
+            foregroundPackage = rootInActiveWindow?.packageName?.toString(),
+            selfPackage = packageName,
+            dialerPackage = defaultDialer(),
+            keyguardLocked = getSystemService(KeyguardManager::class.java).isKeyguardLocked,
+            nowMs = now,
+            lastRelaunchMs = lastRelaunchMs,
+        )
+        if (decision !is GuardPolicy.RelaunchDecision.Relaunch) return
         lastRelaunchMs = now
         val intent = packageManager.getLaunchIntentForPackage(protectedPackage) ?: return
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
@@ -176,11 +177,8 @@ class GuardAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "GuardService"
-        private const val SYSTEM_UI = "com.android.systemui"
+        private const val SYSTEM_UI = GuardPolicy.SYSTEM_UI
         private const val TICK_MS = 33L
-        private const val RELAUNCH_DEBOUNCE_MS = 1500L
-        private const val SHADE_DISMISS_DEBOUNCE_MS = 300L
-        private const val SHADE_MIN_HEIGHT_FRACTION = 0.4f
 
         @Volatile
         var isConnected: Boolean = false

@@ -1,0 +1,75 @@
+package com.gbhall.childlock.guard
+
+import com.gbhall.childlock.gesture.HardwareKey
+import com.gbhall.childlock.guard.GuardPolicy.RelaunchDecision
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class GuardPolicyTest {
+    private val screen = 2400
+
+    @Test
+    fun `open shade is a tall system-ui system window`() {
+        assertTrue(GuardPolicy.isShadeWindow(true, 2400, screen, GuardPolicy.SYSTEM_UI))
+        assertTrue(GuardPolicy.isShadeWindow(true, 1000, screen, GuardPolicy.SYSTEM_UI))
+    }
+
+    @Test
+    fun `status bar, other packages and app windows are not the shade`() {
+        assertFalse("status bar is thin", GuardPolicy.isShadeWindow(true, 90, screen, GuardPolicy.SYSTEM_UI))
+        assertFalse("not system ui", GuardPolicy.isShadeWindow(true, 2400, screen, "com.example.call"))
+        assertFalse("app-type window", GuardPolicy.isShadeWindow(false, 2400, screen, GuardPolicy.SYSTEM_UI))
+        assertFalse("unknown package", GuardPolicy.isShadeWindow(true, 2400, screen, null))
+        assertFalse("bad screen size", GuardPolicy.isShadeWindow(true, 2400, 0, GuardPolicy.SYSTEM_UI))
+    }
+
+    private fun decide(
+        protectedPkg: String? = "com.example.call",
+        foreground: String? = "com.android.launcher",
+        dialer: String? = "com.google.android.dialer",
+        keyguard: Boolean = false,
+        now: Long = 10_000,
+        last: Long = 0,
+    ) = GuardPolicy.relaunchDecision(protectedPkg, foreground, "com.gbhall.childlock", dialer, keyguard, now, last)
+
+    @Test
+    fun `child on the home screen triggers a relaunch`() {
+        assertEquals(RelaunchDecision.Relaunch, decide())
+    }
+
+    @Test
+    fun `no relaunch when the call is already in front`() {
+        assertTrue(decide(foreground = "com.example.call") is RelaunchDecision.Skip)
+    }
+
+    @Test
+    fun `no relaunch when nothing is protected or foreground unknown`() {
+        assertTrue(decide(protectedPkg = null) is RelaunchDecision.Skip)
+        assertTrue(decide(foreground = null) is RelaunchDecision.Skip)
+    }
+
+    @Test
+    fun `never fights a phone call, the keyguard, system ui or child lock itself`() {
+        assertTrue(decide(foreground = "com.google.android.dialer") is RelaunchDecision.Skip)
+        assertTrue(decide(foreground = "com.samsung.android.incallui", dialer = null) is RelaunchDecision.Skip)
+        assertTrue(decide(keyguard = true) is RelaunchDecision.Skip)
+        assertTrue(decide(foreground = GuardPolicy.SYSTEM_UI) is RelaunchDecision.Skip)
+        assertTrue(decide(foreground = "com.gbhall.childlock") is RelaunchDecision.Skip)
+    }
+
+    @Test
+    fun `relaunches are debounced`() {
+        assertTrue(decide(now = 1000, last = 0) is RelaunchDecision.Skip)
+        assertEquals(RelaunchDecision.Relaunch, decide(now = 1600, last = 0))
+    }
+
+    @Test
+    fun `key consumption follows settings and chord state`() {
+        assertTrue(GuardPolicy.consumeKey(HardwareKey.BACK, blockKeys = true, chordActive = false))
+        assertFalse(GuardPolicy.consumeKey(HardwareKey.BACK, blockKeys = false, chordActive = true))
+        assertTrue(GuardPolicy.consumeKey(HardwareKey.VOLUME_UP, blockKeys = false, chordActive = true))
+        assertFalse(GuardPolicy.consumeKey(HardwareKey.VOLUME_DOWN, blockKeys = false, chordActive = false))
+    }
+}

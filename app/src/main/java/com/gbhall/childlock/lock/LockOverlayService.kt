@@ -64,7 +64,7 @@ class LockOverlayService : Service() {
     private fun handleLock(protectedPackage: String?, delayMs: Long) {
         if (!Settings.canDrawOverlays(this)) {
             toast(R.string.toast_no_overlay_permission)
-            LockController.unlock()
+            abort()
             return
         }
         if (overlay != null) return // already locked
@@ -120,8 +120,15 @@ class LockOverlayService : Service() {
             // Half-locking is worse than not locking: fail loudly and stay unlocked.
             Log.e(TAG, "Could not attach overlay", e)
             toast(R.string.toast_lock_failed)
-            LockController.unlock()
+            abort()
         }
+    }
+
+    /** Give up: state back to Unlocked (even if it never left), overlay gone, service stopped. */
+    private fun abort() {
+        LockController.unlock()
+        teardown()
+        stopSelf()
     }
 
     private fun unlockHint(gesture: com.gbhall.childlock.settings.GestureType): String = getString(

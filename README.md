@@ -95,4 +95,18 @@ app/src/main/java/com/gbhall/childlock/
   ui/        settings screen
 ```
 
-Run the unit tests with `./gradlew test`.
+## Tests
+
+`./gradlew test` runs two kinds of tests on the JVM, no device needed:
+
+- Pure Kotlin tests for the gesture recognisers and guard policy, including a
+  randomised "child mashing" sequence that must never unlock.
+- Robolectric tests that exercise the real Android layer: the overlay service
+  going foreground and attaching the window, unlock through real multi-touch
+  `MotionEvent`s, the PIN pad flow and its cooldown, the tile, the settings
+  screen, key filtering in the accessibility guard, and settings persistence.
+  These run against both the Android 8.0 and Android 15 runtimes.
+
+Install note: the debug APK from CI or from this repo is signed with a debug
+key. If you later install a build from Android Studio, which uses your
+machine's own debug key, uninstall the old one first.

@@ -2,6 +2,8 @@ package com.gbhall.childlock.lock
 
 import android.content.Context
 import android.graphics.Rect
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -32,6 +34,7 @@ class OverlayRoot(
     private var wrongAttempts = 0
     private var padCooldownUntil = 0L
     private val hidePad = Runnable { hidePinPad() }
+    private val handler = Handler(Looper.getMainLooper())
 
     init {
         addView(shield, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
@@ -78,12 +81,12 @@ class OverlayRoot(
     }
 
     private fun scheduleAutoHide() {
-        removeCallbacks(hidePad)
-        postDelayed(hidePad, PAD_IDLE_HIDE_MS)
+        handler.removeCallbacks(hidePad)
+        handler.postDelayed(hidePad, PAD_IDLE_HIDE_MS)
     }
 
     private fun hidePinPad() {
-        removeCallbacks(hidePad)
+        handler.removeCallbacks(hidePad)
         pinPad?.visibility = GONE
     }
 
@@ -117,7 +120,7 @@ class OverlayRoot(
     }
 
     fun dispose() {
-        removeCallbacks(hidePad)
+        handler.removeCallbacks(hidePad)
         shield.dispose()
     }
 
