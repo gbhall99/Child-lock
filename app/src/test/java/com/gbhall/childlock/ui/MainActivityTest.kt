@@ -30,7 +30,8 @@ class MainActivityTest {
 
     private fun armButton(activity: MainActivity): Button {
         fun find(v: View): Button? {
-            if (v is Button && v.text == activity.getString(com.gbhall.childlock.R.string.arm_button)) return v
+            val delay = SettingsRepository.get(activity).load().armDelaySec
+            if (v is Button && v.text == activity.getString(com.gbhall.childlock.R.string.arm_button, delay)) return v
             if (v is ViewGroup) for (i in 0 until v.childCount) find(v.getChildAt(i))?.let { return it }
             return null
         }
