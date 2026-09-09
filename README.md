@@ -26,6 +26,28 @@ that sits over every other app.
 
 ## First-time setup
 
+### The easy way: one script over adb
+
+Enable USB debugging on the phone (Settings → About phone → tap Build number
+seven times, then Settings → System → Developer options → USB debugging),
+plug it in, and run:
+
+```
+scripts/setup-phone.sh path/to/childlock.apk      # macOS / Linux
+scripts\setup-phone.cmd path\to\childlock.apk     # Windows
+```
+
+It installs the APK, grants "Display over other apps", lifts Android's
+restricted-settings gate, enables the accessibility guard, adds the Quick
+Settings tile and opens the app. Nothing to toggle by hand. Apps installed
+through adb are exempt from the sideload restrictions, so any later changes
+in Settings work without the "Allow restricted settings" dance too.
+
+Only `adb` is needed on the computer: it ships with Android Studio, or
+download "SDK Platform-Tools" from developer.android.com.
+
+### By hand
+
 Open Child Lock and work down the Permissions card:
 
 1. **Display over other apps** (required). This is the whole mechanism.
