@@ -74,3 +74,45 @@ installs to a one-time purchase. At 5,000 installs a month that is roughly
 cut. It grows with ratings and with the "grandparent" word of mouth, which
 this app is unusually well placed for. Beyond that: a sibling app for tablets,
 and licensing the volume-pattern toggle to bigger parental-control suites.
+
+## Ads, usage limits and other models (considered and mostly rejected)
+
+**Ads.** Ads pay per screen view and this app's screens are rarely viewed:
+once at setup, a few times a year afterwards. The moment of real use is the
+locked call, where the only thing on screen is a transparent overlay, so an
+ad is impossible there. Ten thousand monthly users opening the app three
+times a month is about thirty thousand banner views, or £15 to £60 a month
+at typical utility rates, before adding the AdMob SDK, a consent dialog, a
+privacy policy and a Families-policy review triggered by "child" in the name.
+It also makes the app feel cheap. Not worth it.
+
+**Usage limits.** A cap on locks fails at the worst possible moment (parent
+on a call, child reaching for the phone, "limit reached"), earns refunds and
+one-star reviews, and is bypassed by clearing app data. Rule: the lock itself
+always works, unlimited, with no nagging. Charge only for things people are
+glad exist, never for things they hit a wall on.
+
+**Keep the volume pattern free.** It is the reason the app is good and the
+reason parents will recommend it. Pro is for extras beyond the core: swipe
+blocking, auto-lock when a chosen call app opens, scheduled "grandparent
+call" mode, badge customisation, and later a kiosk mode with a big hang-up
+button for the child.
+
+**Tip jar.** Three "support Child Lock" purchases (£1.99, £4.99, £9.99) that
+unlock nothing. Converts at roughly one to three percent of a passionate
+audience and never degrades the app. Combines with Pro.
+
+**Open source plus a paid Play build.** The code is public. "Free if you
+build it yourself, £3 on Play for the convenience" is a respected model and
+doubles as marketing to technical parents.
+
+**Licensing.** Video-call apps have no toddler mode. The touch-freeze plus
+volume-pattern toggle is a small, well-defined component to pitch to kids'
+video-call apps, telehealth apps, or a phone maker's kids-mode team. Longest
+shot, biggest payoff.
+
+**Family gifting.** A "send to grandparents" purchase that unlocks Pro on
+another phone via a code. Fits how this app spreads.
+
+**Extra stores.** Samsung Galaxy Store and Amazon Appstore listings cost
+nothing; Samsung is a large share of the target market.

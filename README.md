@@ -129,6 +129,30 @@ screen readers use, which is why it only combines with the volume gestures:
 in that mode the screen no longer receives real touches, so a three-finger
 triple tap is the touch fallback to unlock.
 
+## Compatibility
+
+The overlay touch-block is the most portable part and works from Android 8
+up. The accessibility-based features vary more by manufacturer than by
+Android version.
+
+| Android | What works |
+|---|---|
+| 8 to 9 | Lock, corner hold, tile, volume pattern. Home button press falls back to relaunching the call. |
+| 10 | As above; gesture navigation exists but the API that blocks it arrived in 11, so the relaunch fallback applies. |
+| 11 and up | Everything, including swipe blocking. Sideloaded installs on 13+ need the one-time restricted-settings step, the adb script, or Play distribution. |
+
+Manufacturer notes:
+
+- **Samsung One UI**: set Child Lock's battery use to Unrestricted and add
+  it to "Never sleeping apps", or the guard may be stopped in the background.
+- **Xiaomi, Huawei, Oppo, Vivo**: aggressive background killing; some
+  disable accessibility services after a reboot; Xiaomi needs the extra
+  "Display pop-up windows while running in the background" permission. The
+  lock fails safe (it simply unlocks) but may be less reliable.
+- **Three-button navigation**: a double tap on the home button still goes
+  home while swipe blocking is on; the guard brings the call back.
+- Swipe blocking has been verified in unit tests only, not on hardware.
+
 ## Safety
 
 - The lock state lives in memory only. It is never saved, so a restart, a
