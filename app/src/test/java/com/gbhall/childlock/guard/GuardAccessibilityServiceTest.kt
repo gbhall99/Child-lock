@@ -190,6 +190,55 @@ class GuardAccessibilityServiceTest {
     }
 
     @Test
+    fun `a release mirrors its press even if the lock engaged in between`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        // Press 1 (up) and press 2 (down) both pass through while unlocked...
+        assertFalse(service.onKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 0)))
+        assertFalse(service.onKeyEvent(KeyEvent(0, 60, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0)))
+        assertFalse(service.onKeyEvent(KeyEvent(300, 300, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
+        // ...the pattern completed and the lock engaged before the release arrived.
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertFalse("release must pass through like its press", service.onKeyEvent(KeyEvent(300, 360, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
+        // A fresh press while locked is swallowed, and so is its release after unlocking.
+        assertTrue(service.onKeyEvent(KeyEvent(1000, 1000, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 0)))
+        LockController.unlock()
+        TestSupport.idle()
+        assertTrue(service.onKeyEvent(KeyEvent(1000, 1060, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0)))
+    }
+
+    @Test
+    fun `gesture blocking flags are requested only while locked with a volume gesture`() {
+        val block = com.gbhall.childlock.guard.GuardPolicy.FLAG_TOUCH_EXPLORATION or com.gbhall.childlock.guard.GuardPolicy.FLAG_MULTI_FINGER
+        assertEquals(0, service.requestedFlags and block)
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertEquals(block, service.requestedFlags and block)
+        LockController.unlock()
+        TestSupport.idle()
+        assertEquals(0, service.requestedFlags and block)
+
+        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.CORNER_HOLD) }
+        TestSupport.idle()
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertEquals("touch gestures need real touches", 0, service.requestedFlags and block)
+    }
+
+    @Test
+    fun `three-finger triple tap unlocks as the touch fallback`() {
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        val e = android.accessibilityservice.AccessibilityGestureEvent(
+            android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_TRIPLE_TAP, 0, emptyList(),
+        )
+        assertTrue(service.onGesture(e))
+        TestSupport.idle()
+        assertEquals(LockState.Unlocked, LockController.state)
+        assertFalse("nothing to unlock", service.onGesture(e))
+    }
+
+    @Test
     fun `window events while locked do not crash without window access`() {
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()

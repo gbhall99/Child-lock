@@ -15,6 +15,10 @@
     <string name="toast_locking_in">Child Lock: locking in %1$d s</string>
     <string name="toast_locked">Child Lock on</string>
     <string name="toast_unlocked">Child Lock off</string>
+    <string name="banner_on">🔒  Child Lock ON</string>
+    <string name="banner_off">🔓  Child Lock OFF</string>
+    <string name="block_gestures">Block home and back swipes</string>
+    <string name="block_gestures_desc">Stops them outright instead of returning to the call afterwards. Works with the volume gestures; while active, a three-finger triple tap is the touch fallback to unlock.</string>
     <string name="toast_lock_failed">Child Lock could not start. Nothing is locked.</string>
     <string name="toast_no_overlay_permission">Allow “Display over other apps” first</string>
     <string name="toast_need_pin">Set a PIN first, or choose a different unlock gesture</string>
@@ -27,28 +31,31 @@
     <string name="accessibility_description">Optional hardening for Child Lock. Only active while the touch lock is on: it swallows the back and volume buttons, closes the notification shade if it is pulled down, and returns to the video call if the child leaves it. It also recognises the volume-button pattern that switches the lock on and off. It never reads or stores what is on screen.</string>
     <string name="accessibility_summary">Volume-button lock toggle and hardening for Child Lock</string>
 
-    <string name="section_permissions">Permissions</string>
-    <string name="section_gesture">Lock and unlock gesture</string>
-    <string name="section_options">Options</string>
-    <string name="section_safety">Safety</string>
+    <string name="section_setup">Set up</string>
+    <string name="section_gesture">Lock and unlock with</string>
+    <string name="section_advanced">More options</string>
 
     <string name="state_unlocked">Unlocked</string>
-    <string name="state_arming">Locking shortly</string>
+    <string name="state_unlocked_sub">The phone behaves normally.</string>
+    <string name="state_arming">Locking…</string>
+    <string name="state_arming_sub">Switch back to the call now.</string>
     <string name="state_locked">Locked</string>
+    <string name="state_locked_sub">Touch is frozen. Safe to hand over.</string>
     <string name="how_to_lock">To lock</string>
     <string name="how_to_unlock">To unlock</string>
-    <string name="guard_warning">Needs the accessibility guard, which is off</string>
-    <string name="arm_button">Arm lock from here</string>
-    <string name="arm_hint">You will be returned to the previous app. Touch locks %1$d seconds later. The Child Lock tile in Quick Settings does the same.</string>
+    <string name="guard_warning">Your gesture needs the accessibility guard, which is off.</string>
+    <string name="fix">Fix</string>
+    <string name="enable">Enable</string>
+    <string name="arm_button">Lock from here (in %1$d s)</string>
+    <string name="arm_hint">Returns you to the previous app, then freezes touch. The Child Lock tile in Quick Settings does the same.</string>
 
     <string name="perm_overlay">Display over other apps</string>
-    <string name="perm_overlay_desc">Required. This is how touches are blocked without covering the screen.</string>
+    <string name="perm_overlay_desc">Required. How touches are blocked without covering the screen.</string>
     <string name="perm_notifications">Notifications</string>
-    <string name="perm_notifications_desc">A quiet “locked” notice so you always know the state.</string>
+    <string name="perm_notifications_desc">A silent entry in the shade while locked. No status-bar icon.</string>
     <string name="perm_accessibility">Accessibility guard</string>
-    <string name="perm_accessibility_desc">Needed for the volume-button gestures. Also blocks back and volume, closes the notification shade, and returns to the call if the child leaves it.</string>
-    <string name="restricted_title">“App was denied access”?</string>
-    <string name="restricted_desc">Android blocks these permissions for sideloaded apps until you allow them once: try the switch (so Android records it), then open App info, tap ⋮ in the top right, choose “Allow restricted settings”, and try the switch again. Installing with adb avoids this entirely.</string>
+    <string name="perm_accessibility_desc">Needed for the volume gestures and to block swipes, buttons and the notification shade while locked.</string>
+    <string name="restricted_desc">Seeing “App was denied access”? Try the switch once, then open App info, tap ⋮ top right, choose “Allow restricted settings”, and try again.</string>
     <string name="grant">Grant</string>
     <string name="allow">Allow</string>
     <string name="open">Open</string>
@@ -61,16 +68,16 @@
     <string name="status_off">Off</string>
 
     <string name="gesture_volume_sequence">Volume button pattern (recommended)</string>
-    <string name="gesture_volume_sequence_desc">A quick up-then-down (or down-then-up) press of the volume buttons. The same pattern locks and unlocks, without touching the screen. Needs the accessibility guard.</string>
+    <string name="gesture_volume_sequence_desc">A quick press of the volume buttons. The same pattern locks and unlocks, no screen touching. Needs the accessibility guard.</string>
     <string name="gesture_corner_hold">Two-finger corner hold</string>
-    <string name="gesture_corner_hold_desc">Hold one finger in each of two opposite corners at the same time. Any extra finger restarts the timer.</string>
+    <string name="gesture_corner_hold_desc">One finger in each of two opposite corners, held together. Any extra finger restarts the timer.</string>
     <string name="gesture_badge_pin">Badge long-press, then PIN</string>
-    <string name="gesture_badge_pin_desc">Hold the small badge until a keypad appears, then enter your PIN. Three wrong PINs hide the keypad for 30 seconds.</string>
+    <string name="gesture_badge_pin_desc">Hold the badge until a keypad appears, then type your PIN. Three wrong tries hide it for 30 s.</string>
     <string name="gesture_volume_chord">Volume up + down held together</string>
-    <string name="gesture_volume_chord_desc">Hold both volume buttons at once for the hold duration. Needs the accessibility guard.</string>
+    <string name="gesture_volume_chord_desc">Both volume buttons held at once for the hold duration. Needs the accessibility guard.</string>
     <string name="volume_pattern">Pattern</string>
-    <string name="pattern_option_up_down">Volume up, then volume down</string>
-    <string name="pattern_option_down_up">Volume down, then volume up</string>
+    <string name="pattern_option_up_down">Up, then down</string>
+    <string name="pattern_option_down_up">Down, then up</string>
     <string name="pattern_twice_title">Press the pattern twice</string>
     <string name="pattern_twice_desc">Up, down, up, down. Harder for small hands to hit by accident.</string>
     <string name="fallback_note">The two-finger corner hold always works as a backup way to unlock.</string>
@@ -79,6 +86,7 @@
     <string name="pair_tl_br">Top-left and bottom-right</string>
     <string name="pair_tr_bl">Top-right and bottom-left</string>
     <string name="pin_title">PIN</string>
+    <string name="pin_desc">4 to 8 digits, typed on a small keypad beside the badge.</string>
     <string name="pin_set">Set PIN</string>
     <string name="pin_hint">%1$d to %2$d digits</string>
     <string name="pin_status_set">PIN set (%1$d digits)</string>
@@ -92,7 +100,7 @@
     <string name="arm_delay">Arm delay</string>
     <string name="keep_screen_on">Keep screen on</string>
     <string name="keep_screen_on_desc">Stops the screen timing out during the call.</string>
-    <string name="hardening_note">While locked, with the accessibility guard on:</string>
+    <string name="hardening_note">While locked, with the accessibility guard on</string>
     <string name="block_keys">Block back and volume buttons</string>
     <string name="block_keys_desc">Volume still works for the volume gestures.</string>
     <string name="block_shade">Close the notification shade</string>

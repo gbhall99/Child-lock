@@ -50,6 +50,21 @@ object GuardPolicy {
         return RelaunchDecision.Relaunch
     }
 
+    /**
+     * Accessibility-service flags to add while locked. Touch-exploration mode
+     * plus multi-finger gestures is what stops one-finger home/back swipes at
+     * the system level (screen readers rely on the same switch). It is only
+     * safe with a volume gesture, because touch exploration turns the
+     * overlay's touches into hover events, so the touch-based unlocks stop.
+     */
+    fun gestureBlockFlags(locked: Boolean, blockGestures: Boolean, gestureNeedsGuard: Boolean, sdkInt: Int): Int =
+        if (locked && blockGestures && gestureNeedsGuard && sdkInt >= 30) FLAG_TOUCH_EXPLORATION or FLAG_MULTI_FINGER else 0
+
+    /** AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE. */
+    const val FLAG_TOUCH_EXPLORATION = 0x00000004
+    /** AccessibilityServiceInfo.FLAG_REQUEST_MULTI_FINGER_GESTURES. */
+    const val FLAG_MULTI_FINGER = 0x00001000
+
     /** Whether the guard should swallow a hardware key while locked. */
     fun consumeKey(key: com.gbhall.childlock.gesture.HardwareKey, blockKeys: Boolean, chordActive: Boolean): Boolean =
         when (key) {

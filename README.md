@@ -93,6 +93,11 @@ the arm delay (5 s by default).
 The screen uses a colour-blind-safe palette (blue, orange, grey; no red or
 green) and every status also carries a distinct symbol and word.
 
+**Knowing the state.** A large "Child Lock ON" or "OFF" banner appears on
+screen for a moment at every change, and while locked a solid blue padlock
+badge sits in the corner you chose. The badge is the only indicator: the
+lock's notification is silent and shows no status-bar icon.
+
 ## What the lock does and does not stop
 
 | The child… | Result |
@@ -100,11 +105,15 @@ green) and every status also carries a distinct symbol and word.
 | Taps, swipes, pinches anywhere on screen | Nothing happens |
 | Presses back or volume | Swallowed (with the accessibility guard) |
 | Pulls down the notification shade | Closed immediately (with the guard) |
-| Swipes home or opens recents | The call app is brought straight back (with the guard) |
+| Swipes home, back or recents | Blocked outright (with the guard and a volume gesture); otherwise the call app is brought straight back |
 | Presses the power button | Screen turns off; the call continues. The lock is still there after you unlock the phone |
 | Receives a real phone call | The system in-call screen appears on top; the lock does not interfere |
 
-Without the accessibility guard, only the first row is enforced.
+Without the accessibility guard, only the first row is enforced. Swipe
+blocking uses Android's touch-exploration mode while locked, the same switch
+screen readers use, which is why it only combines with the volume gestures:
+in that mode the screen no longer receives real touches, so a three-finger
+triple tap is the touch fallback to unlock.
 
 ## Safety
 

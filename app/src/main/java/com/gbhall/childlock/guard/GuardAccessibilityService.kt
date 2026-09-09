@@ -1,6 +1,7 @@
 package com.gbhall.childlock.guard
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityGestureEvent
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.KeyguardManager
 import android.content.ComponentName
@@ -45,6 +46,14 @@ class GuardAccessibilityService : AccessibilityService() {
     private var lastShadeDismissMs = 0L
     private val launchable = HashMap<String, Boolean>()
 
+    /** Key codes whose press we swallowed; their release must be swallowed too, whatever happened between. */
+    private val consumedKeys = HashSet<Int>()
+
+    /** Flags we last asked the system for, so tests and rebuilds can reason about them. */
+    @Volatile
+    var requestedFlags: Int = 0
+        private set
+
     private val stateListener: (LockState) -> Unit = { rebuildKeyGesture() }
     private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> rebuildKeyGesture() }
 
@@ -58,14 +67,6 @@ class GuardAccessibilityService : AccessibilityService() {
 
     public override fun onServiceConnected() {
         super.onServiceConnected()
-        serviceInfo = (serviceInfo ?: AccessibilityServiceInfo()).apply {
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED
-            feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-            notificationTimeout = 50
-            flags = flags or
-                AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS or
-                AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
-        }
         isConnected = true
         SettingsRepository.get(this).addChangeListener(settingsListener)
         LockController.addListener(stateListener)
@@ -86,6 +87,7 @@ class GuardAccessibilityService : AccessibilityService() {
         settings = SettingsRepository.get(this).load()
         handler.removeCallbacks(tick)
         val locked = LockController.isLocked
+        applyServiceFlags(locked)
         keyGesture = when (settings.gesture) {
             GestureType.VOLUME_SEQUENCE ->
                 VolumeSequenceGesture(settings.volumePattern, settings.volumeRepeats, ::onKeyGestureEvent)
@@ -93,6 +95,36 @@ class GuardAccessibilityService : AccessibilityService() {
                 if (locked) VolumeChordGesture(settings.holdMs, ::onKeyGestureEvent) else null
             GestureType.CORNER_HOLD, GestureType.BADGE_PIN -> null
         }
+    }
+
+    /**
+     * Base flags always; touch-exploration + multi-finger only while locked with a
+     * volume gesture, which is what blocks one-finger home/back swipes. Cleared
+     * on unlock, unbind and reconnect so the phone can never be left in that mode.
+     */
+    private fun applyServiceFlags(locked: Boolean) {
+        val extra = GuardPolicy.gestureBlockFlags(locked, settings.blockGestures, settings.gesture.needsGuard, Build.VERSION.SDK_INT)
+        val wanted = BASE_FLAGS or extra
+        if (wanted == requestedFlags && locked) return
+        requestedFlags = wanted
+        serviceInfo = (serviceInfo ?: AccessibilityServiceInfo()).apply {
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED
+            feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
+            notificationTimeout = 50
+            flags = (flags and (GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER).inv()) or wanted
+        }
+    }
+
+    /** With multi-finger gestures on, a three-finger triple tap is the touch fallback to unlock. */
+    override fun onGesture(gestureEvent: AccessibilityGestureEvent): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            gestureEvent.gestureId == GESTURE_3_FINGER_TRIPLE_TAP &&
+            LockController.isLocked
+        ) {
+            LockController.unlock()
+            return true
+        }
+        return false
     }
 
     private fun onKeyGestureEvent(event: GestureEvent) {
@@ -130,17 +162,26 @@ class GuardAccessibilityService : AccessibilityService() {
             KeyEvent.KEYCODE_BACK -> HardwareKey.BACK
             else -> return false
         }
-        val locked = LockController.isLocked
-        if (event.repeatCount == 0) { // a held key auto-repeats; count it once
-            keyGesture?.let { g ->
-                g.onKey(key, event.action == KeyEvent.ACTION_DOWN, event.eventTime)
-                handler.removeCallbacks(tick)
-                if (g.wantsTicks) handler.postDelayed(tick, TICK_MS)
-            }
+        val down = event.action == KeyEvent.ACTION_DOWN
+        if (down && event.repeatCount > 0) {
+            // Auto-repeat of a held key: same fate as its first press, never fed to gestures.
+            return event.keyCode in consumedKeys
+        }
+        keyGesture?.let { g ->
+            g.onKey(key, down, event.eventTime)
+            handler.removeCallbacks(tick)
+            if (g.wantsTicks) handler.postDelayed(tick, TICK_MS)
+        }
+        if (!down) {
+            // A release must mirror its press. If the press went through to the
+            // system, the release must too, even if we locked in between;
+            // otherwise Android sees a stuck key and keeps changing the volume.
+            return consumedKeys.remove(event.keyCode)
         }
         // While unlocked the phone must behave normally: observe only, never consume.
-        if (!locked) return false
-        return GuardPolicy.consumeKey(key, settings.blockKeys, chordActive = keyGesture != null)
+        val consume = LockController.isLocked && GuardPolicy.consumeKey(key, settings.blockKeys, chordActive = keyGesture != null)
+        if (consume) consumedKeys.add(event.keyCode) else consumedKeys.remove(event.keyCode)
+        return consume
     }
 
     override fun onInterrupt() = Unit
@@ -203,6 +244,9 @@ class GuardAccessibilityService : AccessibilityService() {
     companion object {
         private const val TAG = "GuardService"
         private const val TICK_MS = 33L
+        private const val BASE_FLAGS =
+            AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS or
+                AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
 
         @Volatile
         var isConnected: Boolean = false

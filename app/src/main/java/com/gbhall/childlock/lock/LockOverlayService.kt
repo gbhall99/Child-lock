@@ -33,6 +33,8 @@ class LockOverlayService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var overlay: OverlayRoot? = null
     private var pendingAttach: Runnable? = null
+    private val banner by lazy { BannerWindow(this) }
+    private val stopAfterBanner = Runnable { stopSelf() }
 
     private var wasLocked = false
 
@@ -40,9 +42,15 @@ class LockOverlayService : Service() {
         if (state is LockState.Locked) wasLocked = true
         if (state is LockState.Unlocked) {
             teardown()
-            if (wasLocked) toast(R.string.toast_unlocked)
+            if (wasLocked) {
+                // Touch is already free (overlay gone); keep the process alive just
+                // long enough for the OFF banner to be seen.
+                banner.show(getString(R.string.banner_off), on = false)
+                handler.postDelayed(stopAfterBanner, BannerWindow.DURATION_MS + 100)
+            } else {
+                stopSelf()
+            }
             wasLocked = false
-            stopSelf()
         }
     }
 
@@ -121,7 +129,7 @@ class LockOverlayService : Service() {
             overlay = root
             LockController.set(LockState.Locked(protectedPackage, SystemClock.uptimeMillis()))
             updateNotification(getString(R.string.notif_locked, GestureText.unlockHint(this, settings)))
-            toast(R.string.toast_locked)
+            banner.show(getString(R.string.banner_on), on = true)
         } catch (e: Exception) {
             // Half-locking is worse than not locking: fail loudly and stay unlocked.
             Log.e(TAG, "Could not attach overlay", e)
@@ -153,6 +161,8 @@ class LockOverlayService : Service() {
 
     override fun onDestroy() {
         LockController.removeListener(stateListener)
+        handler.removeCallbacks(stopAfterBanner)
+        banner.dismiss()
         teardown()
         if (LockController.state !is LockState.Unlocked) LockController.set(LockState.Unlocked)
         super.onDestroy()

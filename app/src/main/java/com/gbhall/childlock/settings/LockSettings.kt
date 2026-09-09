@@ -33,6 +33,8 @@ data class LockSettings(
     val blockKeys: Boolean = true,
     val blockShade: Boolean = true,
     val relaunchApp: Boolean = true,
+    /** Stop home/back swipes outright while locked (needs the guard and a volume gesture). */
+    val blockGestures: Boolean = true,
 ) {
     val hasPin: Boolean get() = !pinHash.isNullOrEmpty() && pinLength >= MIN_PIN_LENGTH
 
@@ -68,6 +70,7 @@ class SettingsRepository private constructor(context: Context) {
         blockKeys = prefs.getBoolean(KEY_BLOCK_KEYS, true),
         blockShade = prefs.getBoolean(KEY_BLOCK_SHADE, true),
         relaunchApp = prefs.getBoolean(KEY_RELAUNCH, true),
+        blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, true),
     )
 
     fun save(s: LockSettings) {
@@ -85,6 +88,7 @@ class SettingsRepository private constructor(context: Context) {
             .putBoolean(KEY_BLOCK_KEYS, s.blockKeys)
             .putBoolean(KEY_BLOCK_SHADE, s.blockShade)
             .putBoolean(KEY_RELAUNCH, s.relaunchApp)
+            .putBoolean(KEY_BLOCK_GESTURES, s.blockGestures)
             .apply()
     }
 
@@ -116,6 +120,7 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_BLOCK_KEYS = "block_keys"
         private const val KEY_BLOCK_SHADE = "block_shade"
         private const val KEY_RELAUNCH = "relaunch_app"
+        private const val KEY_BLOCK_GESTURES = "block_gestures"
 
         @Volatile private var instance: SettingsRepository? = null
 

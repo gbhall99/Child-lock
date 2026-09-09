@@ -66,6 +66,16 @@ class GuardPolicyTest {
     }
 
     @Test
+    fun `gesture block flags need lock, setting, volume gesture and api 30`() {
+        val both = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
+        assertEquals(both, GuardPolicy.gestureBlockFlags(true, true, true, 35))
+        assertEquals(0, GuardPolicy.gestureBlockFlags(false, true, true, 35))
+        assertEquals(0, GuardPolicy.gestureBlockFlags(true, false, true, 35))
+        assertEquals(0, GuardPolicy.gestureBlockFlags(true, true, false, 35))
+        assertEquals(0, GuardPolicy.gestureBlockFlags(true, true, true, 29))
+    }
+
+    @Test
     fun `key consumption follows settings and chord state`() {
         assertTrue(GuardPolicy.consumeKey(HardwareKey.BACK, blockKeys = true, chordActive = false))
         assertFalse(GuardPolicy.consumeKey(HardwareKey.BACK, blockKeys = false, chordActive = true))

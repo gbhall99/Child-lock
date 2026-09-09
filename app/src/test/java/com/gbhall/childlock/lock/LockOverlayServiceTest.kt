@@ -54,10 +54,14 @@ class LockOverlayServiceTest {
         return c.get()
     }
 
-    private fun overlayViews(): List<android.view.View> {
+    private fun allWindows(): List<android.view.View> {
         val wm = TestSupport.app.getSystemService(WindowManager::class.java)
         return Shadow.extract<ShadowWindowManagerImpl>(wm).views
     }
+
+    private fun overlayViews(): List<android.view.View> = allWindows().filter { it is OverlayRoot }
+
+    private fun banners(): List<android.widget.TextView> = allWindows().filterIsInstance<android.widget.TextView>()
 
     @Test
     fun `immediate lock goes foreground, attaches the overlay and reports Locked`() {
@@ -83,13 +87,21 @@ class LockOverlayServiceTest {
     }
 
     @Test
-    fun `unlock removes the overlay and stops the service`() {
+    fun `unlock removes the overlay at once, shows an OFF banner, then stops the service`() {
         val service = start(lockIntent())
         idle()
         assertEquals(1, overlayViews().size)
+        assertEquals("ON banner while locking", 1, banners().size)
+        idle(2000)
+        assertEquals("ON banner gone", 0, banners().size)
         LockController.unlock()
         idle()
-        assertEquals(0, overlayViews().size)
+        assertEquals("touch freed immediately", 0, overlayViews().size)
+        assertEquals(1, banners().size)
+        assertTrue(banners().single().text.contains("OFF"))
+        assertFalse(shadowOf(service).isStoppedBySelf)
+        idle(2000)
+        assertEquals(0, banners().size)
         assertTrue(shadowOf(service).isStoppedBySelf)
         assertEquals(LockState.Unlocked, LockController.state)
     }
