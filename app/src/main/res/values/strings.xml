@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Child Lock</string>
+    <string name="tile_label">Child Lock</string>
+    <string name="tile_locked">Locked</string>
+    <string name="tile_arming">Locking…</string>
+    <string name="tile_off">Off</string>
+
+    <string name="channel_lock">Lock status</string>
+    <string name="channel_lock_desc">Shown while the touch lock is armed or active.</string>
+    <string name="notif_arming">Preparing to lock…</string>
+    <string name="notif_locking_in">Locking in %1$d s. Switch back to the call now.</string>
+    <string name="notif_locked">Touch is locked. %1$s</string>
+
+    <string name="toast_locking_in">Child Lock: locking in %1$d s</string>
+    <string name="toast_locked">Child Lock on</string>
+    <string name="toast_lock_failed">Child Lock could not start. Nothing is locked.</string>
+    <string name="toast_no_overlay_permission">Allow “Display over other apps” first</string>
+    <string name="toast_need_pin">Set a PIN first, or choose a different unlock gesture</string>
+    <string name="toast_pin_invalid">PIN must be 4 to 8 digits</string>
+
+    <string name="shield_content_description">Child Lock is active. Touch is disabled.</string>
+    <string name="pin_wrong">Wrong PIN</string>
+
+    <string name="accessibility_label">Child Lock guard</string>
+    <string name="accessibility_description">Optional hardening for Child Lock. Only active while the touch lock is on: it swallows the back and volume buttons, closes the notification shade if it is pulled down, and returns to the video call if the child leaves it. It never reads or stores what is on screen.</string>
+    <string name="accessibility_summary">Blocks buttons and the shade while Child Lock is on</string>
+
+    <string name="section_status">Status</string>
+    <string name="section_permissions">Permissions</string>
+    <string name="section_gesture">Unlock gesture</string>
+    <string name="section_options">Options</string>
+    <string name="section_unlock">How to unlock</string>
+
+    <string name="status_unlocked">Unlocked. Open the video call, come back here and tap Arm.</string>
+    <string name="status_arming">Locking shortly…</string>
+    <string name="status_locked">Locked. Touch is disabled everywhere except the unlock gesture.</string>
+    <string name="arm_button">Arm lock</string>
+    <string name="arm_hint">You will be returned to the previous app. Touch locks %1$d seconds later. You can also tap the Child Lock tile in Quick Settings.</string>
+
+    <string name="perm_overlay">Display over other apps</string>
+    <string name="perm_overlay_desc">Required. This is how touches are blocked without covering the screen.</string>
+    <string name="perm_notifications">Notifications</string>
+    <string name="perm_notifications_desc">Shows a quiet “locked” notice so you always know the state.</string>
+    <string name="perm_accessibility">Accessibility guard</string>
+    <string name="perm_accessibility_desc">Optional. Blocks back and volume buttons, closes the notification shade, and returns to the call if the child leaves it.</string>
+    <string name="restricted_title">Toggle greyed out?</string>
+    <string name="restricted_desc">Android 13+ hides the switch for sideloaded apps. In App info open the ⋮ menu and choose “Allow restricted settings”, then try again.</string>
+    <string name="grant">Grant</string>
+    <string name="allow">Allow</string>
+    <string name="open">Open</string>
+    <string name="app_info">App info</string>
+    <string name="save">Save</string>
+    <string name="status_granted">Granted</string>
+    <string name="status_required">Not granted. Required.</string>
+    <string name="status_recommended">Not granted. Recommended.</string>
+    <string name="status_enabled">Enabled</string>
+    <string name="status_optional">Not enabled. Optional.</string>
+
+    <string name="gesture_corner_hold">Two-finger corner hold (recommended)</string>
+    <string name="gesture_corner_hold_desc">Hold one finger in each of two opposite corners at the same time. Any extra finger restarts the timer.</string>
+    <string name="gesture_badge_pin">Badge long-press, then PIN</string>
+    <string name="gesture_badge_pin_desc">Hold the small badge until a keypad appears, then enter your PIN. Three wrong PINs hide the keypad for 30 seconds.</string>
+    <string name="gesture_volume_chord">Volume up + down chord</string>
+    <string name="gesture_volume_chord_desc">Hold both volume buttons together. Needs the accessibility guard. The corner hold stays available as a fallback.</string>
+    <string name="hold_duration">Hold duration</string>
+    <string name="corner_pair">Corners to hold</string>
+    <string name="pair_tl_br">Top-left and bottom-right</string>
+    <string name="pair_tr_bl">Top-right and bottom-left</string>
+    <string name="pin_title">PIN</string>
+    <string name="pin_set">Set PIN</string>
+    <string name="pin_hint">%1$d to %2$d digits</string>
+    <string name="pin_status_set">PIN set (%1$d digits)</string>
+    <string name="pin_status_unset">No PIN set yet</string>
+    <string name="badge_corner">Badge corner</string>
+    <string name="corner_tl">Top left</string>
+    <string name="corner_tr">Top right</string>
+    <string name="corner_bl">Bottom left</string>
+    <string name="corner_br">Bottom right</string>
+
+    <string name="arm_delay">Arm delay</string>
+    <string name="keep_screen_on">Keep screen on</string>
+    <string name="keep_screen_on_desc">Stops the screen timing out during the call.</string>
+    <string name="hardening_note">The three options below need the accessibility guard enabled above.</string>
+    <string name="block_keys">Block back and volume buttons</string>
+    <string name="block_keys_desc">Volume still works for the volume chord gesture.</string>
+    <string name="block_shade">Close the notification shade</string>
+    <string name="block_shade_desc">Closes it the moment it is pulled down.</string>
+    <string name="relaunch_app">Return to the call</string>
+    <string name="relaunch_app_desc">If the child reaches the home screen, the call app is brought straight back.</string>
+
+    <string name="hint_corner_hold">Hold one finger in each chosen corner for the hold duration. A ring fills around the badge; a buzz confirms the unlock.</string>
+    <string name="hint_badge_pin">Hold the badge for the hold duration until the keypad appears, then enter your PIN.</string>
+    <string name="hint_volume_chord">Hold volume up and volume down together for the hold duration. The corner hold also works.</string>
+    <string name="safety_note">The lock is never saved. If anything goes wrong, restart the phone and it starts unlocked. The power button always works.</string>
+</resources>

@@ -100,39 +100,44 @@ All gesture recognisers are pure Kotlin state machines fed by
 
 ## 6. Architecture
 
-Single-module Kotlin app, minSdk 26, targetSdk 35. Jetpack Compose for the
-in-app screens, plain `View`s inside the overlay window (Compose in overlay
-windows needs lifecycle-owner workarounds that are not worth it here).
+Single-module Kotlin app, minSdk 26, targetSdk 35, and **no third-party or
+AndroidX dependencies**. The settings screen is built from framework widgets
+and settings live in SharedPreferences. For an app whose whole job is to sit
+over every other app, a dependency-free build is smaller, faster to audit, and
+cannot break on a library update. (An earlier draft proposed Compose and
+DataStore; they added nothing the screen needs.)
 
 ```
 app/
   ui/
-    MainActivity.kt          Compose host: setup, settings, arm button
-    SetupScreen.kt           permission checklist with deep links
-    SettingsScreen.kt        gesture choice, hold duration, badge corner, hardening toggles
+    MainActivity.kt          setup, permissions, gesture and hardening settings, Arm button
+    Ui.kt                    small helpers for building the screen in code
   lock/
-    LockController.kt        single source of truth for lock state (StateFlow), in-memory only
+    LockController.kt        single source of truth for lock state, in-memory only
     LockOverlayService.kt    foreground service; creates/removes the overlay window
-    OverlayView.kt           transparent full-screen view that consumes touches, draws the badge
-    BadgeDrawable.kt         padlock badge with progress ring
+    OverlayRoot.kt           overlay root: touch shield plus optional PIN pad
+    TouchShieldView.kt       transparent full-screen view that consumes touches, draws the badge
+    PinPadView.kt            compact keypad for the badge-PIN gesture
   gesture/
-    UnlockGesture.kt         interface: feed events, emit Progress/Unlocked/Reset
+    UnlockGesture.kt         interface plus shared hold timer; emits Progress/Unlocked/Reset/ShowPinPad
     CornerHoldGesture.kt     two-finger diagonal corner hold
     BadgePinGesture.kt       long-press badge, then PIN pad
     VolumeChordGesture.kt    volume up + down held (fed by the accessibility service)
+    PinHasher.kt             salted SHA-256 for the stored PIN
   guard/
     GuardAccessibilityService.kt  key filtering, shade dismissal, foreground-app relaunch
+    ForegroundTracker.kt          last foreground app, used as the app to protect
   tile/
-    LockTileService.kt       Quick Settings tile
+    LockTileService.kt       Quick Settings tile (arms only, never unlocks)
   settings/
-    SettingsRepository.kt    DataStore-backed preferences (never the lock state)
+    LockSettings.kt          settings model and SharedPreferences repository
 ```
 
 Runtime flow
 1. Tile or Arm button calls `LockController.lock(protectedPackage)`.
 2. `LockOverlayService` starts as a foreground service (type `specialUse`) and
-   attaches `OverlayView` via `WindowManager`.
-3. `OverlayView` forwards every `MotionEvent` to the active `UnlockGesture` and
+   attaches `OverlayRoot` via `WindowManager`.
+3. `TouchShieldView` forwards every `MotionEvent` to the active `UnlockGesture` and
    returns `true` so nothing reaches the app underneath.
 4. On `Unlocked`, the controller flips state, the service removes the window and
    stops itself, and the tile updates.
