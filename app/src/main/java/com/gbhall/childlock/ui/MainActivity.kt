@@ -109,6 +109,10 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
         }))
         addView(overlayStatus)
+        restrictedHint = row(getString(R.string.restricted_title), getString(R.string.restricted_desc), actionButton(R.string.app_info) {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+        })
+        addView(restrictedHint)
 
         notificationStatus = body("", secondary = true, size = 13f)
         notificationRow = row(getString(R.string.perm_notifications), getString(R.string.perm_notifications_desc), actionButton(R.string.allow) {
@@ -124,10 +128,6 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }))
         addView(accessibilityStatus)
-        restrictedHint = row(getString(R.string.restricted_title), getString(R.string.restricted_desc), actionButton(R.string.app_info) {
-            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-        })
-        addView(restrictedHint)
     }
 
     private fun gestureCard(s: LockSettings) = card(getString(R.string.section_gesture)) {
@@ -186,7 +186,6 @@ class MainActivity : Activity() {
                     getString(R.string.corner_br) to null,
                 ),
                 corners.indexOf(s.badgeCorner),
-                horizontal = true,
             ) { index -> repo.update { it.copy(badgeCorner = corners[index]) } },
         )
     }
@@ -286,7 +285,8 @@ class MainActivity : Activity() {
 
         val a11y = GuardAccessibilityService.isEnabled(this)
         accessibilityStatus.text = getString(if (a11y) R.string.status_enabled else R.string.status_optional)
-        restrictedHint.visibility = if (!a11y && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) View.VISIBLE else View.GONE
+        val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && (!overlay || !a11y)
+        restrictedHint.visibility = if (restricted) View.VISIBLE else View.GONE
     }
 
     private fun renderStatus(state: LockState) {

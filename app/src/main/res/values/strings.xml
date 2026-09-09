@@ -44,8 +44,8 @@
     <string name="perm_notifications_desc">Shows a quiet “locked” notice so you always know the state.</string>
     <string name="perm_accessibility">Accessibility guard</string>
     <string name="perm_accessibility_desc">Optional. Blocks back and volume buttons, closes the notification shade, and returns to the call if the child leaves it.</string>
-    <string name="restricted_title">Toggle greyed out?</string>
-    <string name="restricted_desc">Android 13+ hides the switch for sideloaded apps. In App info open the ⋮ menu and choose “Allow restricted settings”, then try again.</string>
+    <string name="restricted_title">“App was denied access”?</string>
+    <string name="restricted_desc">Android blocks these permissions for sideloaded apps until you allow them once: try the switch (so Android records it), then open App info, tap ⋮ in the top right, choose “Allow restricted settings”, and try the switch again. Installing with adb avoids this entirely.</string>
     <string name="grant">Grant</string>
     <string name="allow">Allow</string>
     <string name="open">Open</string>

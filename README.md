@@ -29,13 +29,16 @@ that sits over every other app.
 Open Child Lock and work down the Permissions card:
 
 1. **Display over other apps** (required). This is the whole mechanism.
+   On Android 13 and newer a sideloaded app gets *"App was denied access"*
+   here the first time. That is expected: tap Close, open App info, tap the
+   three-dot menu in the top right, choose *Allow restricted settings*, then
+   come back and flip the switch again. (The menu item only appears after
+   the first denied attempt.) Installing with `adb install` avoids this.
 2. **Notifications** (recommended). A quiet notification shows the lock state.
 3. **Accessibility guard** (optional, strongly recommended). Blocks the back
    and volume buttons, closes the notification shade if it is pulled down, and
    brings the call app straight back if the child reaches the home screen.
-   On Android 13 and newer the switch is greyed out for sideloaded apps until
-   you open App info, tap the three-dot menu, and choose *Allow restricted
-   settings*.
+   Same restricted-settings dance as above if the switch is greyed out.
 
 Then add the **Child Lock** tile to Quick Settings: pull the shade down twice,
 tap the pencil, and drag the tile into the active area.
