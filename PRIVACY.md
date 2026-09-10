@@ -21,11 +21,21 @@ request the internet permission, so it has no way to transmit anything.
   home/back swipes, closes the notification shade, and brings back the app you
   handed over. While the lock is off it only observes which app is in the
   foreground, for the auto-lock feature and to remember what to return to. It
-  never reads, stores or transmits screen content, text, or any other data.
+  never reads, stores or transmits screen content, text, or any other data,
+  with a single opt-in exception described below.
 - **Notifications.** A silent notification while the lock is on, required by
   Android for a foreground service.
 - **Foreground service (special use).** Keeps the touch lock alive while it is
   on.
+
+## The one exception: "Skip ads for them"
+
+This feature is **off by default**. If you switch it on, then while the lock
+is on, and only inside the app you handed over, Child Lock looks at that
+app's on-screen button labels for one that says "Skip ad" and taps it. It
+looks at nothing else, taps nothing else, and stores and transmits nothing.
+Switching the feature off stops it entirely. Every other statement in this
+policy holds whether or not you use it.
 
 ## Data storage
 

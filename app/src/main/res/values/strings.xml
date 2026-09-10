@@ -12,9 +12,6 @@
     <string name="notif_locking_in">Locking in %1$d s. Get the screen ready.</string>
     <string name="notif_locked">Touches do nothing. %1$s</string>
 
-    <string name="toast_locking_in">Child Lock: locking in %1$d s</string>
-    <string name="toast_locked">Child Lock on</string>
-    <string name="toast_unlocked">Child Lock off</string>
     <string name="banner_on">Child Lock on</string>
     <string name="banner_on_detail_sequence">Touches do nothing. Volume %1$s to unlock.</string>
     <string name="banner_on_detail_corners">Touches do nothing. Hold two corners to unlock.</string>
@@ -27,6 +24,8 @@
     <string name="toast_lock_failed">Couldn’t lock. The phone is still unlocked.</string>
     <string name="toast_no_overlay_permission">Turn on “Show over other apps” first</string>
     <string name="toast_need_pin">Set a PIN first</string>
+    <string name="toast_needs_helper">Turn on the Child Lock helper first, or you would not be able to unlock.</string>
+    <string name="toast_screen_reader">Your screen reader changes how touches work. Choose the volume buttons so you can still unlock.</string>
     <string name="toast_pin_invalid">PIN must be 4 to 8 digits</string>
     <string name="toast_no_browser">No browser available to open the link</string>
 
@@ -40,7 +39,7 @@
 
     <!-- Disclosure shown before enabling the helper -->
     <string name="disclosure_title">Why Child Lock needs this</string>
-    <string name="disclosure_body">Child Lock uses Android’s accessibility feature as a parental lock, not as an accessibility aid.\n\nWhile locked, it:\n• Notices the volume-button pattern that unlocks\n• Blocks the back button and home/back swipes\n• Closes the notifications panel and returns to the app\n\nWhile unlocked, it only notices which app is open, and whether a call or video is playing, for automatic locking.\n\nIt never reads, stores or sends what is on your screen.\n\nNext, switch on “Child Lock helper” and tap Allow.</string>
+    <string name="disclosure_body">Child Lock uses Android’s accessibility feature as a parental lock, not as an accessibility aid.\n\nWhile locked, it:\n• Notices the volume-button pattern that unlocks\n• Blocks the back button and home/back swipes\n• Closes the notifications panel and returns to the app\n\nWhile unlocked, it only notices which app is open, and whether a call or video is playing, for automatic locking.\n\nIt never reads, stores or sends what is on your screen. The one exception is “Skip ads for them”, which is off unless you turn it on: that reads button labels in the app you handed over, so it can tap “Skip ad”.\n\nNext, switch on “Child Lock helper” and tap Allow.</string>
     <string name="disclosure_agree">Continue</string>
 
     <!-- Main screen -->
@@ -60,7 +59,6 @@
     <string name="state_locked_sub">Touches do nothing. Safe to hand over.</string>
     <string name="how_to_lock">To lock</string>
     <string name="how_to_unlock">To unlock</string>
-    <string name="guard_warning">Volume-button unlocking needs the Child Lock helper, which is off.</string>
     <string name="turn_on">Turn on</string>
     <string name="arm_button">Lock in %1$d seconds</string>
     <string name="arm_hint">Takes you back to the last app, then locks. The Child Lock button in Quick Settings does the same.</string>
@@ -68,7 +66,6 @@
     <string name="perm_overlay">Show over other apps</string>
     <string name="perm_overlay_desc">Lets Child Lock sit on top of the video or game so touches don’t get through.</string>
     <string name="perm_notifications">Notifications</string>
-    <string name="perm_notifications_desc">Shows a quiet “Child Lock on” reminder while locked.</string>
     <string name="perm_accessibility">Child Lock helper</string>
     <string name="perm_accessibility_desc">Lets the volume buttons lock and unlock, and keeps your child inside the app. Found under Accessibility in Android settings.</string>
     <string name="restricted_desc">Android said “Restricted setting”? Open App info, tap the ⋮ menu, choose “Allow restricted settings”, then try again.</string>
@@ -79,8 +76,6 @@
     <string name="save">Save</string>
     <string name="done">Done</string>
     <string name="back">Back</string>
-    <string name="status_on">On</string>
-    <string name="status_needed">Needed</string>
     <string name="status_optional">Optional</string>
     <string name="setup_assistant">Setup guide</string>
     <string name="setup_assistant_desc">See the setup steps again.</string>

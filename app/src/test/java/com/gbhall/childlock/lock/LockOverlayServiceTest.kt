@@ -169,6 +169,45 @@ class LockOverlayServiceTest {
     }
 
     @Test
+    fun `locking again during the OFF banner stays locked`() {
+        val service = start(lockIntent())
+        idle()
+        assertEquals(1, overlayViews().size)
+        LockController.unlock()
+        idle()
+        // The parent immediately locks again, well inside the OFF banner.
+        service.onStartCommand(lockIntent(), 0, 2)
+        idle()
+        assertTrue("re-lock must not be undone by the pending stop", LockController.isLocked)
+        idle(4000)
+        assertTrue(LockController.isLocked)
+        assertEquals(1, overlayViews().size)
+        assertFalse(shadowOf(service).isStoppedBySelf)
+    }
+
+    @Test
+    fun `a phone call unlocks so it can be answered`() {
+        start(lockIntent())
+        idle()
+        assertTrue(LockController.isLocked)
+        TestSupport.app.getSystemService(android.media.AudioManager::class.java).mode =
+            android.media.AudioManager.MODE_RINGTONE
+        idle(1500)
+        assertEquals("an incoming call must never be blocked", LockState.Unlocked, LockController.state)
+        TestSupport.app.getSystemService(android.media.AudioManager::class.java).mode =
+            android.media.AudioManager.MODE_NORMAL
+    }
+
+    @Test
+    fun `a lock never outlives the maximum duration`() {
+        start(lockIntent())
+        idle()
+        assertTrue(LockController.isLocked)
+        idle(LockOverlayService.MAX_LOCK_MS + 1000)
+        assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    @Test
     fun `keep screen on setting controls the window flag`() {
         SettingsRepository.get(TestSupport.app).update { it.copy(keepScreenOn = false) }
         start(lockIntent())

@@ -193,7 +193,13 @@ class TouchShieldView(
     }
 
     override fun onDraw(canvas: Canvas) {
-        if (badgeRect.isEmpty) return
+        // The badge is the only sign the lock is on, so it is never skipped:
+        // if layout has not produced a position yet, fall back to a default.
+        if (badgeRect.isEmpty) {
+            val d = badgeRadius * 2
+            val m = badgeMargin + badgeRadius
+            badgeRect.set(m, m, m + d, m + d)
+        }
         canvas.drawCircle(badgeCenterX, badgeCenterY, badgeRadius, badgePaint)
         canvas.drawCircle(badgeCenterX, badgeCenterY, badgeRadius - ringStroke / 2, ringTrackPaint)
         lockIcon?.let {

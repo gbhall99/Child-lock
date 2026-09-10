@@ -123,10 +123,13 @@ class GuardAccessibilityServiceTest {
         assertTrue(LockController.isLocked)
     }
 
-    private fun tap(code: Int, t: Long) {
+    private fun tap(code: Int, t: Long, holdMs: Long = 120) {
         service.onKeyEvent(KeyEvent(t, t, KeyEvent.ACTION_DOWN, code, 0))
-        service.onKeyEvent(KeyEvent(t, t + 60, KeyEvent.ACTION_UP, code, 0))
+        service.onKeyEvent(KeyEvent(t, t + holdMs, KeyEvent.ACTION_UP, code, 0))
     }
+
+    /** The pattern's last press must be held, so the toddler-jab never counts. */
+    private val HOLD = com.gbhall.childlock.gesture.VolumeSequenceGesture.DEFAULT_FINAL_HOLD_MS + 100
 
     @Test
     fun `volume pattern while unlocked arms the lock immediately and is not consumed`() {
@@ -135,6 +138,7 @@ class GuardAccessibilityServiceTest {
         assertFalse(service.onKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 0)))
         assertFalse(service.onKeyEvent(KeyEvent(0, 50, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0)))
         assertFalse(service.onKeyEvent(KeyEvent(300, 300, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
+        assertFalse(service.onKeyEvent(KeyEvent(300, 300 + HOLD, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
         TestSupport.idle()
         val intent = org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService
         org.junit.Assert.assertNotNull("lock service should start", intent)
@@ -149,7 +153,7 @@ class GuardAccessibilityServiceTest {
         TestSupport.idle()
         tap(KeyEvent.KEYCODE_VOLUME_UP, 1000)
         assertTrue(LockController.isLocked)
-        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1300)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1300, HOLD)
         TestSupport.idle()
         assertEquals(LockState.Unlocked, LockController.state)
     }
@@ -159,7 +163,7 @@ class GuardAccessibilityServiceTest {
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
         tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1000)
-        tap(KeyEvent.KEYCODE_VOLUME_UP, 1300)
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 1300, HOLD)
         TestSupport.idle()
         assertTrue(LockController.isLocked)
         tap(KeyEvent.KEYCODE_VOLUME_UP, 5000)
@@ -176,7 +180,7 @@ class GuardAccessibilityServiceTest {
         service.onKeyEvent(KeyEvent(0, 200, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 1))
         service.onKeyEvent(KeyEvent(0, 400, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 2))
         service.onKeyEvent(KeyEvent(0, 500, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0))
-        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 700)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 700, HOLD)
         TestSupport.idle()
         assertEquals("up (held), down should still complete", LockState.Unlocked, LockController.state)
     }
@@ -188,7 +192,7 @@ class GuardAccessibilityServiceTest {
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
         tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1000)
-        tap(KeyEvent.KEYCODE_VOLUME_UP, 1300)
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 1300, HOLD)
         TestSupport.idle()
         assertEquals(LockState.Unlocked, LockController.state)
     }
@@ -219,7 +223,7 @@ class GuardAccessibilityServiceTest {
         val l: (LockState) -> Unit = { if (it == LockState.Unlocked) heard = true }
         LockController.addListener(l)
         tap(KeyEvent.KEYCODE_VOLUME_UP, 2000)
-        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 2300)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 2300, HOLD)
         assertFalse("listeners must not run inside onKeyEvent", heard)
         TestSupport.idle()
         assertTrue(heard)
@@ -363,7 +367,7 @@ class GuardAccessibilityServiceTest {
         LockController.set(LockState.Arming(9999, "com.example.call"))
         TestSupport.idle()
         tap(KeyEvent.KEYCODE_VOLUME_UP, 1000)
-        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1300)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1300, HOLD)
         TestSupport.idle()
         assertEquals(LockState.Unlocked, LockController.state)
     }
@@ -380,6 +384,32 @@ class GuardAccessibilityServiceTest {
         service.onAccessibilityEvent(windowEvent("com.google.android.permissioncontroller"))
         TestSupport.idle()
         assertTrue(LockController.state is LockState.Arming)
+    }
+
+    @Test
+    fun `touch-exploration flags are cleared when the helper is unbound`() {
+        val block = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertEquals(block, service.requestedFlags and block)
+        service.onUnbind(null)
+        assertEquals("the phone must not be left exploring by touch", 0, service.requestedFlags and block)
+    }
+
+    @Test
+    fun `the device lock screen keeps its own keys`() {
+        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.CORNER_HOLD) }
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertTrue(service.onKeyEvent(key(KeyEvent.KEYCODE_BACK)))
+        org.robolectric.Shadows.shadowOf(
+            TestSupport.app.getSystemService(android.app.KeyguardManager::class.java),
+        ).setKeyguardLocked(true)
+        assertFalse("back belongs to the lock screen", service.onKeyEvent(key(KeyEvent.KEYCODE_BACK)))
+        assertFalse(service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP)))
+        org.robolectric.Shadows.shadowOf(
+            TestSupport.app.getSystemService(android.app.KeyguardManager::class.java),
+        ).setKeyguardLocked(false)
     }
 
     @Test

@@ -23,7 +23,7 @@ WHAT STOPS WORKING FOR THE CHILD
 • Press back or the volume buttons
 • Pull down the notification shade
 • Swipe home or open recent apps
-The power button still works. Real phone calls still ring.
+The power button still works, and an incoming call unlocks the phone so you can answer it.
 
 AUTO-LOCK
 Choose the apps you hand over, a video app, a game, a video-call app, and Child Lock switches itself on a few seconds after one of them opens. Switch away or press the pattern to cancel.
@@ -31,7 +31,7 @@ Choose the apps you hand over, a video app, a game, a video-call app, and Child 
 MADE TO BE TRUSTED
 • No ads, no accounts, no analytics, no internet permission
 • Open source
-• Nothing on screen is ever read or stored
+• Nothing on screen is read or stored (unless you switch on Skip ads)
 • The lock is never saved: a restart always leaves the phone unlocked
 • Colour-blind-safe design: every state has a shape and a word, never colour alone
 

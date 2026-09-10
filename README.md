@@ -7,7 +7,8 @@ in one corner. You unlock with a quick gesture that an
 adult does without thinking and a toddler will not stumble into.
 
 `PLAN.md` holds the full design. This file is the practical guide.
-`RELEASING.md` covers signing and Play submission, `store/listing.md` the
+`REVIEW.md` records the September 2026 expert review and the grouped work it
+produced. `RELEASING.md` covers signing and Play submission, `store/listing.md` the
 store copy and declarations, `PRIVACY.md` the privacy policy, and
 `MONETISATION.md` the business plan.
 
@@ -147,7 +148,7 @@ lock's notification is silent and shows no status-bar icon.
 | Drags down the notifications panel | Closed immediately (with the guard) |
 | Swipes home, back or recents | Blocked outright (with the guard and a volume gesture); otherwise the app you handed over is brought straight back |
 | Presses the power button | Screen turns off; whatever was playing continues. The lock is still there after you unlock the phone |
-| Receives a real phone call | The system in-call screen appears on top; the lock does not interfere |
+| Receives a real phone call | Child Lock unlocks itself so the call can be answered |
 
 Without the accessibility guard, only the first row is enforced. Swipe
 blocking uses Android's touch-exploration mode while locked, the same switch
@@ -184,6 +185,11 @@ Manufacturer notes:
 - While locked the screen orientation is pinned to whatever it was, so a
   full-screen video does not flip when the phone is tilted (switchable in
   More options).
+- An incoming or connected phone call always releases the lock.
+- No lock outlives 90 minutes, whatever else fails.
+- The app refuses to lock when the way out would not work: a volume gesture
+  with the helper switched off, or a touch gesture while a screen reader is
+  exploring by touch.
 - The lock state lives in memory only. It is never saved, so a restart, a
   crash, or a force stop always leaves the phone unlocked.
 - The badge is always visible while locked. No badge means no lock.

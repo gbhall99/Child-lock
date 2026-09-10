@@ -50,9 +50,19 @@ class MainActivityTest {
     }
 
     @Test
+    fun `arm refuses a volume gesture when the helper is not running`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.VOLUME_SEQUENCE) }
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        armButton(activity).performClick()
+        assertNull("locking with no way to unlock must be refused", shadowOf(TestSupport.app).nextStartedService)
+    }
+
+    @Test
     fun `arm starts the lock service with the configured delay and backgrounds the app`() {
         ShadowSettings.setCanDrawOverlays(true)
-        SettingsRepository.get(TestSupport.app).update { it.copy(armDelaySec = 7) }
+        // A touch gesture needs no helper, so this exercises the normal path.
+        SettingsRepository.get(TestSupport.app).update { it.copy(armDelaySec = 7, gesture = GestureType.CORNER_HOLD) }
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val button = armButton(activity)
         assertTrue(button.isEnabled)

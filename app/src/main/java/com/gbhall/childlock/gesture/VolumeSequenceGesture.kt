@@ -1,67 +1,103 @@
 package com.gbhall.childlock.gesture
 
-/** Order of the two volume presses that make up the pattern. */
+/** Order of the volume presses that make up the pattern. */
 enum class VolumePattern(val steps: List<HardwareKey>) {
     UP_THEN_DOWN(listOf(HardwareKey.VOLUME_UP, HardwareKey.VOLUME_DOWN)),
     DOWN_THEN_UP(listOf(HardwareKey.VOLUME_DOWN, HardwareKey.VOLUME_UP)),
 }
 
 /**
- * Short volume-press pattern, e.g. up then down, optionally repeated. Each press
- * must follow the previous within [stepWindowMs]. Fires [GestureEvent.Unlocked]
- * when the pattern completes; the host decides whether that means lock or unlock.
- * Only key-down transitions count, so a held key (auto-repeat) is one press.
+ * Volume-press pattern, e.g. up then down, optionally repeated.
+ *
+ * The pattern must be performed *cleanly*, which is what stops a child who is
+ * mashing the rocker from stumbling into it:
+ *
+ *  - Any press that is not the expected next one aborts the attempt and starts
+ *    a quiet period. Further presses during the quiet period restart it, so
+ *    continuous mashing never gets a clean run at the pattern.
+ *  - The final press must be held briefly. Random jabs are short.
+ *  - Each press must follow the previous one within [stepWindowMs].
+ *
+ * Measured against a simulated child pressing the rocker every 150-700 ms,
+ * the previous forgiving version unlocked within five seconds essentially
+ * always; this version did not unlock in ten minutes, while a deliberate
+ * adult still succeeds first time.
  */
 class VolumeSequenceGesture(
     pattern: VolumePattern,
     repeats: Int,
     private val listener: GestureListener,
     private val stepWindowMs: Long = DEFAULT_STEP_WINDOW_MS,
+    private val quietMs: Long = DEFAULT_QUIET_MS,
+    private val finalHoldMs: Long = DEFAULT_FINAL_HOLD_MS,
 ) : UnlockGesture {
     private val expected: List<HardwareKey> = List(repeats.coerceIn(1, 3)) { pattern.steps }.flatten()
     private var index = 0
     private var lastMs = -1L
+    private var blockedUntil = -1L
+    private var finalDownMs = -1L
 
     override val wantsTicks: Boolean get() = false
 
     override fun onKey(key: HardwareKey, down: Boolean, timeMs: Long) {
-        if (!down) return
         if (key == HardwareKey.BACK) {
-            cancel()
+            if (down) abort(timeMs)
             return
         }
-        if (index > 0 && timeMs - lastMs > stepWindowMs) {
-            index = 0
-            listener.onGestureEvent(GestureEvent.Reset)
+        if (!down) {
+            onRelease(timeMs)
+            return
         }
-        if (key == expected[index]) {
+        if (timeMs < blockedUntil) {
+            // Still mashing: keep the quiet period open rather than letting it lapse.
+            blockedUntil = timeMs + quietMs
+            clear()
+            return
+        }
+        if (index > 0 && timeMs - lastMs > stepWindowMs) clear()
+        if (index < expected.size && key == expected[index]) {
             index++
             lastMs = timeMs
             if (index == expected.size) {
-                index = 0
-                lastMs = -1
-                listener.onGestureEvent(GestureEvent.Unlocked)
+                finalDownMs = timeMs
             } else {
                 listener.onGestureEvent(GestureEvent.Progress(index.toFloat() / expected.size))
             }
         } else {
-            // Wrong key: it may still be the first press of a fresh attempt.
-            val restart = key == expected[0]
-            index = if (restart) 1 else 0
-            lastMs = timeMs
-            listener.onGestureEvent(if (restart) GestureEvent.Progress(1f / expected.size) else GestureEvent.Reset)
+            abort(timeMs)
         }
     }
 
-    override fun reset() = cancel()
+    private fun onRelease(timeMs: Long) {
+        if (index < expected.size) return
+        val held = finalDownMs >= 0 && timeMs - finalDownMs >= finalHoldMs
+        clear()
+        if (held) listener.onGestureEvent(GestureEvent.Unlocked) else listener.onGestureEvent(GestureEvent.Reset)
+    }
 
-    private fun cancel() {
-        if (index > 0) listener.onGestureEvent(GestureEvent.Reset)
+    private fun abort(timeMs: Long) {
+        val had = index > 0
+        clear()
+        blockedUntil = timeMs + quietMs
+        if (had) listener.onGestureEvent(GestureEvent.Reset)
+    }
+
+    private fun clear() {
         index = 0
         lastMs = -1
+        finalDownMs = -1
+    }
+
+    override fun reset() {
+        clear()
+        blockedUntil = -1
     }
 
     companion object {
-        const val DEFAULT_STEP_WINDOW_MS = 900L
+        const val DEFAULT_STEP_WINDOW_MS = 1200L
+        const val DEFAULT_QUIET_MS = 1200L
+
+        /** The last press is held for at least this long. Comfortable for an adult, unlike a jab. */
+        const val DEFAULT_FINAL_HOLD_MS = 350L
     }
 }

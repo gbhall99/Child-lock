@@ -34,7 +34,41 @@ class LockOverlayService : Service() {
     private var overlay: OverlayRoot? = null
     private var pendingAttach: Runnable? = null
     private val banner by lazy { BannerWindow(this) }
-    private val stopAfterBanner = Runnable { stopSelf() }
+    private var latestStartId = 0
+
+    /** Only stop if nothing has locked again in the meantime. */
+    private val stopAfterBanner = Runnable {
+        if (LockController.state is LockState.Unlocked) stopSelfResult(latestStartId)
+    }
+
+    /** Safety net: a lock never outlives this, so a parent can never be stranded. */
+    private val maxDurationStop = Runnable {
+        if (LockController.isLocked) {
+            Log.w(TAG, "Maximum lock duration reached; unlocking")
+            LockController.unlock()
+        }
+    }
+
+    /**
+     * A ringing or connected phone call must never be blocked. The audio mode
+     * is the signal every dialer sets, and needs no telephony permission.
+     */
+    private val callWatch = object : Runnable {
+        override fun run() {
+            if (!LockController.isLocked) return
+            val mode = try {
+                getSystemService(android.media.AudioManager::class.java)?.mode ?: 0
+            } catch (e: Exception) {
+                0
+            }
+            if (mode == android.media.AudioManager.MODE_RINGTONE || mode == android.media.AudioManager.MODE_IN_CALL) {
+                Log.i(TAG, "Phone call in progress; unlocking so it can be answered")
+                LockController.unlock()
+                return
+            }
+            handler.postDelayed(this, CALL_WATCH_MS)
+        }
+    }
 
     private var wasLocked = false
 
@@ -42,13 +76,15 @@ class LockOverlayService : Service() {
         if (state is LockState.Locked) wasLocked = true
         if (state is LockState.Unlocked) {
             teardown()
+            handler.removeCallbacks(maxDurationStop)
+            handler.removeCallbacks(callWatch)
             if (wasLocked) {
                 // Touch is already free (overlay gone); keep the process alive just
                 // long enough for the OFF banner to be seen.
                 banner.show(BannerWindow.Kind.OFF, getString(R.string.banner_off_detail))
                 handler.postDelayed(stopAfterBanner, BannerWindow.DURATION_MS + 100)
             } else {
-                stopSelf()
+                stopSelfResult(latestStartId)
             }
             wasLocked = false
         }
@@ -62,6 +98,7 @@ class LockOverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        latestStartId = startId
         when (intent?.action) {
             ACTION_LOCK -> handleLock(
                 intent.getStringExtra(EXTRA_PACKAGE),
@@ -76,6 +113,8 @@ class LockOverlayService : Service() {
     }
 
     private fun handleLock(protectedPackage: String?, delayMs: Long) {
+        // A lock arriving during the OFF banner must cancel the pending stop.
+        handler.removeCallbacks(stopAfterBanner)
         if (!Settings.canDrawOverlays(this)) {
             toast(R.string.toast_no_overlay_permission)
             abort()
@@ -135,6 +174,10 @@ class LockOverlayService : Service() {
             LockController.set(LockState.Locked(protectedPackage, SystemClock.uptimeMillis()))
             updateNotification(getString(R.string.notif_locked, GestureText.unlockHint(this, settings)))
             banner.show(BannerWindow.Kind.ON, GestureText.unlockShort(this, settings))
+            handler.removeCallbacks(maxDurationStop)
+            handler.postDelayed(maxDurationStop, MAX_LOCK_MS)
+            handler.removeCallbacks(callWatch)
+            handler.postDelayed(callWatch, CALL_WATCH_MS)
         } catch (e: Exception) {
             // Half-locking is worse than not locking: fail loudly and stay unlocked.
             Log.e(TAG, "Could not attach overlay", e)
@@ -167,6 +210,8 @@ class LockOverlayService : Service() {
     override fun onDestroy() {
         LockController.removeListener(stateListener)
         handler.removeCallbacks(stopAfterBanner)
+        handler.removeCallbacks(maxDurationStop)
+        handler.removeCallbacks(callWatch)
         banner.dismiss()
         teardown()
         if (LockController.state !is LockState.Unlocked) LockController.set(LockState.Unlocked)
@@ -217,6 +262,10 @@ class LockOverlayService : Service() {
 
     companion object {
         private const val TAG = "LockOverlayService"
+
+        /** No lock outlives this. The parent is never stranded, whatever else fails. */
+        const val MAX_LOCK_MS = 90 * 60 * 1000L
+        private const val CALL_WATCH_MS = 1000L
         private const val NOTIFICATION_ID = 1
         const val ACTION_LOCK = "com.gbhall.childlock.action.LOCK"
         const val ACTION_UNLOCK = "com.gbhall.childlock.action.UNLOCK"

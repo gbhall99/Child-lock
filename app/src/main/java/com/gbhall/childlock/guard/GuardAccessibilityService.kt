@@ -57,6 +57,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     @Volatile
     var requestedFlags: Int = 0
         private set
+    private var requestedEvents: Int = 0
 
     // ---- auto-lock ------------------------------------------------------------
 
@@ -125,6 +126,8 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     public override fun onServiceConnected() {
         super.onServiceConnected()
         isConnected = true
+        // Never inherit a stored touch-exploration request from a previous run.
+        applyServiceFlags(locked = false)
         startCameraTracking()
         try {
             registerReceiver(screenReceiver, IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON) })
@@ -138,6 +141,12 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
 
     override fun onUnbind(intent: Intent?): Boolean {
         isConnected = false
+        // Leaving the phone in explore-by-touch would strand the user.
+        try {
+            applyServiceFlags(locked = false)
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not clear service flags", e)
+        }
         LockController.removeListener(stateListener)
         SettingsRepository.get(this).removeChangeListener(settingsListener)
         try { unregisterReceiver(screenReceiver) } catch (e: Exception) { Log.w(TAG, "Screen receiver already gone") }
@@ -172,25 +181,32 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
      * and view ids only while skip-ad tapping can actually run.
      */
     private fun applyServiceFlags(locked: Boolean) {
-        val extra = GuardPolicy.gestureBlockFlags(locked, settings.blockGestures, settings.gesture.needsGuard, Build.VERSION.SDK_INT)
+        val extra = if (screenReaderActive()) {
+            0 // TalkBack and friends own explore-by-touch; competing breaks both.
+        } else {
+            GuardPolicy.gestureBlockFlags(locked, settings.blockGestures, settings.gesture.needsGuard, Build.VERSION.SDK_INT)
+        }
         val wanted = BASE_FLAGS or extra or (if (skipAdsActive()) AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS else 0)
         val events = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED or
             (if (skipAdsActive()) AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED else 0)
-        if (wanted == requestedFlags && locked) return
-        requestedFlags = wanted
+        if (wanted == requestedFlags && events == requestedEvents) return
         serviceInfo = (serviceInfo ?: AccessibilityServiceInfo()).apply {
             eventTypes = events
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             notificationTimeout = 50
             flags = (flags and (GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS).inv()) or wanted
         }
+        // Only record what actually took effect.
+        requestedFlags = wanted
+        requestedEvents = events
     }
 
     /** With multi-finger gestures on, a three-finger triple tap is the touch fallback to unlock. */
     override fun onGesture(gestureEvent: AccessibilityGestureEvent): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
             gestureEvent.gestureId == GESTURE_3_FINGER_TRIPLE_TAP &&
-            LockController.isLocked
+            LockController.isLocked &&
+            !screenReaderActive()
         ) {
             LockController.unlock()
             return true
@@ -227,6 +243,9 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> if (pkg != null) onContentChanged(pkg)
         }
         val locked = LockController.state as? LockState.Locked ?: return
+        if (keyguardLocked()) return // the device lock screen is the user's, not ours
+        // Window changes are the only events worth this cost; content churn is not.
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return
         if (settings.blockShade && isShadeOpen()) {
             dismissShade()
             return
@@ -310,6 +329,8 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
             else -> return false
         }
         val down = event.action == KeyEvent.ACTION_DOWN
+        // On the device lock screen the keys belong to the user (alarms, the PIN pad).
+        if (keyguardLocked()) return false
         if (down && event.repeatCount > 0) return event.keyCode in consumedKeys
         keyGesture?.let { g ->
             g.onKey(key, down, event.eventTime)
@@ -354,6 +375,21 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         }
         camerasInUse.clear()
     }
+
+    private fun keyguardLocked(): Boolean =
+        try {
+            getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
+        } catch (e: Exception) {
+            false
+        }
+
+    /** True when a screen reader or similar tool is already exploring by touch. */
+    internal fun screenReaderActive(): Boolean =
+        try {
+            getSystemService(android.view.accessibility.AccessibilityManager::class.java)?.isTouchExplorationEnabled == true
+        } catch (e: Exception) {
+            false
+        }
 
     private fun audioMode(): Int =
         try { getSystemService(android.media.AudioManager::class.java)?.mode ?: 0 } catch (e: Exception) { 0 }

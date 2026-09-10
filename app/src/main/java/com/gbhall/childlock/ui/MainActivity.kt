@@ -450,6 +450,19 @@ class MainActivity : Activity() {
             toast(R.string.toast_need_pin)
             return
         }
+        when (com.gbhall.childlock.lock.LockPreflight.check(
+            s.gesture,
+            GuardAccessibilityService.isConnected,
+            screenReaderOn(),
+        )) {
+            com.gbhall.childlock.lock.LockPreflight.Result.HelperNeeded -> {
+                toast(R.string.toast_needs_helper); return
+            }
+            com.gbhall.childlock.lock.LockPreflight.Result.ScreenReaderNeedsVolume -> {
+                toast(R.string.toast_screen_reader); return
+            }
+            com.gbhall.childlock.lock.LockPreflight.Result.Ok -> Unit
+        }
         if (!LockController.requestLock(this, ForegroundTracker.lastApp, s.armDelaySec * 1000L)) {
             toast(R.string.toast_lock_failed)
             return
@@ -534,7 +547,14 @@ class MainActivity : Activity() {
         unlockHow.text = GestureText.unlockHint(this, s)
     }
 
-    private fun toast(resId: Int) = Toast.makeText(this, resId, Toast.LENGTH_SHORT).show()
+    private fun screenReaderOn(): Boolean =
+        try {
+            getSystemService(android.view.accessibility.AccessibilityManager::class.java)?.isTouchExplorationEnabled == true
+        } catch (e: Exception) {
+            false
+        }
+
+    private fun toast(resId: Int) = Toast.makeText(this, resId, Toast.LENGTH_LONG).show()
 
     companion object {
         private const val REQUEST_NOTIFICATIONS = 1
