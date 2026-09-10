@@ -303,6 +303,23 @@ class GuardAccessibilityServiceTest {
     }
 
     @Test
+    fun `video call trigger needs the camera as well as call audio`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.VIDEO_CALL)) }
+        TestSupport.idle()
+        val audio = TestSupport.app.getSystemService(android.media.AudioManager::class.java)
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        audio.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+        TestSupport.idle(2500)
+        assertEquals("voice call: no arm", null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        service.camerasInUse.add("1")
+        TestSupport.idle(1500)
+        org.junit.Assert.assertNotNull("camera on: video call, arm", org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        audio.mode = android.media.AudioManager.MODE_NORMAL
+        service.camerasInUse.clear()
+    }
+
+    @Test
     fun `leaving the app stops waiting for its trigger`() {
         org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
         SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.CALL)) }

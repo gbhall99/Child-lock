@@ -84,6 +84,7 @@ class GuardAccessibilityService : AccessibilityService() {
     public override fun onServiceConnected() {
         super.onServiceConnected()
         isConnected = true
+        startCameraTracking()
         SettingsRepository.get(this).addChangeListener(settingsListener)
         LockController.addListener(stateListener)
         rebuildKeyGesture()
@@ -96,6 +97,7 @@ class GuardAccessibilityService : AccessibilityService() {
         keyGesture = null
         handler.removeCallbacks(tick)
         stopWatching()
+        stopCameraTracking()
         return super.onUnbind(intent)
     }
 
@@ -195,12 +197,42 @@ class GuardAccessibilityService : AccessibilityService() {
     /** The chosen app currently in front whose trigger has not fired yet, if any. */
     private var watchedPackage: String? = null
 
+    /** Cameras some app currently holds open; a video call shows up here. Visible for tests. */
+    internal val camerasInUse = HashSet<String>()
+    private var cameraCallback: android.hardware.camera2.CameraManager.AvailabilityCallback? = null
+
+    private fun startCameraTracking() {
+        if (cameraCallback != null) return
+        val cm = getSystemService(android.hardware.camera2.CameraManager::class.java) ?: return
+        val cb = object : android.hardware.camera2.CameraManager.AvailabilityCallback() {
+            override fun onCameraAvailable(cameraId: String) { camerasInUse.remove(cameraId) }
+            override fun onCameraUnavailable(cameraId: String) { camerasInUse.add(cameraId) }
+        }
+        try {
+            cm.registerAvailabilityCallback(cb, handler)
+            cameraCallback = cb
+        } catch (e: Exception) {
+            Log.w(TAG, "Camera availability not tracked", e)
+        }
+    }
+
+    private fun stopCameraTracking() {
+        val cb = cameraCallback ?: return
+        cameraCallback = null
+        try {
+            getSystemService(android.hardware.camera2.CameraManager::class.java)?.unregisterAvailabilityCallback(cb)
+        } catch (e: Exception) {
+            Log.w(TAG, "Camera callback already gone", e)
+        }
+        camerasInUse.clear()
+    }
+
     private val watchTick = object : Runnable {
         override fun run() {
             val pkg = watchedPackage ?: return
             if (LockController.state !is LockState.Unlocked) return
             val trigger = settings.autoLockRules[pkg] ?: return
-            if (GuardPolicy.triggerSatisfied(trigger, audioMode(), mediaPlaying(), statusBarVisible())) {
+            if (GuardPolicy.triggerSatisfied(trigger, audioMode(), mediaPlaying(), statusBarVisible(), camerasInUse.isNotEmpty())) {
                 watchedPackage = null
                 arm(pkg)
             } else {
@@ -224,7 +256,7 @@ class GuardAccessibilityService : AccessibilityService() {
         when (decision) {
             GuardPolicy.AutoLockDecision.Arm -> {
                 val trigger = settings.autoLockRules[pkg] ?: com.gbhall.childlock.settings.AutoLockTrigger.OPEN
-                if (GuardPolicy.triggerSatisfied(trigger, audioMode(), mediaPlaying(), statusBarVisible())) {
+                if (GuardPolicy.triggerSatisfied(trigger, audioMode(), mediaPlaying(), statusBarVisible(), camerasInUse.isNotEmpty())) {
                     arm(pkg)
                 } else if (watchedPackage != pkg) {
                     // Wait for the call to connect or the video to go full screen.

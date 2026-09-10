@@ -94,11 +94,12 @@ the lock button, which returns you to the previous app and locks after the
 arm delay (5 s by default).
 
 **Auto-lock.** Choose apps and the moment that should lock them: when a
-call connects (WhatsApp, Meet, Teams and the like), when a video goes full
-screen (YouTube, iPlayer, Netflix), when anything plays, or simply when the
-app opens. Well-known apps get the right default. Child Lock reads only
-Android's audio mode, whether media is playing, and whether the status bar
-is hidden; never screen content. A countdown (15 s by default) follows;
+video call connects (WhatsApp, Meet, Teams and the like; a voice call is a
+separate choice, as is "any call"), when a video goes full screen (YouTube,
+iPlayer, Netflix), when anything plays, or simply when the app opens.
+Well-known apps get the right default. Child Lock reads only Android's audio
+mode, whether a camera is in use, whether media is playing, and whether the
+status bar is hidden; never screen content. A countdown (15 s by default) follows;
 switching away or pressing the volume pattern cancels it. After you unlock,
 it will not re-arm for that app until you have left it and come back. Needs
 the accessibility guard.
@@ -169,6 +170,9 @@ Manufacturer notes:
 
 ## Safety
 
+- While locked the screen orientation is pinned to whatever it was, so a
+  full-screen video does not flip when the phone is tilted (switchable in
+  More options).
 - The lock state lives in memory only. It is never saved, so a restart, a
   crash, or a force stop always leaves the phone unlocked.
 - The badge is always visible while locked. No badge means no lock.

@@ -71,7 +71,7 @@ object GuardPolicy {
         val call = listOf("whatsapp", "meet", "tachyon", "teams", "call", "voip", "zoom", "skype", "duo", "facetime", "signal", "telegram", "viber", "messenger", "orca", "dialer", "telecom", "facebook.talk", "discord", "webex")
         val video = listOf("youtube", "netflix", "iplayer", "disney", "primevideo", "amazon.avod", "twitch", "plex", "vlc", "mxtech", "tv.", "player", "video", "itv", "channel4", "hulu", "hbo", "paramount", "peacock", "kids", "cbeebies", "pbs", "nick")
         return when {
-            call.any { it in p } -> com.gbhall.childlock.settings.AutoLockTrigger.CALL
+            call.any { it in p } -> com.gbhall.childlock.settings.AutoLockTrigger.VIDEO_CALL
             video.any { it in p } -> com.gbhall.childlock.settings.AutoLockTrigger.FULLSCREEN_PLAYBACK
             else -> com.gbhall.childlock.settings.AutoLockTrigger.OPEN
         }
@@ -87,12 +87,17 @@ object GuardPolicy {
         audioMode: Int,
         mediaPlaying: Boolean,
         statusBarVisible: Boolean,
+        cameraInUse: Boolean = false,
     ): Boolean = when (trigger) {
         com.gbhall.childlock.settings.AutoLockTrigger.OPEN -> true
-        com.gbhall.childlock.settings.AutoLockTrigger.CALL -> audioMode == MODE_IN_CALL || audioMode == MODE_IN_COMMUNICATION
+        com.gbhall.childlock.settings.AutoLockTrigger.CALL -> inCall(audioMode)
+        com.gbhall.childlock.settings.AutoLockTrigger.VIDEO_CALL -> inCall(audioMode) && cameraInUse
+        com.gbhall.childlock.settings.AutoLockTrigger.VOICE_CALL -> inCall(audioMode) && !cameraInUse
         com.gbhall.childlock.settings.AutoLockTrigger.PLAYBACK -> mediaPlaying
         com.gbhall.childlock.settings.AutoLockTrigger.FULLSCREEN_PLAYBACK -> mediaPlaying && !statusBarVisible
     }
+
+    private fun inCall(audioMode: Int) = audioMode == MODE_IN_CALL || audioMode == MODE_IN_COMMUNICATION
 
     /** The status bar is a thin system window pinned to the top edge. */
     fun isStatusBarWindow(isSystemType: Boolean, top: Int, height: Int, screenHeight: Int): Boolean =

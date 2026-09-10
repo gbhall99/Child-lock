@@ -329,6 +329,8 @@ class MainActivity : Activity() {
         when (t) {
             com.gbhall.childlock.settings.AutoLockTrigger.OPEN -> R.string.trigger_open
             com.gbhall.childlock.settings.AutoLockTrigger.CALL -> R.string.trigger_call
+            com.gbhall.childlock.settings.AutoLockTrigger.VIDEO_CALL -> R.string.trigger_video_call
+            com.gbhall.childlock.settings.AutoLockTrigger.VOICE_CALL -> R.string.trigger_voice_call
             com.gbhall.childlock.settings.AutoLockTrigger.FULLSCREEN_PLAYBACK -> R.string.trigger_fullscreen
             com.gbhall.childlock.settings.AutoLockTrigger.PLAYBACK -> R.string.trigger_playback
         },
@@ -379,6 +381,9 @@ class MainActivity : Activity() {
             )
             addView(switchRow(getString(R.string.keep_screen_on), getString(R.string.keep_screen_on_desc), s.keepScreenOn) { v ->
                 repo.update { it.copy(keepScreenOn = v) }
+            })
+            addView(switchRow(getString(R.string.keep_orientation), getString(R.string.keep_orientation_desc), s.keepOrientation) { v ->
+                repo.update { it.copy(keepOrientation = v) }
             })
             addView(body(getString(R.string.badge_corner), size = 16f).apply { typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(8), 0, 0) })
             val corners = Corner.entries

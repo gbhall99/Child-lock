@@ -10,8 +10,12 @@ import com.gbhall.childlock.gesture.VolumePattern
 enum class AutoLockTrigger {
     /** As soon as the app is in front. */
     OPEN,
-    /** When the app puts the phone into call mode (video or voice call connected). */
+    /** Any call connected: the app put the phone into call audio mode. */
     CALL,
+    /** A video call: call audio mode and a camera in use. */
+    VIDEO_CALL,
+    /** A voice call: call audio mode with no camera in use. */
+    VOICE_CALL,
     /** When the app is playing sound or video with the status bar hidden. */
     FULLSCREEN_PLAYBACK,
     /** When the app is playing sound or video, full screen or not. */
@@ -47,6 +51,8 @@ data class LockSettings(
     val relaunchApp: Boolean = true,
     /** Stop home/back swipes outright while locked (needs the guard and a volume gesture). */
     val blockGestures: Boolean = true,
+    /** Pin the screen to whatever orientation it has when the lock engages. */
+    val keepOrientation: Boolean = true,
     /** Packages that arm the lock automatically, each with the moment that arms it (needs the guard). */
     val autoLockRules: Map<String, AutoLockTrigger> = emptyMap(),
     val autoLockDelaySec: Int = 15,
@@ -90,6 +96,7 @@ class SettingsRepository private constructor(context: Context) {
         blockShade = prefs.getBoolean(KEY_BLOCK_SHADE, true),
         relaunchApp = prefs.getBoolean(KEY_RELAUNCH, true),
         blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, true),
+        keepOrientation = prefs.getBoolean(KEY_KEEP_ORIENTATION, true),
         autoLockRules = (prefs.getStringSet(KEY_AUTO_LOCK_RULES, emptySet()) ?: emptySet()).mapNotNull { entry ->
             val i = entry.lastIndexOf('=')
             if (i <= 0) return@mapNotNull null
@@ -115,6 +122,7 @@ class SettingsRepository private constructor(context: Context) {
             .putBoolean(KEY_BLOCK_SHADE, s.blockShade)
             .putBoolean(KEY_RELAUNCH, s.relaunchApp)
             .putBoolean(KEY_BLOCK_GESTURES, s.blockGestures)
+            .putBoolean(KEY_KEEP_ORIENTATION, s.keepOrientation)
             .putStringSet(KEY_AUTO_LOCK_RULES, s.autoLockRules.map { (pkg, t) -> "$pkg=${t.name}" }.toSet())
             .putInt(KEY_AUTO_LOCK_DELAY, s.autoLockDelaySec)
             .apply()
@@ -162,6 +170,7 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_BLOCK_SHADE = "block_shade"
         private const val KEY_RELAUNCH = "relaunch_app"
         private const val KEY_BLOCK_GESTURES = "block_gestures"
+        private const val KEY_KEEP_ORIENTATION = "keep_orientation"
         private const val KEY_AUTO_LOCK_RULES = "auto_lock_rules"
         private const val KEY_AUTO_LOCK_DELAY = "auto_lock_delay_sec"
         private const val KEY_TILE_ADDED = "tile_added"

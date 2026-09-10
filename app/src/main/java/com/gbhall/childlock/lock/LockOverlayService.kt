@@ -115,6 +115,11 @@ class LockOverlayService : Service() {
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             title = "ChildLock"
+            // The topmost window's requested orientation wins: freezing it here keeps a
+            // full-screen video in the orientation it had when the lock engaged.
+            if (settings.keepOrientation) {
+                screenOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES

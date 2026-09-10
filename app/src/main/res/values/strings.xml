@@ -135,6 +135,8 @@
     <string name="arm_delay">Arm delay</string>
     <string name="keep_screen_on">Keep screen on</string>
     <string name="keep_screen_on_desc">Stops the screen timing out while locked.</string>
+    <string name="keep_orientation">Keep the screen orientation</string>
+    <string name="keep_orientation_desc">While locked the screen stays the way round it was, so a full-screen video does not flip when the phone is tilted.</string>
     <string name="hardening_note">While locked, with the accessibility guard on</string>
     <string name="block_keys">Block back and volume buttons</string>
     <string name="block_keys_desc">Volume still works for the volume gestures.</string>
@@ -155,7 +157,7 @@
     <string name="safety_note">The lock is never saved. If anything goes wrong, restart the phone and it starts unlocked. The power button always works. The Quick Settings tile can lock but never unlock, so dragging down from the top does not help a child.</string>
 
     <string name="section_autolock">Auto-lock</string>
-    <string name="autolock_desc">Lock by itself at the right moment: when a video call connects in WhatsApp, when YouTube, iPlayer or Netflix goes full screen, or simply when a game opens. A countdown gives you time to get things ready; switching away or pressing the volume pattern cancels it.</string>
+    <string name="autolock_desc">Lock by itself at the right moment: when a video call connects in WhatsApp (not a voice call, unless you choose that), when YouTube, iPlayer or Netflix goes full screen, or simply when a game opens. A countdown gives you time to get things ready; switching away or pressing the volume pattern cancels it.</string>
     <string name="autolock_choose">Choose apps</string>
     <string name="autolock_none">No apps chosen yet.</string>
     <string name="autolock_delay">Lock after</string>
@@ -165,7 +167,9 @@
     <string name="picker_search">Search apps</string>
     <string name="picker_lock_when">Lock when</string>
     <string name="trigger_open">It opens</string>
-    <string name="trigger_call">A call connects</string>
+    <string name="trigger_video_call">A video call connects (camera on)</string>
+    <string name="trigger_voice_call">A voice call connects (camera off)</string>
+    <string name="trigger_call">Any call connects, video or voice</string>
     <string name="trigger_fullscreen">A video plays full screen</string>
     <string name="trigger_playback">Anything plays, full screen or not</string>
     <string name="done">Done</string>

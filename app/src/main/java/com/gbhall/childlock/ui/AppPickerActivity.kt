@@ -183,10 +183,12 @@ class AppPickerActivity : Activity() {
                     letterSpacing = 0.06f
                 })
                 val options = listOf(
-                    AutoLockTrigger.OPEN to R.string.trigger_open,
+                    AutoLockTrigger.VIDEO_CALL to R.string.trigger_video_call,
+                    AutoLockTrigger.VOICE_CALL to R.string.trigger_voice_call,
                     AutoLockTrigger.CALL to R.string.trigger_call,
                     AutoLockTrigger.FULLSCREEN_PLAYBACK to R.string.trigger_fullscreen,
                     AutoLockTrigger.PLAYBACK to R.string.trigger_playback,
+                    AutoLockTrigger.OPEN to R.string.trigger_open,
                 )
                 val group = android.widget.RadioGroup(this@AppPickerActivity).apply {
                     orientation = android.widget.RadioGroup.VERTICAL

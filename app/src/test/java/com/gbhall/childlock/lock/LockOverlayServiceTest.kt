@@ -153,6 +153,22 @@ class LockOverlayServiceTest {
     }
 
     @Test
+    fun `orientation is pinned while locked unless switched off`() {
+        start(lockIntent())
+        idle()
+        var lp = overlayViews().single().layoutParams as WindowManager.LayoutParams
+        assertEquals(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED, lp.screenOrientation)
+        LockController.unlock()
+        idle(3000)
+        SettingsRepository.get(TestSupport.app).update { it.copy(keepOrientation = false) }
+        controller?.destroy(); controller = null
+        start(lockIntent())
+        idle()
+        lp = overlayViews().single().layoutParams as WindowManager.LayoutParams
+        assertEquals(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED, lp.screenOrientation)
+    }
+
+    @Test
     fun `keep screen on setting controls the window flag`() {
         SettingsRepository.get(TestSupport.app).update { it.copy(keepScreenOn = false) }
         start(lockIntent())

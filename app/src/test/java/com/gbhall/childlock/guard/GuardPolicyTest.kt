@@ -101,8 +101,8 @@ class GuardPolicyTest {
 
     @Test
     fun `smart defaults pick call for messengers, full screen for video apps, open otherwise`() {
-        assertEquals(T.CALL, GuardPolicy.smartTrigger("com.whatsapp"))
-        assertEquals(T.CALL, GuardPolicy.smartTrigger("com.google.android.apps.tachyon"))  // Google Meet / Duo
+        assertEquals(T.VIDEO_CALL, GuardPolicy.smartTrigger("com.whatsapp"))
+        assertEquals(T.VIDEO_CALL, GuardPolicy.smartTrigger("com.google.android.apps.tachyon"))  // Google Meet / Duo
         assertEquals(T.FULLSCREEN_PLAYBACK, GuardPolicy.smartTrigger("com.google.android.youtube"))
         assertEquals(T.FULLSCREEN_PLAYBACK, GuardPolicy.smartTrigger("bbc.iplayer.android"))
         assertEquals(T.FULLSCREEN_PLAYBACK, GuardPolicy.smartTrigger("com.netflix.mediaclient"))
@@ -115,6 +115,11 @@ class GuardPolicyTest {
         assertFalse(GuardPolicy.triggerSatisfied(T.CALL, 0, true, false))
         assertTrue(GuardPolicy.triggerSatisfied(T.CALL, 3, false, true))
         assertTrue(GuardPolicy.triggerSatisfied(T.CALL, 2, false, true))
+        assertTrue("video call: call audio plus camera", GuardPolicy.triggerSatisfied(T.VIDEO_CALL, 3, false, true, cameraInUse = true))
+        assertFalse("voice call is not a video call", GuardPolicy.triggerSatisfied(T.VIDEO_CALL, 3, false, true, cameraInUse = false))
+        assertFalse("camera alone is not a call", GuardPolicy.triggerSatisfied(T.VIDEO_CALL, 0, false, true, cameraInUse = true))
+        assertTrue(GuardPolicy.triggerSatisfied(T.VOICE_CALL, 3, false, true, cameraInUse = false))
+        assertFalse(GuardPolicy.triggerSatisfied(T.VOICE_CALL, 3, false, true, cameraInUse = true))
         assertFalse(GuardPolicy.triggerSatisfied(T.FULLSCREEN_PLAYBACK, 0, true, true))
         assertTrue(GuardPolicy.triggerSatisfied(T.FULLSCREEN_PLAYBACK, 0, true, false))
         assertFalse(GuardPolicy.triggerSatisfied(T.PLAYBACK, 0, false, false))
