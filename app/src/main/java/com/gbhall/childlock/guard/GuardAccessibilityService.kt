@@ -47,17 +47,21 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     private var settings = LockSettings()
     private var keyGesture: UnlockGesture? = null
     private var lastRelaunchMs = 0L
-    private var lastShadeDismissMs = 0L
+    private var shadeFights = GuardPolicy.ShadeFights()
     private val launchable = HashMap<String, Boolean>()
     private val consumedKeys = HashSet<Int>()
     private var lastState: LockState = LockState.Unlocked
     private var screenOn = true
 
-    /** Flags we last asked the system for, so tests and rebuilds can reason about them. */
+    /**
+     * Flags we last asked the system for, so tests and rebuilds can reason about them.
+     * They start at what the manifest already declares, so a run that needs nothing
+     * extra never calls setServiceInfo at all.
+     */
     @Volatile
-    var requestedFlags: Int = 0
+    var requestedFlags: Int = BASE_FLAGS
         private set
-    private var requestedEvents: Int = 0
+    private var requestedEvents: Int = MANIFEST_EVENTS
 
     // ---- auto-lock ------------------------------------------------------------
 
@@ -99,7 +103,10 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         val previous = lastState
         lastState = state
         when (state) {
-            is LockState.Locked -> engine.onLocked()
+            is LockState.Locked -> {
+                shadeFights = GuardPolicy.ShadeFights()
+                engine.onLocked()
+            }
             is LockState.Unlocked -> if (previous !is LockState.Unlocked) engine.onUnlocked(byParent = previous is LockState.Locked)
             is LockState.Arming -> Unit
         }
@@ -189,21 +196,23 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
      * and view ids only while skip-ad tapping can actually run.
      */
     private fun applyServiceFlags(locked: Boolean) {
-        val extra = if (screenReaderActive()) {
+        val extra = if (otherScreenReaderActive()) {
             0 // TalkBack and friends own explore-by-touch; competing breaks both.
         } else {
             GuardPolicy.gestureBlockFlags(locked, settings.blockGestures, settings.gesture.needsGuard, Build.VERSION.SDK_INT)
         }
         val wanted = BASE_FLAGS or extra or (if (skipAdsActive()) AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS else 0)
-        val events = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED or
-            (if (skipAdsActive()) AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED else 0)
+        val events = MANIFEST_EVENTS or (if (skipAdsActive()) AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED else 0)
         if (wanted == requestedFlags && events == requestedEvents) return
-        serviceInfo = (serviceInfo ?: AccessibilityServiceInfo()).apply {
-            eventTypes = events
+        // Mutate the info the system granted us where we can: it carries the manifest's
+        // settings, and only the handful of properties in MUTABLE_FLAGS are ours to change.
+        val info = serviceInfo ?: AccessibilityServiceInfo().apply {
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             notificationTimeout = 50
-            flags = (flags and (GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS).inv()) or wanted
         }
+        info.eventTypes = events
+        info.flags = (info.flags and MUTABLE_FLAGS.inv()) or wanted
+        serviceInfo = info
         // Only record what actually took effect.
         requestedFlags = wanted
         requestedEvents = events
@@ -214,7 +223,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
             gestureEvent.gestureId == GESTURE_3_FINGER_TRIPLE_TAP &&
             LockController.isLocked &&
-            !screenReaderActive()
+            !otherScreenReaderActive()
         ) {
             LockController.unlock()
             return true
@@ -412,13 +421,20 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
             false
         }
 
-    /** True when a screen reader or similar tool is already exploring by touch. */
-    internal fun screenReaderActive(): Boolean =
-        try {
+    /**
+     * True when some *other* tool is already exploring by touch. Once we ask for
+     * touch exploration ourselves the system reports it as on, so asking the
+     * question naively makes us stand down from our own request a moment after
+     * making it, and the flags flip back and forth for as long as the lock lasts.
+     */
+    internal fun otherScreenReaderActive(): Boolean {
+        val on = try {
             getSystemService(android.view.accessibility.AccessibilityManager::class.java)?.isTouchExplorationEnabled == true
         } catch (e: Exception) {
-            false
+            return false
         }
+        return on && (requestedFlags and GuardPolicy.FLAG_TOUCH_EXPLORATION) == 0
+    }
 
     private fun audioMode(): Int =
         try { getSystemService(android.media.AudioManager::class.java)?.mode ?: 0 } catch (e: Exception) { 0 }
@@ -503,9 +519,9 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     }
 
     private fun dismissShade() {
-        val now = SystemClock.uptimeMillis()
-        if (now - lastShadeDismissMs < GuardPolicy.SHADE_DISMISS_DEBOUNCE_MS) return
-        lastShadeDismissMs = now
+        val (dismiss, next) = GuardPolicy.shadeDecision(SystemClock.uptimeMillis(), shadeFights)
+        shadeFights = next
+        if (!dismiss) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)
         } else {
@@ -548,6 +564,15 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         private const val SCAN_MS = 500L
         private const val CLICK_COOLDOWN_MS = 3000L
         private const val MAX_CLICKS_PER_MINUTE = 6
+        /** Event types the manifest already declares, so requesting them is a no-op. */
+        private const val MANIFEST_EVENTS =
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED
+
+        /** The only flags we ever add or remove at runtime; everything else stays as granted. */
+        private const val MUTABLE_FLAGS =
+            GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER or
+                AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+
         private const val BASE_FLAGS =
             AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS or
                 AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS

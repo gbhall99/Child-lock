@@ -70,4 +70,25 @@ class SettingsRepositoryTest {
         repo.update { it.copy(armDelaySec = 3) }
         assertEquals(3, repo.load().armDelaySec)
     }
+
+    @Test
+    fun `system gesture blocking is off by default`() {
+        // It works by switching on the mode a screen reader uses, and in that
+        // mode every touch-based way out stops responding. Not being able to
+        // unlock is worse than a child reaching the home screen.
+        assertFalse(repo.load().blockGestures)
+    }
+
+    @Test
+    fun `an existing install that had gesture blocking on is switched off once`() {
+        val prefs = TestSupport.app.getSharedPreferences("childlock", 0)
+        prefs.edit().putBoolean("block_gestures", true).remove("settings_version").commit()
+        SettingsRepository.resetForTests()
+        assertFalse("upgrades must not stay stuck in touch exploration", SettingsRepository.get(TestSupport.app).load().blockGestures)
+
+        // Once migrated, a parent who deliberately turns it back on keeps it.
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = true) }
+        SettingsRepository.resetForTests()
+        assertTrue(SettingsRepository.get(TestSupport.app).load().blockGestures)
+    }
 }

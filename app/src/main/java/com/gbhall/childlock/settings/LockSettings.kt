@@ -50,8 +50,14 @@ data class LockSettings(
     val blockKeys: Boolean = true,
     val blockShade: Boolean = true,
     val relaunchApp: Boolean = true,
-    /** Stop home/back swipes outright while locked (needs the guard and a volume gesture). */
-    val blockGestures: Boolean = true,
+    /**
+     * Stop home/back swipes outright while locked. Off by default: it works by
+     * switching on the same mode a screen reader uses, and in that mode the
+     * screen sends hover rather than touches, so every touch-based way out
+     * stops working. Being unable to unlock is far worse than a child reaching
+     * the home screen, which "Bring the app back" already handles.
+     */
+    val blockGestures: Boolean = false,
     /** Pin the screen to whatever orientation it has when the lock engages. */
     val keepOrientation: Boolean = true,
     /** Tap "Skip ad" style buttons in the app you handed over while locked. Off by default; reads button labels. */
@@ -89,6 +95,13 @@ class SettingsRepository private constructor(context: Context) {
     private val prefs: SharedPreferences =
         context.applicationContext.getSharedPreferences("childlock", Context.MODE_PRIVATE)
 
+    init {
+        // One-off migration: this used to default on, and it can strand people.
+        if (prefs.getInt(KEY_VERSION, 0) < 2) {
+            prefs.edit().putBoolean(KEY_BLOCK_GESTURES, false).putInt(KEY_VERSION, 2).apply()
+        }
+    }
+
     fun load(): LockSettings = LockSettings(
         gesture = prefs.enum(KEY_GESTURE, GestureType.VOLUME_SEQUENCE),
         holdMs = prefs.getLong(KEY_HOLD_MS, 1500).coerceIn(LockSettings.MIN_HOLD_MS, LockSettings.MAX_HOLD_MS),
@@ -104,7 +117,7 @@ class SettingsRepository private constructor(context: Context) {
         blockKeys = prefs.getBoolean(KEY_BLOCK_KEYS, true),
         blockShade = prefs.getBoolean(KEY_BLOCK_SHADE, true),
         relaunchApp = prefs.getBoolean(KEY_RELAUNCH, true),
-        blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, true),
+        blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, false),
         keepOrientation = prefs.getBoolean(KEY_KEEP_ORIENTATION, true),
         skipAds = prefs.getBoolean(KEY_SKIP_ADS, false),
         relockSameApp = prefs.getBoolean(KEY_RELOCK, true),
@@ -187,6 +200,7 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_BLOCK_SHADE = "block_shade"
         private const val KEY_RELAUNCH = "relaunch_app"
         private const val KEY_BLOCK_GESTURES = "block_gestures"
+        private const val KEY_VERSION = "settings_version"
         private const val KEY_KEEP_ORIENTATION = "keep_orientation"
         private const val KEY_SKIP_ADS = "skip_ads"
         private const val KEY_RELOCK = "relock_same_app"

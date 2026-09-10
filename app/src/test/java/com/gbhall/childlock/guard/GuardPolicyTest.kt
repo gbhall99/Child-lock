@@ -145,4 +145,38 @@ class GuardPolicyTest {
         assertTrue(GuardPolicy.consumeKey(HardwareKey.VOLUME_UP, blockKeys = false, chordActive = true))
         assertFalse(GuardPolicy.consumeKey(HardwareKey.VOLUME_DOWN, blockKeys = false, chordActive = false))
     }
+
+    @Test
+    fun `the shade is closed a few times and then the parent is let through`() {
+        var st = GuardPolicy.ShadeFights()
+        var now = 10_000L
+        repeat(GuardPolicy.MAX_SHADE_FIGHTS) { i ->
+            val (dismiss, next) = GuardPolicy.shadeDecision(now, st)
+            assertTrue("open ${i + 1} should be closed", dismiss)
+            st = next
+            now += 1_000L
+        }
+        val (fourth, afterFourth) = GuardPolicy.shadeDecision(now, st)
+        assertFalse("a parent pulling it down again is looking for Unlock", fourth)
+        st = afterFourth
+        now += 1_000L
+        assertFalse("and it stays open", GuardPolicy.shadeDecision(now, st).first)
+    }
+
+    @Test
+    fun `the shade tally starts over after a quiet spell`() {
+        var st = GuardPolicy.ShadeFights()
+        repeat(GuardPolicy.MAX_SHADE_FIGHTS + 1) { st = GuardPolicy.shadeDecision(10_000L + it * 1_000L, st).second }
+        val later = 10_000L + GuardPolicy.SHADE_FIGHT_WINDOW_MS + 30_000L
+        assertTrue("a fresh burst is a child again", GuardPolicy.shadeDecision(later, st).first)
+    }
+
+    @Test
+    fun `repeat shade events inside the debounce are ignored`() {
+        val (first, st) = GuardPolicy.shadeDecision(10_000L, GuardPolicy.ShadeFights())
+        assertTrue(first)
+        val (again, after) = GuardPolicy.shadeDecision(10_000L + GuardPolicy.SHADE_DISMISS_DEBOUNCE_MS - 1, st)
+        assertFalse("one pull-down fires several events", again)
+        assertEquals("and must not count against the parent", 1, after.opens)
+    }
 }

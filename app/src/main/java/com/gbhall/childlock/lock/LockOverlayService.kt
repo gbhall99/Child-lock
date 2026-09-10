@@ -252,7 +252,19 @@ class LockOverlayService : Service() {
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        val unlock = PendingIntent.getService(
+            this, 1,
+            Intent(this, LockOverlayService::class.java).setAction(ACTION_UNLOCK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         return Notification.Builder(this, ChildLockApp.CHANNEL_LOCK)
+            .addAction(
+                Notification.Action.Builder(
+                    android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_lock_open),
+                    getString(R.string.notif_unlock_action),
+                    unlock,
+                ).build(),
+            )
             .setSmallIcon(R.drawable.ic_lock)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)

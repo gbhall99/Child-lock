@@ -257,4 +257,23 @@ class LockOverlayServiceTest {
         val text = n.extras.getCharSequence(android.app.Notification.EXTRA_TEXT).toString()
         assertTrue(text, text.contains("volume", ignoreCase = true))
     }
+
+    @Test
+    fun `the locked notification carries an unlock button that works`() {
+        start(lockIntent())
+        idle()
+        val nm = TestSupport.app.getSystemService(NotificationManager::class.java)
+        val n = shadowOf(nm).allNotifications.single()
+        val action = n.actions?.singleOrNull()
+        assertNotNull("a parent whose gesture is not recognised needs a way out", action)
+        val shadowPi = shadowOf(action!!.actionIntent)
+        assertTrue("it must reach the service directly", shadowPi.isServiceIntent)
+        assertEquals(LockOverlayService.ACTION_UNLOCK, shadowPi.savedIntent.action)
+
+        // And firing it really does unlock, not just look like a button.
+        assertTrue(LockController.isLocked)
+        controller!!.withIntent(shadowPi.savedIntent).startCommand(0, 2)
+        idle()
+        assertEquals(LockState.Unlocked, LockController.state)
+    }
 }

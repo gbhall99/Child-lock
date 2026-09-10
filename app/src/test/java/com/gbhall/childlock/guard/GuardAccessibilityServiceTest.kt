@@ -233,6 +233,9 @@ class GuardAccessibilityServiceTest {
     @Test
     fun `gesture blocking flags are requested only while locked with a volume gesture`() {
         val block = com.gbhall.childlock.guard.GuardPolicy.FLAG_TOUCH_EXPLORATION or com.gbhall.childlock.guard.GuardPolicy.FLAG_MULTI_FINGER
+        // Off by default now, so a parent has to have opted in for any of this to apply.
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = true) }
+        TestSupport.idle()
         assertEquals(0, service.requestedFlags and block)
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
@@ -389,6 +392,8 @@ class GuardAccessibilityServiceTest {
     @Test
     fun `touch-exploration flags are cleared when the helper is unbound`() {
         val block = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = true) }
+        TestSupport.idle()
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
         assertEquals(block, service.requestedFlags and block)
@@ -429,5 +434,47 @@ class GuardAccessibilityServiceTest {
             "com.other/.Svc:$flat",
         )
         assertTrue(GuardAccessibilityService.isEnabled(TestSupport.app))
+    }
+
+    @Test
+    fun `key filtering stays requested through a whole lock and unlock`() {
+        val filter = GuardPolicy.FLAG_REQUEST_FILTER_KEY_EVENTS
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = true) }
+        TestSupport.idle()
+        assertEquals(filter, service.requestedFlags and filter)
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertEquals(filter, service.requestedFlags and filter)
+        // Asking for touch exploration turns it on device-wide, exactly as the real
+        // system does. We must not then read that back as somebody else's screen
+        // reader and stand our own request down, flag on, flag off, for the whole lock.
+        val block = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
+        val held = service.requestedFlags
+        assertEquals(block, held and block)
+        val am = TestSupport.app.getSystemService(android.view.accessibility.AccessibilityManager::class.java)
+        shadowOf(am).setTouchExplorationEnabled(true)
+        assertFalse("our own touch exploration is not another tool's", service.otherScreenReaderActive())
+        repeat(3) {
+            service.onAccessibilityEvent(windowEvent("com.example.call"))
+            TestSupport.idle()
+            assertEquals("the flags must not flip-flop while locked", held, service.requestedFlags)
+        }
+        LockController.unlock()
+        TestSupport.idle()
+        assertEquals(filter, service.requestedFlags and filter)
+        assertEquals("and it is handed back on unlock", 0, service.requestedFlags and block)
+    }
+
+    @Test
+    fun `a real screen reader keeps explore-by-touch to itself`() {
+        val am = TestSupport.app.getSystemService(android.view.accessibility.AccessibilityManager::class.java)
+        shadowOf(am).setTouchExplorationEnabled(true) // TalkBack, before we ask for anything
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = true) }
+        TestSupport.idle()
+        assertTrue(service.otherScreenReaderActive())
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        val block = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
+        assertEquals("competing with TalkBack breaks both", 0, service.requestedFlags and block)
     }
 }
