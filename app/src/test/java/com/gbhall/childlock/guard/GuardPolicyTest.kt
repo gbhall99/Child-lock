@@ -75,6 +75,29 @@ class GuardPolicyTest {
         assertEquals(0, GuardPolicy.gestureBlockFlags(true, true, true, 29))
     }
 
+    private fun auto(fg: String, locked: Boolean = false, arming: Boolean = false, armed: String? = null, suppressed: String? = null) =
+        GuardPolicy.autoLockDecision(fg, setOf("com.video", "com.game"), locked, arming, armed, suppressed)
+
+    @Test
+    fun `auto-lock arms for chosen apps only, while unlocked`() {
+        assertEquals(GuardPolicy.AutoLockDecision.Arm, auto("com.video"))
+        assertEquals(GuardPolicy.AutoLockDecision.None, auto("com.other"))
+        assertEquals(GuardPolicy.AutoLockDecision.None, auto("com.video", locked = true))
+    }
+
+    @Test
+    fun `auto-lock does not re-arm for the app just unlocked from`() {
+        assertEquals(GuardPolicy.AutoLockDecision.None, auto("com.video", suppressed = "com.video"))
+        assertEquals(GuardPolicy.AutoLockDecision.Arm, auto("com.game", suppressed = "com.video"))
+    }
+
+    @Test
+    fun `leaving the app during the countdown cancels it, other arming is left alone`() {
+        assertEquals(GuardPolicy.AutoLockDecision.CancelArm, auto("com.launcher", arming = true, armed = "com.video"))
+        assertEquals(GuardPolicy.AutoLockDecision.None, auto("com.video", arming = true, armed = "com.video"))
+        assertEquals("tile-armed countdown is not ours to cancel", GuardPolicy.AutoLockDecision.None, auto("com.launcher", arming = true, armed = null))
+    }
+
     @Test
     fun `key consumption follows settings and chord state`() {
         assertTrue(GuardPolicy.consumeKey(HardwareKey.BACK, blockKeys = true, chordActive = false))

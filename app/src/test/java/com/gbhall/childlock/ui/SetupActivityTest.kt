@@ -88,6 +88,27 @@ class SetupActivityTest {
     }
 
     @Test
+    fun `app picker lists launchable apps and toggles selection`() {
+        val pm = shadowOf(TestSupport.app.packageManager)
+        val call = android.content.ComponentName("com.example.call", "com.example.call.Main")
+        pm.addActivityIfNotPresent(call)
+        pm.addIntentFilterForActivity(call, android.content.IntentFilter(android.content.Intent.ACTION_MAIN).apply { addCategory(android.content.Intent.CATEGORY_LAUNCHER) })
+        val a = Robolectric.buildActivity(AppPickerActivity::class.java).setup().get()
+        fun findList(v: View): android.widget.ListView? {
+            if (v is android.widget.ListView) return v
+            if (v is ViewGroup) for (i in 0 until v.childCount) findList(v.getChildAt(i))?.let { return it }
+            return null
+        }
+        val list = findList(a.window.decorView)!!
+        assertTrue(list.adapter.count >= 1)
+        val row = list.adapter.getView(0, null, list)
+        list.performItemClick(row, 0, 0)
+        assertTrue(SettingsRepository.get(TestSupport.app).load().autoLockApps.isNotEmpty())
+        list.performItemClick(row, 0, 0)
+        assertTrue(SettingsRepository.get(TestSupport.app).load().autoLockApps.isEmpty())
+    }
+
+    @Test
     fun `floating accessibility button is detected`() {
         val ctx = TestSupport.app
         val flat = android.content.ComponentName(ctx, com.gbhall.childlock.guard.GuardAccessibilityService::class.java).flattenToString()

@@ -1,7 +1,7 @@
 # Child Lock
 
-Hand your phone to your child mid video call. They can watch and listen, but
-every touch is swallowed. The screen is never covered or dimmed; the only sign
+Hand your phone to your child with a video, a video call or a game on
+screen. They can watch and listen, but every touch is swallowed. The screen is never covered or dimmed; the only sign
 is a small padlock badge in one corner. You unlock with a quick gesture that an
 adult does without thinking and a toddler will not stumble into.
 
@@ -68,7 +68,7 @@ Open Child Lock and work down the Permissions card:
 2. **Notifications** (recommended). A quiet notification shows the lock state.
 3. **Accessibility guard** (optional, strongly recommended). Blocks the back
    and volume buttons, closes the notification shade if it is pulled down, and
-   brings the call app straight back if the child reaches the home screen.
+   brings the app you handed over straight back if the child reaches the home screen.
    Same restricted-settings dance as above if the switch is greyed out.
 
 Then add the **Child Lock** tile to Quick Settings: pull the shade down twice,
@@ -76,8 +76,8 @@ tap the pencil, and drag the tile into the active area.
 
 ## Using it
 
-**Default: the volume-button pattern.** While on the call, press volume up
-then volume down, quickly (within about a second). A message says "Child Lock
+**Default: the volume-button pattern.** With whatever you are handing over on
+screen, press volume up then volume down, quickly (within about a second). A message says "Child Lock
 on" and touch is frozen. Press the same pattern again to unlock. No screen
 touching, no shade, no app switching. It needs the accessibility guard, which
 the setup script enables. In the app you can flip the order to down-then-up,
@@ -86,8 +86,15 @@ rocker.
 
 **Other ways to lock:** pull down Quick Settings and tap *Child Lock* (locks
 about two seconds later, so you can close the shade), or open the app and tap
-*Arm lock from here*, which returns you to the previous app and locks after
-the arm delay (5 s by default).
+the lock button, which returns you to the previous app and locks after the
+arm delay (5 s by default).
+
+**Auto-lock.** Choose apps in the app (a video app, a game, a video-call
+app) and Child Lock arms itself whenever one of them comes to the front. A
+countdown (15 s by default) gives you time to start the video or call;
+switching away or pressing the volume pattern cancels it. After you unlock,
+it will not re-arm for that app until you have left it and come back. Needs
+the accessibility guard.
 
 **Other ways to unlock,** selectable in the app:
 
@@ -119,8 +126,8 @@ lock's notification is silent and shows no status-bar icon.
 | Taps, swipes, pinches anywhere on screen | Nothing happens |
 | Presses back or volume | Swallowed (with the accessibility guard) |
 | Pulls down the notification shade | Closed immediately (with the guard) |
-| Swipes home, back or recents | Blocked outright (with the guard and a volume gesture); otherwise the call app is brought straight back |
-| Presses the power button | Screen turns off; the call continues. The lock is still there after you unlock the phone |
+| Swipes home, back or recents | Blocked outright (with the guard and a volume gesture); otherwise the app you handed over is brought straight back |
+| Presses the power button | Screen turns off; whatever was playing continues. The lock is still there after you unlock the phone |
 | Receives a real phone call | The system in-call screen appears on top; the lock does not interfere |
 
 Without the accessibility guard, only the first row is enforced. Swipe

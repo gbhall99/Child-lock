@@ -69,6 +69,9 @@ class MainActivity : Activity() {
     private lateinit var pinSection: View
     private lateinit var pinChip: LinearLayout
 
+    // Auto-lock
+    private lateinit var autoLockApps: TextView
+
     private val stateListener: (LockState) -> Unit = { renderStatus(it) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,6 +89,7 @@ class MainActivity : Activity() {
         }
         refreshPermissions()
         renderStatus(LockController.state)
+        renderAutoLock(repo.load())
     }
 
     override fun onDestroy() {
@@ -108,6 +112,7 @@ class MainActivity : Activity() {
             addView(heroCard(s))
             addView(setupCard())
             addView(gestureCard(s))
+            addView(autoLockCard(s))
             addView(advancedCard(s))
             addView(body(getString(R.string.safety_note), secondary = true, size = 13f).apply {
                 setPadding(dp(6), dp(4), dp(6), 0)
@@ -299,6 +304,30 @@ class MainActivity : Activity() {
             addView(row(getString(R.string.pin_title), getString(R.string.pin_desc), actionButton(getString(R.string.pin_set)) { showPinDialog() }, pinChip))
         }
         addView(pinSection)
+    }
+
+    private fun autoLockCard(s: LockSettings) = card(getString(R.string.section_autolock), R.drawable.ic_layers) {
+        addView(body(getString(R.string.autolock_desc), secondary = true, size = 14f))
+        autoLockApps = body("", size = 15f).apply { setPadding(0, dp(10), 0, dp(4)) }
+        addView(autoLockApps)
+        addView(actionButton(getString(R.string.autolock_choose)) {
+            startActivity(Intent(this@MainActivity, AppPickerActivity::class.java))
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+        addView(
+            seekRow(
+                getString(R.string.autolock_delay), LockSettings.MIN_AUTO_LOCK_DELAY_SEC, LockSettings.MAX_AUTO_LOCK_DELAY_SEC, s.autoLockDelaySec,
+                format = { "$it s" },
+            ) { sec -> repo.update { it.copy(autoLockDelaySec = sec) } },
+        )
+        addView(body(getString(R.string.autolock_note), secondary = true, size = 13f))
+    }
+
+    private fun renderAutoLock(s: LockSettings) {
+        val pm = packageManager
+        val names = s.autoLockApps.mapNotNull { pkg ->
+            try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch (e: Exception) { null }
+        }.sorted()
+        autoLockApps.text = if (names.isEmpty()) getString(R.string.autolock_none) else names.joinToString(", ")
     }
 
     private fun advancedCard(s: LockSettings): LinearLayout {

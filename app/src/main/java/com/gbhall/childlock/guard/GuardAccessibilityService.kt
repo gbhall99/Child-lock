@@ -54,7 +54,21 @@ class GuardAccessibilityService : AccessibilityService() {
     var requestedFlags: Int = 0
         private set
 
-    private val stateListener: (LockState) -> Unit = { rebuildKeyGesture() }
+    /** Auto-lock bookkeeping: the app we armed for, and the app not to re-arm for until it leaves. */
+    private var autoArmedPackage: String? = null
+    private var suppressedPackage: String? = null
+    private var lastState: LockState = LockState.Unlocked
+
+    private val stateListener: (LockState) -> Unit = { state ->
+        val previous = lastState
+        lastState = state
+        if (state is LockState.Unlocked) {
+            // Do not re-arm for the app the parent just unlocked from until it has left the front.
+            if (previous is LockState.Locked) suppressedPackage = previous.protectedPackage
+            autoArmedPackage = null
+        }
+        rebuildKeyGesture()
+    }
     private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> rebuildKeyGesture() }
 
     private val tick = object : Runnable {
@@ -137,7 +151,7 @@ class GuardAccessibilityService : AccessibilityService() {
     private fun toggleLock(stateAtPress: LockState) {
         when (stateAtPress) {
             is LockState.Locked -> LockController.unlock()
-            is LockState.Arming -> Unit
+            is LockState.Arming -> LockController.unlock() // the pattern during a countdown cancels it
             LockState.Unlocked -> {
                 if (!Settings.canDrawOverlays(this)) {
                     Toast.makeText(this, R.string.toast_no_overlay_permission, Toast.LENGTH_SHORT).show()
@@ -151,7 +165,12 @@ class GuardAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val pkg = event.packageName?.toString()
-            if (pkg != null && pkg != packageName && isLaunchable(pkg)) ForegroundTracker.lastApp = pkg
+            if (pkg != null && !isIgnoredForeground(pkg)) {
+                if (isLaunchable(pkg)) ForegroundTracker.lastApp = pkg
+                // Home screens often have no launcher activity, yet going home must
+                // still cancel a countdown and clear re-arm suppression.
+                onForegroundApp(pkg)
+            }
         }
         val locked = LockController.state as? LockState.Locked ?: return
         if (settings.blockShade && isShadeOpen()) {
@@ -170,6 +189,33 @@ class GuardAccessibilityService : AccessibilityService() {
      * leaves the input dispatcher believing the key is still held, and it keeps
      * synthesising repeats straight to the app, which is how the volume drained.
      */
+    private fun onForegroundApp(pkg: String) {
+        val state = LockController.state
+        val decision = GuardPolicy.autoLockDecision(
+            foreground = pkg,
+            autoLockApps = settings.autoLockApps,
+            locked = state is LockState.Locked,
+            arming = state is LockState.Arming,
+            armedPackage = autoArmedPackage,
+            suppressedPackage = suppressedPackage,
+        )
+        if (pkg != suppressedPackage) suppressedPackage = null
+        when (decision) {
+            GuardPolicy.AutoLockDecision.Arm -> {
+                if (Settings.canDrawOverlays(this) &&
+                    LockController.requestLock(this, pkg, settings.autoLockDelaySec * 1000L)
+                ) {
+                    autoArmedPackage = pkg
+                }
+            }
+            GuardPolicy.AutoLockDecision.CancelArm -> {
+                autoArmedPackage = null
+                LockController.unlock()
+            }
+            GuardPolicy.AutoLockDecision.None -> Unit
+        }
+    }
+
     public override fun onKeyEvent(event: KeyEvent): Boolean {
         val key = when (event.keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP -> HardwareKey.VOLUME_UP
@@ -198,6 +244,19 @@ class GuardAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() = Unit
+
+    private val imePackages: Set<String> by lazy {
+        try {
+            getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                ?.enabledInputMethodList?.map { it.packageName }?.toSet() ?: emptySet()
+        } catch (e: Exception) {
+            emptySet()
+        }
+    }
+
+    /** Windows that come and go without meaning the user moved to another app. */
+    private fun isIgnoredForeground(pkg: String): Boolean =
+        pkg == packageName || pkg == GuardPolicy.SYSTEM_UI || pkg in imePackages
 
     private fun isLaunchable(pkg: String): Boolean = launchable.getOrPut(pkg) {
         packageManager.getLaunchIntentForPackage(pkg) != null

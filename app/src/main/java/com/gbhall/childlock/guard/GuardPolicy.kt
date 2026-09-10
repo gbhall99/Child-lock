@@ -65,6 +65,32 @@ object GuardPolicy {
     /** AccessibilityServiceInfo.FLAG_REQUEST_MULTI_FINGER_GESTURES. */
     const val FLAG_MULTI_FINGER = 0x00001000
 
+    sealed interface AutoLockDecision {
+        data object Arm : AutoLockDecision
+        data object CancelArm : AutoLockDecision
+        data object None : AutoLockDecision
+    }
+
+    /**
+     * What to do when [foreground] comes to the front. Arms when a chosen app
+     * appears while unlocked, unless it is the app the parent just unlocked
+     * from ([suppressedPackage], cleared once another app has been in front).
+     * Cancels a pending auto-arm if the parent leaves the app before it fires.
+     */
+    fun autoLockDecision(
+        foreground: String,
+        autoLockApps: Set<String>,
+        locked: Boolean,
+        arming: Boolean,
+        armedPackage: String?,
+        suppressedPackage: String?,
+    ): AutoLockDecision = when {
+        locked -> AutoLockDecision.None
+        arming -> if (armedPackage != null && foreground != armedPackage) AutoLockDecision.CancelArm else AutoLockDecision.None
+        foreground in autoLockApps && foreground != suppressedPackage -> AutoLockDecision.Arm
+        else -> AutoLockDecision.None
+    }
+
     /** Whether the guard should swallow a hardware key while locked. */
     fun consumeKey(key: com.gbhall.childlock.gesture.HardwareKey, blockKeys: Boolean, chordActive: Boolean): Boolean =
         when (key) {

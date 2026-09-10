@@ -88,7 +88,7 @@ class LockOverlayService : Service() {
         LockController.set(LockState.Arming(lockAt, protectedPackage))
         if (delayMs > 0) {
             val seconds = ((delayMs + 999) / 1000).toInt()
-            toast(getString(R.string.toast_locking_in, seconds))
+            banner.show(getString(R.string.banner_arming, seconds), on = true)
             updateNotification(getString(R.string.notif_locking_in, seconds))
             val r = Runnable { attach(protectedPackage) }
             pendingAttach = r

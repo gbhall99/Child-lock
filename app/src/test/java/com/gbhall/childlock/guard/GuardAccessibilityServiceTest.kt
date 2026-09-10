@@ -255,6 +255,62 @@ class GuardAccessibilityServiceTest {
     }
 
     @Test
+    fun `chosen app coming to the front arms the lock with the auto-lock delay`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockApps = setOf("com.example.call"), autoLockDelaySec = 7) }
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        val intent = org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService
+        org.junit.Assert.assertNotNull(intent)
+        assertEquals(7000L, intent.getLongExtra(com.gbhall.childlock.lock.LockOverlayService.EXTRA_DELAY_MS, -1))
+        assertEquals("com.example.call", intent.getStringExtra(com.gbhall.childlock.lock.LockOverlayService.EXTRA_PACKAGE))
+    }
+
+    @Test
+    fun `other apps and unlocking then returning do not arm`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockApps = setOf("com.example.call")) }
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.android.launcher"))
+        assertEquals(null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+
+        // Parent unlocks while the chosen app is in front: staying there must not re-arm.
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        LockController.unlock()
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        assertEquals(null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        // After another app has been in front, the chosen app arms again.
+        service.onAccessibilityEvent(windowEvent("com.android.launcher"))
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        org.junit.Assert.assertNotNull(org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+    }
+
+    @Test
+    fun `switching away during the auto-lock countdown cancels it`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockApps = setOf("com.example.call")) }
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        LockController.set(LockState.Arming(9999, "com.example.call"))
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.android.launcher"))
+        TestSupport.idle()
+        assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    @Test
+    fun `volume pattern during a countdown cancels it`() {
+        LockController.set(LockState.Arming(9999, "com.example.call"))
+        TestSupport.idle()
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 1000)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1300)
+        TestSupport.idle()
+        assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    @Test
     fun `window events while locked do not crash without window access`() {
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()

@@ -38,6 +38,11 @@
             android:exported="false"
             android:label="@string/setup_title" />
 
+        <activity
+            android:name=".ui.AppPickerActivity"
+            android:exported="false"
+            android:label="@string/picker_title" />
+
         <service
             android:name=".lock.LockOverlayService"
             android:exported="false"

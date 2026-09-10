@@ -35,6 +35,9 @@ data class LockSettings(
     val relaunchApp: Boolean = true,
     /** Stop home/back swipes outright while locked (needs the guard and a volume gesture). */
     val blockGestures: Boolean = true,
+    /** Packages that arm the lock automatically when they come to the front (needs the guard). */
+    val autoLockApps: Set<String> = emptySet(),
+    val autoLockDelaySec: Int = 15,
 ) {
     val hasPin: Boolean get() = !pinHash.isNullOrEmpty() && pinLength >= MIN_PIN_LENGTH
 
@@ -45,6 +48,8 @@ data class LockSettings(
         const val MAX_HOLD_MS = 3000L
         const val MIN_ARM_DELAY_SEC = 2
         const val MAX_ARM_DELAY_SEC = 10
+        const val MIN_AUTO_LOCK_DELAY_SEC = 3
+        const val MAX_AUTO_LOCK_DELAY_SEC = 60
     }
 }
 
@@ -71,6 +76,8 @@ class SettingsRepository private constructor(context: Context) {
         blockShade = prefs.getBoolean(KEY_BLOCK_SHADE, true),
         relaunchApp = prefs.getBoolean(KEY_RELAUNCH, true),
         blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, true),
+        autoLockApps = prefs.getStringSet(KEY_AUTO_LOCK_APPS, emptySet())?.toSet() ?: emptySet(),
+        autoLockDelaySec = prefs.getInt(KEY_AUTO_LOCK_DELAY, 15).coerceIn(LockSettings.MIN_AUTO_LOCK_DELAY_SEC, LockSettings.MAX_AUTO_LOCK_DELAY_SEC),
     )
 
     fun save(s: LockSettings) {
@@ -89,6 +96,8 @@ class SettingsRepository private constructor(context: Context) {
             .putBoolean(KEY_BLOCK_SHADE, s.blockShade)
             .putBoolean(KEY_RELAUNCH, s.relaunchApp)
             .putBoolean(KEY_BLOCK_GESTURES, s.blockGestures)
+            .putStringSet(KEY_AUTO_LOCK_APPS, s.autoLockApps)
+            .putInt(KEY_AUTO_LOCK_DELAY, s.autoLockDelaySec)
             .apply()
     }
 
@@ -134,6 +143,8 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_BLOCK_SHADE = "block_shade"
         private const val KEY_RELAUNCH = "relaunch_app"
         private const val KEY_BLOCK_GESTURES = "block_gestures"
+        private const val KEY_AUTO_LOCK_APPS = "auto_lock_apps"
+        private const val KEY_AUTO_LOCK_DELAY = "auto_lock_delay_sec"
         private const val KEY_TILE_ADDED = "tile_added"
         private const val KEY_SETUP_DISMISSED = "setup_dismissed"
         private const val KEY_OVERLAY_ATTEMPTED = "overlay_attempted"
