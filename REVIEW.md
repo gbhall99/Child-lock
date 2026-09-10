@@ -37,6 +37,18 @@ in.
 is exactly when a parent does not yet know how to escape it, so a practice
 lock now always releases itself after a minute regardless of anything else.
 
+**A0.4. Auto-lock re-locked YouTube seconds after every unlock. Fixed.**
+Tapping the screen in YouTube shows the player controls, which brings the
+status bar back, which read as "left full screen"; the controls then fade,
+which read as "entered full screen" and re-locked. Three seconds out, two
+seconds in, so the phone re-locked about five seconds after every unlock,
+indistinguishable from a lock that cannot be switched off. Three changes:
+the moment must now be over for twelve seconds before it counts as over, a
+deliberate unlock buys twenty seconds during which nothing re-locks at all,
+and after three unlocks in the same app without leaving it, auto-lock gives
+up on that app until the parent goes elsewhere and comes back. Reproduced
+with a test that models the real control-bar timing.
+
 **A0.3. The advertised backup unlock did not exist in the default setup.
 Fixed.** The app said "holding two corners always works as a backup", but
 blocking swipes uses the same mode a screen reader uses, and in that mode the
