@@ -66,6 +66,8 @@ class GuardAccessibilityService : AccessibilityService() {
             // Do not re-arm for the app the parent just unlocked from until it has left the front.
             if (previous is LockState.Locked) suppressedPackage = previous.protectedPackage
             autoArmedPackage = null
+        } else {
+            stopWatching()
         }
         rebuildKeyGesture()
     }
@@ -93,6 +95,7 @@ class GuardAccessibilityService : AccessibilityService() {
         SettingsRepository.get(this).removeChangeListener(settingsListener)
         keyGesture = null
         handler.removeCallbacks(tick)
+        stopWatching()
         return super.onUnbind(intent)
     }
 
@@ -189,6 +192,23 @@ class GuardAccessibilityService : AccessibilityService() {
      * leaves the input dispatcher believing the key is still held, and it keeps
      * synthesising repeats straight to the app, which is how the volume drained.
      */
+    /** The chosen app currently in front whose trigger has not fired yet, if any. */
+    private var watchedPackage: String? = null
+
+    private val watchTick = object : Runnable {
+        override fun run() {
+            val pkg = watchedPackage ?: return
+            if (LockController.state !is LockState.Unlocked) return
+            val trigger = settings.autoLockRules[pkg] ?: return
+            if (GuardPolicy.triggerSatisfied(trigger, audioMode(), mediaPlaying(), statusBarVisible())) {
+                watchedPackage = null
+                arm(pkg)
+            } else {
+                handler.postDelayed(this, WATCH_MS)
+            }
+        }
+    }
+
     private fun onForegroundApp(pkg: String) {
         val state = LockController.state
         val decision = GuardPolicy.autoLockDecision(
@@ -200,12 +220,16 @@ class GuardAccessibilityService : AccessibilityService() {
             suppressedPackage = suppressedPackage,
         )
         if (pkg != suppressedPackage) suppressedPackage = null
+        if (pkg != watchedPackage) stopWatching()
         when (decision) {
             GuardPolicy.AutoLockDecision.Arm -> {
-                if (Settings.canDrawOverlays(this) &&
-                    LockController.requestLock(this, pkg, settings.autoLockDelaySec * 1000L)
-                ) {
-                    autoArmedPackage = pkg
+                val trigger = settings.autoLockRules[pkg] ?: com.gbhall.childlock.settings.AutoLockTrigger.OPEN
+                if (GuardPolicy.triggerSatisfied(trigger, audioMode(), mediaPlaying(), statusBarVisible())) {
+                    arm(pkg)
+                } else if (watchedPackage != pkg) {
+                    // Wait for the call to connect or the video to go full screen.
+                    watchedPackage = pkg
+                    handler.postDelayed(watchTick, WATCH_MS)
                 }
             }
             GuardPolicy.AutoLockDecision.CancelArm -> {
@@ -213,6 +237,36 @@ class GuardAccessibilityService : AccessibilityService() {
                 LockController.unlock()
             }
             GuardPolicy.AutoLockDecision.None -> Unit
+        }
+    }
+
+    private fun arm(pkg: String) {
+        if (Settings.canDrawOverlays(this) && LockController.requestLock(this, pkg, settings.autoLockDelaySec * 1000L)) {
+            autoArmedPackage = pkg
+        }
+    }
+
+    private fun stopWatching() {
+        watchedPackage = null
+        handler.removeCallbacks(watchTick)
+    }
+
+    private fun audioMode(): Int =
+        try { getSystemService(android.media.AudioManager::class.java)?.mode ?: 0 } catch (e: Exception) { 0 }
+
+    private fun mediaPlaying(): Boolean =
+        try { getSystemService(android.media.AudioManager::class.java)?.isMusicActive == true } catch (e: Exception) { false }
+
+    private fun statusBarVisible(): Boolean {
+        val screenHeight = resources.displayMetrics.heightPixels
+        val bounds = android.graphics.Rect()
+        return try {
+            windows.any { w ->
+                w.getBoundsInScreen(bounds)
+                GuardPolicy.isStatusBarWindow(w.type == AccessibilityWindowInfo.TYPE_SYSTEM, bounds.top, bounds.height(), screenHeight)
+            }
+        } catch (e: Exception) {
+            true
         }
     }
 
@@ -316,6 +370,7 @@ class GuardAccessibilityService : AccessibilityService() {
     companion object {
         private const val TAG = "GuardService"
         private const val TICK_MS = 33L
+        private const val WATCH_MS = 1000L
         private const val BASE_FLAGS =
             AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS or
                 AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS

@@ -257,7 +257,7 @@ class GuardAccessibilityServiceTest {
     @Test
     fun `chosen app coming to the front arms the lock with the auto-lock delay`() {
         org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
-        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockApps = setOf("com.example.call"), autoLockDelaySec = 7) }
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.OPEN), autoLockDelaySec = 7) }
         TestSupport.idle()
         service.onAccessibilityEvent(windowEvent("com.example.call"))
         val intent = org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService
@@ -269,7 +269,7 @@ class GuardAccessibilityServiceTest {
     @Test
     fun `other apps and unlocking then returning do not arm`() {
         org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
-        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockApps = setOf("com.example.call")) }
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.OPEN)) }
         TestSupport.idle()
         service.onAccessibilityEvent(windowEvent("com.android.launcher"))
         assertEquals(null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
@@ -288,9 +288,38 @@ class GuardAccessibilityServiceTest {
     }
 
     @Test
+    fun `call trigger waits for call mode, then arms`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.CALL)) }
+        TestSupport.idle()
+        val audio = TestSupport.app.getSystemService(android.media.AudioManager::class.java)
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle(3000)
+        assertEquals("not in a call yet", null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        audio.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+        TestSupport.idle(1500)
+        org.junit.Assert.assertNotNull("call connected: arm", org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        audio.mode = android.media.AudioManager.MODE_NORMAL
+    }
+
+    @Test
+    fun `leaving the app stops waiting for its trigger`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.CALL)) }
+        TestSupport.idle()
+        val audio = TestSupport.app.getSystemService(android.media.AudioManager::class.java)
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        service.onAccessibilityEvent(windowEvent("com.android.launcher"))
+        audio.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+        TestSupport.idle(3000)
+        assertEquals(null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        audio.mode = android.media.AudioManager.MODE_NORMAL
+    }
+
+    @Test
     fun `switching away during the auto-lock countdown cancels it`() {
         org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
-        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockApps = setOf("com.example.call")) }
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.OPEN)) }
         TestSupport.idle()
         service.onAccessibilityEvent(windowEvent("com.example.call"))
         LockController.set(LockState.Arming(9999, "com.example.call"))

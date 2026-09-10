@@ -71,7 +71,7 @@ Open Child Lock and work down the Permissions card:
    the first denied attempt.) Installing with `adb install` avoids this.
 2. **Notifications** (recommended). A quiet notification shows the lock state.
 3. **Accessibility guard** (optional, strongly recommended). Blocks the back
-   and volume buttons, closes the notification shade if it is pulled down, and
+   and volume buttons, closes the notifications panel if it is dragged down, and
    brings the app you handed over straight back if the child reaches the home screen.
    Same restricted-settings dance as above if the switch is greyed out.
 
@@ -93,9 +93,12 @@ about two seconds later, so you can close the shade), or open the app and tap
 the lock button, which returns you to the previous app and locks after the
 arm delay (5 s by default).
 
-**Auto-lock.** Choose apps in the app (a video app, a game, a video-call
-app) and Child Lock arms itself whenever one of them comes to the front. A
-countdown (15 s by default) gives you time to start the video or call;
+**Auto-lock.** Choose apps and the moment that should lock them: when a
+call connects (WhatsApp, Meet, Teams and the like), when a video goes full
+screen (YouTube, iPlayer, Netflix), when anything plays, or simply when the
+app opens. Well-known apps get the right default. Child Lock reads only
+Android's audio mode, whether media is playing, and whether the status bar
+is hidden; never screen content. A countdown (15 s by default) follows;
 switching away or pressing the volume pattern cancels it. After you unlock,
 it will not re-arm for that app until you have left it and come back. Needs
 the accessibility guard.
@@ -129,7 +132,7 @@ lock's notification is silent and shows no status-bar icon.
 |---|---|
 | Taps, swipes, pokes anywhere on screen | Nothing happens |
 | Presses back or volume | Swallowed (with the accessibility guard) |
-| Pulls down the notification shade | Closed immediately (with the guard) |
+| Drags down the notifications panel | Closed immediately (with the guard) |
 | Swipes home, back or recents | Blocked outright (with the guard and a volume gesture); otherwise the app you handed over is brought straight back |
 | Presses the power button | Screen turns off; whatever was playing continues. The lock is still there after you unlock the phone |
 | Receives a real phone call | The system in-call screen appears on top; the lock does not interfere |

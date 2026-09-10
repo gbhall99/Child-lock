@@ -70,7 +70,7 @@ class MainActivity : Activity() {
     private lateinit var pinChip: LinearLayout
 
     // Auto-lock
-    private lateinit var autoLockApps: TextView
+    private lateinit var autoLockList: LinearLayout
 
     private val stateListener: (LockState) -> Unit = { renderStatus(it) }
 
@@ -311,11 +311,11 @@ class MainActivity : Activity() {
 
     private fun autoLockCard(s: LockSettings) = card(getString(R.string.section_autolock), R.drawable.ic_layers) {
         addView(body(getString(R.string.autolock_desc), secondary = true, size = 14f))
-        autoLockApps = body("", size = 15f).apply { setPadding(0, dp(10), 0, dp(4)) }
-        addView(autoLockApps)
+        autoLockList = vertical { setPadding(0, dp(6), 0, 0) }
+        addView(autoLockList)
         addView(actionButton(getString(R.string.autolock_choose)) {
             startActivity(Intent(this@MainActivity, AppPickerActivity::class.java))
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
         addView(
             seekRow(
                 getString(R.string.autolock_delay), LockSettings.MIN_AUTO_LOCK_DELAY_SEC, LockSettings.MAX_AUTO_LOCK_DELAY_SEC, s.autoLockDelaySec,
@@ -325,12 +325,43 @@ class MainActivity : Activity() {
         addView(body(getString(R.string.autolock_note), secondary = true, size = 13f))
     }
 
+    private fun triggerLabel(t: com.gbhall.childlock.settings.AutoLockTrigger): String = getString(
+        when (t) {
+            com.gbhall.childlock.settings.AutoLockTrigger.OPEN -> R.string.trigger_open
+            com.gbhall.childlock.settings.AutoLockTrigger.CALL -> R.string.trigger_call
+            com.gbhall.childlock.settings.AutoLockTrigger.FULLSCREEN_PLAYBACK -> R.string.trigger_fullscreen
+            com.gbhall.childlock.settings.AutoLockTrigger.PLAYBACK -> R.string.trigger_playback
+        },
+    )
+
     private fun renderAutoLock(s: LockSettings) {
         val pm = packageManager
-        val names = s.autoLockApps.mapNotNull { pkg ->
-            try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch (e: Exception) { null }
-        }.sorted()
-        autoLockApps.text = if (names.isEmpty()) getString(R.string.autolock_none) else names.joinToString(", ")
+        autoLockList.removeAllViews()
+        if (s.autoLockRules.isEmpty()) {
+            autoLockList.addView(body(getString(R.string.autolock_none), secondary = true, size = 14f))
+            return
+        }
+        s.autoLockRules.entries
+            .map { (pkg, t) ->
+                val info = try { pm.getApplicationInfo(pkg, 0) } catch (e: Exception) { null }
+                Triple(info?.let { pm.getApplicationLabel(it).toString() } ?: pkg, info?.let { pm.getApplicationIcon(it) }, t)
+            }
+            .sortedBy { it.first.lowercase() }
+            .forEach { (label, icon, t) ->
+                autoLockList.addView(
+                    horizontal {
+                        setPadding(0, dp(6), 0, dp(6))
+                        addView(ImageView(context).apply { setImageDrawable(icon) }, LinearLayout.LayoutParams(dp(32), dp(32)).apply { marginEnd = dp(12) })
+                        addView(
+                            vertical {
+                                addView(body(label, size = 15f).apply { typeface = Typeface.DEFAULT_BOLD })
+                                addView(body(triggerLabel(t), secondary = true, size = 13f))
+                            },
+                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+                        )
+                    },
+                )
+            }
     }
 
     private fun advancedCard(s: LockSettings): LinearLayout {

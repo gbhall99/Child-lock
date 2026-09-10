@@ -6,6 +6,18 @@ import com.gbhall.childlock.gesture.Corner
 import com.gbhall.childlock.gesture.CornerPair
 import com.gbhall.childlock.gesture.VolumePattern
 
+/** What has to happen inside a chosen app before the lock arms itself. */
+enum class AutoLockTrigger {
+    /** As soon as the app is in front. */
+    OPEN,
+    /** When the app puts the phone into call mode (video or voice call connected). */
+    CALL,
+    /** When the app is playing sound or video with the status bar hidden. */
+    FULLSCREEN_PLAYBACK,
+    /** When the app is playing sound or video, full screen or not. */
+    PLAYBACK,
+}
+
 enum class GestureType {
     /** Volume press pattern; locks and unlocks. Needs the accessibility guard. */
     VOLUME_SEQUENCE,
@@ -35,10 +47,12 @@ data class LockSettings(
     val relaunchApp: Boolean = true,
     /** Stop home/back swipes outright while locked (needs the guard and a volume gesture). */
     val blockGestures: Boolean = true,
-    /** Packages that arm the lock automatically when they come to the front (needs the guard). */
-    val autoLockApps: Set<String> = emptySet(),
+    /** Packages that arm the lock automatically, each with the moment that arms it (needs the guard). */
+    val autoLockRules: Map<String, AutoLockTrigger> = emptyMap(),
     val autoLockDelaySec: Int = 15,
 ) {
+    val autoLockApps: Set<String> get() = autoLockRules.keys
+
     val hasPin: Boolean get() = !pinHash.isNullOrEmpty() && pinLength >= MIN_PIN_LENGTH
 
     companion object {
@@ -76,7 +90,12 @@ class SettingsRepository private constructor(context: Context) {
         blockShade = prefs.getBoolean(KEY_BLOCK_SHADE, true),
         relaunchApp = prefs.getBoolean(KEY_RELAUNCH, true),
         blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, true),
-        autoLockApps = prefs.getStringSet(KEY_AUTO_LOCK_APPS, emptySet())?.toSet() ?: emptySet(),
+        autoLockRules = (prefs.getStringSet(KEY_AUTO_LOCK_RULES, emptySet()) ?: emptySet()).mapNotNull { entry ->
+            val i = entry.lastIndexOf('=')
+            if (i <= 0) return@mapNotNull null
+            val trigger = AutoLockTrigger.entries.firstOrNull { it.name == entry.substring(i + 1) } ?: return@mapNotNull null
+            entry.substring(0, i) to trigger
+        }.toMap(),
         autoLockDelaySec = prefs.getInt(KEY_AUTO_LOCK_DELAY, 15).coerceIn(LockSettings.MIN_AUTO_LOCK_DELAY_SEC, LockSettings.MAX_AUTO_LOCK_DELAY_SEC),
     )
 
@@ -96,7 +115,7 @@ class SettingsRepository private constructor(context: Context) {
             .putBoolean(KEY_BLOCK_SHADE, s.blockShade)
             .putBoolean(KEY_RELAUNCH, s.relaunchApp)
             .putBoolean(KEY_BLOCK_GESTURES, s.blockGestures)
-            .putStringSet(KEY_AUTO_LOCK_APPS, s.autoLockApps)
+            .putStringSet(KEY_AUTO_LOCK_RULES, s.autoLockRules.map { (pkg, t) -> "$pkg=${t.name}" }.toSet())
             .putInt(KEY_AUTO_LOCK_DELAY, s.autoLockDelaySec)
             .apply()
     }
@@ -143,7 +162,7 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_BLOCK_SHADE = "block_shade"
         private const val KEY_RELAUNCH = "relaunch_app"
         private const val KEY_BLOCK_GESTURES = "block_gestures"
-        private const val KEY_AUTO_LOCK_APPS = "auto_lock_apps"
+        private const val KEY_AUTO_LOCK_RULES = "auto_lock_rules"
         private const val KEY_AUTO_LOCK_DELAY = "auto_lock_delay_sec"
         private const val KEY_TILE_ADDED = "tile_added"
         private const val KEY_SETUP_DISMISSED = "setup_dismissed"

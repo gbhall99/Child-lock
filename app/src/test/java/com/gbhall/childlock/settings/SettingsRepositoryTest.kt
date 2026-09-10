@@ -44,7 +44,7 @@ class SettingsRepositoryTest {
             badgeCorner = Corner.BOTTOM_RIGHT, pinHash = "abc", pinLength = 6, keepScreenOn = false,
             volumePattern = VolumePattern.DOWN_THEN_UP, volumeRepeats = 2,
             armDelaySec = 8, blockKeys = false, blockShade = false, relaunchApp = false, blockGestures = false,
-            autoLockApps = setOf("com.a", "com.b"), autoLockDelaySec = 30,
+            autoLockRules = mapOf("com.a" to AutoLockTrigger.CALL, "com.b" to AutoLockTrigger.FULLSCREEN_PLAYBACK), autoLockDelaySec = 30,
         )
         repo.save(wanted)
         assertEquals(wanted, repo.load())

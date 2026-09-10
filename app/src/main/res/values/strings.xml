@@ -35,7 +35,7 @@
     <string name="pin_wrong">Wrong PIN</string>
 
     <string name="accessibility_label">Child Lock guard</string>
-    <string name="accessibility_description">Hardening for Child Lock. While the touch lock is on it swallows the back and volume buttons, blocks swipes, closes the notification shade if it is pulled down, and returns to the app you handed over if the child leaves it. It also recognises the volume-button pattern that switches the lock on and off, and can lock automatically when apps you choose come to the front. It never reads or stores what is on screen.</string>
+    <string name="accessibility_description">Hardening for Child Lock. While the touch lock is on it swallows the back and volume buttons, blocks swipes, closes the notifications panel if it is dragged down, and returns to the app you handed over if the child leaves it. It also recognises the volume-button pattern that switches the lock on and off, and can lock automatically when a call connects or a video goes full screen in apps you choose. It never reads or stores what is on screen.</string>
     <string name="accessibility_summary">Volume-button lock toggle and hardening for Child Lock</string>
 
     <string name="section_setup">Set up</string>
@@ -47,16 +47,16 @@
     <string name="about_licence">Licence</string>
     <string name="toast_no_browser">No browser available to open the link</string>
     <string name="disclosure_title">Accessibility guard</string>
-    <string name="disclosure_body">Child Lock uses Android’s accessibility service to work as a parental touch lock, not as an accessibility aid.\n\nWhile the lock is on it will:\n• Notice volume-button presses, for the lock/unlock pattern\n• Block the back and volume buttons and home/back swipes\n• Close the notification shade if it is pulled down\n• Bring back the app you handed over if the child leaves it\n\nWhile the lock is off it only watches which app is in front, for auto-lock and to remember what to return to.\n\nIt never reads, stores or sends anything shown on screen. No data leaves your phone.\n\nOn the next screen, switch on “Child Lock guard”.</string>
+    <string name="disclosure_body">Child Lock uses Android’s accessibility service to work as a parental touch lock, not as an accessibility aid.\n\nWhile the lock is on it will:\n• Notice volume-button presses, for the lock/unlock pattern\n• Block the back and volume buttons and home/back swipes\n• Close the notifications panel if it is dragged down\n• Bring back the app you handed over if the child leaves it\n\nWhile the lock is off it only watches which app is in front, and whether a call or video is playing, for auto-lock.\n\nIt never reads, stores or sends anything shown on screen. No data leaves your phone.\n\nOn the next screen, switch on “Child Lock guard”.</string>
     <string name="disclosure_agree">Agree and continue</string>
     <string name="setup_title">Set up Child Lock</string>
     <string name="setup_progress">%1$d of %2$d done. Each step is one tap, then come back here.</string>
     <string name="setup_all_done">All set. Hand the phone over whenever you like.</string>
     <string name="setup_overlay_desc">Tap Open, flip the switch on, come back.</string>
     <string name="setup_guard_desc">Tap Open, choose Child Lock guard, switch it on and allow. Enables the volume gestures, auto-lock and swipe blocking.</string>
-    <string name="setup_notifications_desc">A silent entry in the shade while locked, no icon.</string>
+    <string name="setup_notifications_desc">A silent entry in the notifications panel while locked, no icon.</string>
     <string name="setup_tile">Quick Settings tile</string>
-    <string name="setup_tile_desc">A one-tap way to lock from the shade. Android will ask you to confirm.</string>
+    <string name="setup_tile_desc">A one-tap way to lock from the drag-down Quick Settings. Android will ask you to confirm.</string>
     <string name="setup_tile_manual">Pull down Quick Settings, tap the pencil, and drag Child Lock in.</string>
     <string name="setup_open">Open</string>
     <string name="setup_add">Add</string>
@@ -87,9 +87,9 @@
     <string name="perm_overlay">Display over other apps</string>
     <string name="perm_overlay_desc">Required. How touches are blocked without covering the screen.</string>
     <string name="perm_notifications">Notifications</string>
-    <string name="perm_notifications_desc">A silent entry in the shade while locked. No status-bar icon.</string>
+    <string name="perm_notifications_desc">A silent entry in the notifications panel while locked. No status-bar icon.</string>
     <string name="perm_accessibility">Accessibility guard</string>
-    <string name="perm_accessibility_desc">Needed for the volume gestures, auto-lock, and to block swipes, buttons and the notification shade while locked.</string>
+    <string name="perm_accessibility_desc">Needed for the volume gestures, auto-lock, and to block swipes, buttons and the drag-down notifications panel while locked.</string>
     <string name="restricted_desc">Seeing “App was denied access”? Try the switch once, then open App info, tap ⋮ top right, choose “Allow restricted settings”, and try again.</string>
     <string name="grant">Grant</string>
     <string name="allow">Allow</string>
@@ -138,8 +138,8 @@
     <string name="hardening_note">While locked, with the accessibility guard on</string>
     <string name="block_keys">Block back and volume buttons</string>
     <string name="block_keys_desc">Volume still works for the volume gestures.</string>
-    <string name="block_shade">Close the notification shade</string>
-    <string name="block_shade_desc">Closes it the moment it is pulled down.</string>
+    <string name="block_shade">Close the notifications panel</string>
+    <string name="block_shade_desc">If the child drags down from the top of the screen, the panel closes again straight away.</string>
     <string name="relaunch_app">Return to the app</string>
     <string name="relaunch_app_desc">If the child reaches the home screen, the app you handed over is brought straight back.</string>
 
@@ -152,15 +152,22 @@
     <string name="hint_corner_hold">Hold one finger in each chosen corner for the hold duration. A ring fills around the badge; a buzz confirms the unlock.</string>
     <string name="hint_badge_pin">Hold the badge for the hold duration until the keypad appears, then enter your PIN.</string>
     <string name="hint_volume_chord">Hold volume up and volume down together for the hold duration. The corner hold also works.</string>
-    <string name="safety_note">The lock is never saved. If anything goes wrong, restart the phone and it starts unlocked. The power button always works. The Quick Settings tile can lock but never unlock, so finding the shade does not help a child.</string>
+    <string name="safety_note">The lock is never saved. If anything goes wrong, restart the phone and it starts unlocked. The power button always works. The Quick Settings tile can lock but never unlock, so dragging down from the top does not help a child.</string>
 
     <string name="section_autolock">Auto-lock</string>
-    <string name="autolock_desc">Lock by itself when one of these apps comes to the front: a video app, a game, a video call. You get a countdown to get things ready; switching away or pressing the volume pattern cancels it. It will not re-arm right after you unlock until you leave the app and come back.</string>
+    <string name="autolock_desc">Lock by itself at the right moment: when a video call connects in WhatsApp, when YouTube, iPlayer or Netflix goes full screen, or simply when a game opens. A countdown gives you time to get things ready; switching away or pressing the volume pattern cancels it.</string>
     <string name="autolock_choose">Choose apps</string>
     <string name="autolock_none">No apps chosen yet.</string>
     <string name="autolock_delay">Lock after</string>
     <string name="autolock_note">Needs the accessibility guard.</string>
     <string name="picker_title">Auto-lock apps</string>
-    <string name="picker_desc">Tick the apps that should lock the screen by themselves.</string>
+    <string name="picker_desc">Tick an app, then choose the moment that locks it. Changes save as you go.</string>
     <string name="picker_search">Search apps</string>
+    <string name="picker_lock_when">Lock when</string>
+    <string name="trigger_open">It opens</string>
+    <string name="trigger_call">A call connects</string>
+    <string name="trigger_fullscreen">A video plays full screen</string>
+    <string name="trigger_playback">Anything plays, full screen or not</string>
+    <string name="done">Done</string>
+    <string name="back">Back</string>
 </resources>

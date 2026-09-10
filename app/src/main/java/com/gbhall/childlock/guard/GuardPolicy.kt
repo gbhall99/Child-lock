@@ -65,6 +65,39 @@ object GuardPolicy {
     /** AccessibilityServiceInfo.FLAG_REQUEST_MULTI_FINGER_GESTURES. */
     const val FLAG_MULTI_FINGER = 0x00001000
 
+    /** A sensible default trigger for well-known apps; anything else arms on open. */
+    fun smartTrigger(packageName: String): com.gbhall.childlock.settings.AutoLockTrigger {
+        val p = packageName.lowercase()
+        val call = listOf("whatsapp", "meet", "tachyon", "teams", "call", "voip", "zoom", "skype", "duo", "facetime", "signal", "telegram", "viber", "messenger", "orca", "dialer", "telecom", "facebook.talk", "discord", "webex")
+        val video = listOf("youtube", "netflix", "iplayer", "disney", "primevideo", "amazon.avod", "twitch", "plex", "vlc", "mxtech", "tv.", "player", "video", "itv", "channel4", "hulu", "hbo", "paramount", "peacock", "kids", "cbeebies", "pbs", "nick")
+        return when {
+            call.any { it in p } -> com.gbhall.childlock.settings.AutoLockTrigger.CALL
+            video.any { it in p } -> com.gbhall.childlock.settings.AutoLockTrigger.FULLSCREEN_PLAYBACK
+            else -> com.gbhall.childlock.settings.AutoLockTrigger.OPEN
+        }
+    }
+
+    /** AudioManager.MODE_IN_CALL and MODE_IN_COMMUNICATION. */
+    private const val MODE_IN_CALL = 2
+    private const val MODE_IN_COMMUNICATION = 3
+
+    /** Whether the moment a rule waits for has arrived, from signals the guard can read without screen content. */
+    fun triggerSatisfied(
+        trigger: com.gbhall.childlock.settings.AutoLockTrigger,
+        audioMode: Int,
+        mediaPlaying: Boolean,
+        statusBarVisible: Boolean,
+    ): Boolean = when (trigger) {
+        com.gbhall.childlock.settings.AutoLockTrigger.OPEN -> true
+        com.gbhall.childlock.settings.AutoLockTrigger.CALL -> audioMode == MODE_IN_CALL || audioMode == MODE_IN_COMMUNICATION
+        com.gbhall.childlock.settings.AutoLockTrigger.PLAYBACK -> mediaPlaying
+        com.gbhall.childlock.settings.AutoLockTrigger.FULLSCREEN_PLAYBACK -> mediaPlaying && !statusBarVisible
+    }
+
+    /** The status bar is a thin system window pinned to the top edge. */
+    fun isStatusBarWindow(isSystemType: Boolean, top: Int, height: Int, screenHeight: Int): Boolean =
+        isSystemType && top <= 0 && height > 0 && height < screenHeight * 0.12f
+
     sealed interface AutoLockDecision {
         data object Arm : AutoLockDecision
         data object CancelArm : AutoLockDecision

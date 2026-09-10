@@ -103,9 +103,10 @@ class SetupActivityTest {
         assertTrue(list.adapter.count >= 1)
         val row = list.adapter.getView(0, null, list)
         list.performItemClick(row, 0, 0)
-        assertTrue(SettingsRepository.get(TestSupport.app).load().autoLockApps.isNotEmpty())
+        val rules = SettingsRepository.get(TestSupport.app).load().autoLockRules
+        assertEquals(com.gbhall.childlock.settings.AutoLockTrigger.CALL, rules["com.example.call"])
         list.performItemClick(row, 0, 0)
-        assertTrue(SettingsRepository.get(TestSupport.app).load().autoLockApps.isEmpty())
+        assertTrue(SettingsRepository.get(TestSupport.app).load().autoLockRules.isEmpty())
     }
 
     @Test

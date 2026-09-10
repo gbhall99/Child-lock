@@ -1,6 +1,7 @@
 package com.gbhall.childlock.guard
 
 import com.gbhall.childlock.gesture.HardwareKey
+import com.gbhall.childlock.settings.AutoLockTrigger as T
 import com.gbhall.childlock.guard.GuardPolicy.RelaunchDecision
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -96,6 +97,36 @@ class GuardPolicyTest {
         assertEquals(GuardPolicy.AutoLockDecision.CancelArm, auto("com.launcher", arming = true, armed = "com.video"))
         assertEquals(GuardPolicy.AutoLockDecision.None, auto("com.video", arming = true, armed = "com.video"))
         assertEquals("tile-armed countdown is not ours to cancel", GuardPolicy.AutoLockDecision.None, auto("com.launcher", arming = true, armed = null))
+    }
+
+    @Test
+    fun `smart defaults pick call for messengers, full screen for video apps, open otherwise`() {
+        assertEquals(T.CALL, GuardPolicy.smartTrigger("com.whatsapp"))
+        assertEquals(T.CALL, GuardPolicy.smartTrigger("com.google.android.apps.tachyon"))  // Google Meet / Duo
+        assertEquals(T.FULLSCREEN_PLAYBACK, GuardPolicy.smartTrigger("com.google.android.youtube"))
+        assertEquals(T.FULLSCREEN_PLAYBACK, GuardPolicy.smartTrigger("bbc.iplayer.android"))
+        assertEquals(T.FULLSCREEN_PLAYBACK, GuardPolicy.smartTrigger("com.netflix.mediaclient"))
+        assertEquals(T.OPEN, GuardPolicy.smartTrigger("com.rovio.angrybirds"))
+    }
+
+    @Test
+    fun `triggers fire on the right signals`() {
+        assertTrue(GuardPolicy.triggerSatisfied(T.OPEN, 0, false, true))
+        assertFalse(GuardPolicy.triggerSatisfied(T.CALL, 0, true, false))
+        assertTrue(GuardPolicy.triggerSatisfied(T.CALL, 3, false, true))
+        assertTrue(GuardPolicy.triggerSatisfied(T.CALL, 2, false, true))
+        assertFalse(GuardPolicy.triggerSatisfied(T.FULLSCREEN_PLAYBACK, 0, true, true))
+        assertTrue(GuardPolicy.triggerSatisfied(T.FULLSCREEN_PLAYBACK, 0, true, false))
+        assertFalse(GuardPolicy.triggerSatisfied(T.PLAYBACK, 0, false, false))
+        assertTrue(GuardPolicy.triggerSatisfied(T.PLAYBACK, 0, true, true))
+    }
+
+    @Test
+    fun `status bar is a thin system window at the top`() {
+        assertTrue(GuardPolicy.isStatusBarWindow(true, 0, 120, 2400))
+        assertFalse("shade is tall", GuardPolicy.isStatusBarWindow(true, 0, 2400, 2400))
+        assertFalse("nav bar is at the bottom", GuardPolicy.isStatusBarWindow(true, 2280, 120, 2400))
+        assertFalse("app window", GuardPolicy.isStatusBarWindow(false, 0, 120, 2400))
     }
 
     @Test
