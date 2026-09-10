@@ -128,8 +128,8 @@ class GuardAccessibilityServiceTest {
         service.onKeyEvent(KeyEvent(t, t + holdMs, KeyEvent.ACTION_UP, code, 0))
     }
 
-    /** The pattern's last press must be held, so the toddler-jab never counts. */
-    private val HOLD = com.gbhall.childlock.gesture.VolumeSequenceGesture.DEFAULT_FINAL_HOLD_MS + 100
+    /** Nothing has to be held any more; an ordinary press length. */
+    private val HOLD = 120L
 
     @Test
     fun `volume pattern while unlocked arms the lock immediately and is not consumed`() {

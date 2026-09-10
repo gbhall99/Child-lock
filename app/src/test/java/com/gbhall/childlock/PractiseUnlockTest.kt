@@ -2,7 +2,6 @@ package com.gbhall.childlock
 
 import android.view.KeyEvent
 import com.gbhall.childlock.guard.GuardAccessibilityService
-import com.gbhall.childlock.gesture.VolumeSequenceGesture
 import com.gbhall.childlock.lock.LockController
 import com.gbhall.childlock.lock.LockOverlayService
 import com.gbhall.childlock.lock.LockState
@@ -62,16 +61,16 @@ class PractiseUnlockTest {
     fun `practise locks and the volume pattern unlocks it`() {
         practise()
         assertTrue("practise should lock", LockController.isLocked)
-        val hold = VolumeSequenceGesture.DEFAULT_FINAL_HOLD_MS + 100
         press(KeyEvent.KEYCODE_VOLUME_UP, 1000, 120)
-        press(KeyEvent.KEYCODE_VOLUME_DOWN, 1400, hold)
+        press(KeyEvent.KEYCODE_VOLUME_DOWN, 1400, 120)
         TestSupport.idle()
         assertEquals("the parent must be able to get out", LockState.Unlocked, LockController.state)
     }
 
     /**
      * Some devices never deliver the release of a key the service consumed.
-     * The parent must still be able to unlock by holding the last press.
+     * The unlock completes on the press itself, so that cannot strand anyone,
+     * and the rehearsal ends on its own regardless.
      */
     @Test
     fun `a practice lock always ends by itself`() {

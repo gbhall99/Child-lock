@@ -69,13 +69,21 @@ class GuardPolicyTest {
     }
 
     @Test
-    fun `gesture block flags need lock, setting, volume gesture and api 30`() {
+    fun `gesture block flags need lock, setting and a volume gesture`() {
         val both = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
         assertEquals(both, GuardPolicy.gestureBlockFlags(true, true, true, 35))
         assertEquals(0, GuardPolicy.gestureBlockFlags(false, true, true, 35))
         assertEquals(0, GuardPolicy.gestureBlockFlags(true, false, true, 35))
-        assertEquals(0, GuardPolicy.gestureBlockFlags(true, true, false, 35))
-        assertEquals(0, GuardPolicy.gestureBlockFlags(true, true, true, 29))
+        assertEquals("touch gestures need real touches", 0, GuardPolicy.gestureBlockFlags(true, true, false, 35))
+    }
+
+    @Test
+    fun `older phones still get the swipes blocked, without the three-finger tap`() {
+        // Touch exploration is what stops the swipes and long predates minSdk;
+        // only the multi-finger fallback gesture needs API 30.
+        assertEquals(GuardPolicy.FLAG_TOUCH_EXPLORATION, GuardPolicy.gestureBlockFlags(true, true, true, 29))
+        assertEquals(GuardPolicy.FLAG_TOUCH_EXPLORATION, GuardPolicy.gestureBlockFlags(true, true, true, 26))
+        assertEquals(0, GuardPolicy.gestureBlockFlags(false, true, true, 26))
     }
 
     private fun auto(fg: String, locked: Boolean = false, arming: Boolean = false, armed: String? = null, suppressed: String? = null) =

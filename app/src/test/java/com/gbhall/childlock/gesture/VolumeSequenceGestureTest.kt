@@ -18,23 +18,29 @@ class VolumeSequenceGestureTest {
         onKey(key, false, t + holdMs)
     }
 
-    private val HOLD = VolumeSequenceGesture.DEFAULT_FINAL_HOLD_MS + 100
-
     @Test
-    fun `up then down, holding the last press, unlocks`() {
+    fun `up then down unlocks on the second press, with nothing held`() {
         val g = gesture()
         g.press(HardwareKey.VOLUME_UP, 0)
         assertFalse(listener.unlocked)
-        g.press(HardwareKey.VOLUME_DOWN, 400, holdMs = HOLD)
+        g.press(HardwareKey.VOLUME_DOWN, 400)
         assertTrue(listener.unlocked)
     }
 
     @Test
-    fun `a quick jab on the last press does not unlock`() {
+    fun `the pattern completes on the press itself, not on letting go`() {
+        val g = gesture()
+        g.onKey(HardwareKey.VOLUME_UP, true, 0)
+        g.onKey(HardwareKey.VOLUME_DOWN, true, 300)
+        assertTrue("a parent must not have to hold or release anything", listener.unlocked)
+    }
+
+    @Test
+    fun `a quick jab is a press like any other`() {
         val g = gesture()
         g.press(HardwareKey.VOLUME_UP, 0)
-        g.press(HardwareKey.VOLUME_DOWN, 400, holdMs = 60)
-        assertFalse("the final press must be held", listener.unlocked)
+        g.press(HardwareKey.VOLUME_DOWN, 400, holdMs = 20)
+        assertTrue(listener.unlocked)
     }
 
     @Test
@@ -43,9 +49,23 @@ class VolumeSequenceGestureTest {
         g.press(HardwareKey.VOLUME_UP, 0)
         g.press(HardwareKey.VOLUME_DOWN, 300)
         assertFalse(listener.unlocked)
-        // The wrong key opened a quiet period; wait it out, then do it properly.
-        g.press(HardwareKey.VOLUME_DOWN, 3000)
-        g.press(HardwareKey.VOLUME_UP, 3400, holdMs = HOLD)
+    }
+
+    @Test
+    fun `a fumbled press costs nothing, the very next attempt works`() {
+        val g = gesture()
+        g.press(HardwareKey.VOLUME_DOWN, 0) // wrong key first
+        g.press(HardwareKey.VOLUME_UP, 200)
+        g.press(HardwareKey.VOLUME_DOWN, 500)
+        assertTrue("no penalty period may stand between a parent and the unlock", listener.unlocked)
+    }
+
+    @Test
+    fun `a wrong key that is also the pattern's first press counts as a fresh start`() {
+        val g = gesture()
+        g.press(HardwareKey.VOLUME_UP, 0)
+        g.press(HardwareKey.VOLUME_UP, 200) // wrong here, but a valid opening
+        g.press(HardwareKey.VOLUME_DOWN, 400)
         assertTrue(listener.unlocked)
     }
 
@@ -53,22 +73,8 @@ class VolumeSequenceGestureTest {
     fun `too slow between presses does not complete`() {
         val g = gesture()
         g.press(HardwareKey.VOLUME_UP, 0)
-        g.press(HardwareKey.VOLUME_DOWN, 5000, holdMs = HOLD)
+        g.press(HardwareKey.VOLUME_DOWN, 5000)
         assertFalse(listener.unlocked)
-    }
-
-    @Test
-    fun `a wrong press starts a quiet period that mashing keeps open`() {
-        val g = gesture()
-        g.press(HardwareKey.VOLUME_DOWN, 0) // wrong first key
-        // Keep pressing inside the quiet period: it never lapses.
-        var t = 200L
-        repeat(20) {
-            g.press(HardwareKey.VOLUME_UP, t)
-            g.press(HardwareKey.VOLUME_DOWN, t + 200, holdMs = HOLD)
-            t += 400
-        }
-        assertFalse("mashing must not find a clean run", listener.unlocked)
     }
 
     @Test
@@ -78,7 +84,22 @@ class VolumeSequenceGestureTest {
         g.press(HardwareKey.VOLUME_DOWN, 300)
         assertFalse(listener.unlocked)
         g.press(HardwareKey.VOLUME_UP, 600)
-        g.press(HardwareKey.VOLUME_DOWN, 900, holdMs = HOLD)
+        g.press(HardwareKey.VOLUME_DOWN, 900)
+        assertTrue(listener.unlocked)
+    }
+
+    @Test
+    fun `three repeats are reachable`() {
+        val g = gesture(repeats = 3)
+        var t = 0L
+        repeat(2) {
+            g.press(HardwareKey.VOLUME_UP, t)
+            g.press(HardwareKey.VOLUME_DOWN, t + 300)
+            t += 600
+        }
+        assertFalse(listener.unlocked)
+        g.press(HardwareKey.VOLUME_UP, t)
+        g.press(HardwareKey.VOLUME_DOWN, t + 300)
         assertTrue(listener.unlocked)
     }
 
@@ -87,7 +108,7 @@ class VolumeSequenceGestureTest {
         val g = gesture()
         g.press(HardwareKey.VOLUME_UP, 0)
         g.press(HardwareKey.BACK, 200)
-        g.press(HardwareKey.VOLUME_DOWN, 400, holdMs = HOLD)
+        g.press(HardwareKey.VOLUME_DOWN, 400)
         assertFalse(listener.unlocked)
     }
 
@@ -97,7 +118,7 @@ class VolumeSequenceGestureTest {
         g.onKey(HardwareKey.VOLUME_UP, false, 0)
         g.onKey(HardwareKey.VOLUME_DOWN, false, 100)
         assertFalse(listener.unlocked)
-        assertFalse(g.wantsTicks)
+        assertFalse("nothing is time-based any more", g.wantsTicks)
     }
 
     @Test
@@ -111,50 +132,53 @@ class VolumeSequenceGestureTest {
     fun `completes again after completing once`() {
         val g = gesture()
         g.press(HardwareKey.VOLUME_UP, 0)
-        g.press(HardwareKey.VOLUME_DOWN, 300, holdMs = HOLD)
+        g.press(HardwareKey.VOLUME_DOWN, 300)
         g.press(HardwareKey.VOLUME_UP, 3000)
-        g.press(HardwareKey.VOLUME_DOWN, 3300, holdMs = HOLD)
+        g.press(HardwareKey.VOLUME_DOWN, 3300)
         assertEquals(2, listener.events.count { it == GestureEvent.Unlocked })
     }
 
     /**
-     * The headline property: a child mashing the rocker must not stumble into
-     * the pattern. Ticks are driven the way the helper drives them, so that
-     * completing on a held key cannot open a new way in.
+     * The cost of instant completion, stated rather than hidden.
+     *
+     * A held final press and a quiet period after a wrong key used to make this
+     * unreachable by mashing, but they made the parent's own unlock slow and
+     * unreliable, so they are gone. A child mashing the rocker CAN now stumble
+     * into a one-length pattern. This test records how quickly, and shows that
+     * asking for repeats is what buys the resistance back.
+     *
+     * It asserts only the ordering - longer patterns must be markedly harder to
+     * hit - so it stays honest if the timings are tuned.
      */
     @Test
-    fun `a child mashing the rocker for ten minutes never unlocks`() {
-        val rnd = Random(7)
-        repeat(200) { trial ->
-            val heard = RecordingListener()
-            val g = VolumeSequenceGesture(VolumePattern.UP_THEN_DOWN, 1, heard)
-            var t = 0L
-            while (t < 600_000) {
-                val key = if (rnd.nextBoolean()) HardwareKey.VOLUME_UP else HardwareKey.VOLUME_DOWN
-                val hold = 40L + rnd.nextInt(260)
-                g.onKey(key, true, t)
-                // The helper ticks while the gesture asks for it, including
-                // through the whole time the key is held down.
-                var tick = t
-                while (g.wantsTicks && tick < t + hold) {
-                    tick += 33
-                    g.onTick(minOf(tick, t + hold))
+    fun `mashing finds a short pattern but not a long one`() {
+        fun mediansSeconds(repeats: Int): Long {
+            val times = mutableListOf<Long>()
+            repeat(60) { trial ->
+                val heard = RecordingListener()
+                val g = VolumeSequenceGesture(VolumePattern.UP_THEN_DOWN, repeats, heard)
+                val rnd = Random(trial.toLong())
+                var t = 0L
+                while (t < 600_000 && !heard.unlocked) {
+                    val key = if (rnd.nextBoolean()) HardwareKey.VOLUME_UP else HardwareKey.VOLUME_DOWN
+                    g.onKey(key, true, t)
+                    g.onKey(key, false, t + 40L + rnd.nextInt(260))
+                    t += 150 + rnd.nextInt(550)
                 }
-                g.onKey(key, false, t + hold)
-                if (heard.unlocked) break
-                t += 150 + rnd.nextInt(550)
+                times += if (heard.unlocked) t else 600_000L
             }
-            assertFalse("trial $trial unlocked by mashing", heard.unlocked)
+            return times.sorted()[times.size / 2] / 1000
         }
-    }
-
-    @Test
-    fun `a long accidental hold of the right key still needs the right order first`() {
-        val g = gesture()
-        // A child leaning on volume down for a full second: wrong first key.
-        g.onKey(HardwareKey.VOLUME_DOWN, true, 0)
-        repeat(40) { g.onTick(it * 33L) }
-        g.onKey(HardwareKey.VOLUME_DOWN, false, 1400)
-        assertFalse(listener.unlocked)
+        val one = mediansSeconds(1)
+        val three = mediansSeconds(3)
+        assertTrue(
+            "a single pattern is now within a mashing child's reach (median ${one}s) - " +
+                "this is the deliberate cost of an instant unlock",
+            one < 60,
+        )
+        assertTrue(
+            "repeating the pattern must buy real resistance back (1x ${one}s vs 3x ${three}s)",
+            three > one * 3,
+        )
     }
 }

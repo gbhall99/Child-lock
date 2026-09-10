@@ -34,6 +34,18 @@ class GestureTextTest {
     }
 
     @Test
+    @org.robolectric.annotation.Config(sdk = [26])
+    fun `below api 30 the backup named is the notification button`() {
+        // Touch exploration still blocks the swipes there, but multi-finger
+        // gestures do not exist, so the three-finger tap cannot fire.
+        val s = LockSettings(gesture = GestureType.VOLUME_SEQUENCE, blockGestures = true)
+        assertEquals(
+            ctx.getString(com.gbhall.childlock.R.string.fallback_notification),
+            GestureText.fallbackHint(ctx, s),
+        )
+    }
+
+    @Test
     fun `a touch gesture never claims the three-finger tap`() {
         val s = LockSettings(gesture = GestureType.CORNER_HOLD, blockGestures = true)
         assertEquals(

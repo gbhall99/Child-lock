@@ -28,12 +28,14 @@ object GestureText {
      * fire. The three-finger triple tap is the fallback there. Saying "two
      * corners always works" would be untrue in the default setup.
      */
-    fun fallbackHint(context: Context, s: LockSettings): String =
-        if (s.gesture.needsGuard && s.blockGestures) {
+    fun fallbackHint(context: Context, s: LockSettings): String = when {
+        !(s.gesture.needsGuard && s.blockGestures) -> context.getString(R.string.fallback_corners)
+        // Multi-finger gestures need API 30. Below that the swipes are still
+        // blocked, but the three-finger tap cannot fire, so naming it would lie.
+        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R ->
             context.getString(R.string.fallback_three_finger)
-        } else {
-            context.getString(R.string.fallback_corners)
-        }
+        else -> context.getString(R.string.fallback_notification)
+    }
 
     /** One short line for the ON banner: how to get out again. */
     fun unlockShort(context: Context, s: LockSettings): String = when (s.gesture) {

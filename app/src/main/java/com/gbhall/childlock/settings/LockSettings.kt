@@ -51,13 +51,15 @@ data class LockSettings(
     val blockShade: Boolean = true,
     val relaunchApp: Boolean = true,
     /**
-     * Stop home/back swipes outright while locked. Off by default: it works by
-     * switching on the same mode a screen reader uses, and in that mode the
-     * screen sends hover rather than touches, so every touch-based way out
-     * stops working. Being unable to unlock is far worse than a child reaching
-     * the home screen, which "Bring the app back" already handles.
+     * Stop home/back swipes outright while locked. On, because a lock a child
+     * can swipe out of is not a lock.
+     *
+     * It works by switching on the same mode a screen reader uses, and in that
+     * mode the screen sends hover rather than touches. That only costs the
+     * touch-based unlocks, and [GuardPolicy.gestureBlockFlags] asks for it only
+     * when the unlock is a volume pattern, which the keys deliver regardless.
      */
-    val blockGestures: Boolean = false,
+    val blockGestures: Boolean = true,
     /** Pin the screen to whatever orientation it has when the lock engages. */
     val keepOrientation: Boolean = true,
     /** Tap "Skip ad" style buttons in the app you handed over while locked. Off by default; reads button labels. */
@@ -96,9 +98,15 @@ class SettingsRepository private constructor(context: Context) {
         context.applicationContext.getSharedPreferences("childlock", Context.MODE_PRIVATE)
 
     init {
-        // One-off migration: this used to default on, and it can strand people.
-        if (prefs.getInt(KEY_VERSION, 0) < 2) {
-            prefs.edit().putBoolean(KEY_BLOCK_GESTURES, false).putInt(KEY_VERSION, 2).apply()
+        // Version 2 wrote block_gestures=false over everybody, on the belief that
+        // it was what stranded two parents. It was not - the unlock it can break
+        // is the touch kind, and the flags are only ever requested for the volume
+        // kind. Clear that write so the default applies again. Anyone who turned
+        // it off on purpose in the few hours v2 existed will need to do so again;
+        // save() writes the key on every settings change, so there is no way to
+        // tell a deliberate false from the one v2 forced.
+        if (prefs.getInt(KEY_VERSION, 0) < 3) {
+            prefs.edit().remove(KEY_BLOCK_GESTURES).putInt(KEY_VERSION, 3).apply()
         }
     }
 
@@ -111,13 +119,13 @@ class SettingsRepository private constructor(context: Context) {
         pinSalt = prefs.getString(KEY_PIN_SALT, null),
         pinLength = prefs.getInt(KEY_PIN_LENGTH, 0),
         volumePattern = prefs.enum(KEY_VOLUME_PATTERN, VolumePattern.UP_THEN_DOWN),
-        volumeRepeats = prefs.getInt(KEY_VOLUME_REPEATS, 1).coerceIn(1, 2),
+        volumeRepeats = prefs.getInt(KEY_VOLUME_REPEATS, 1).coerceIn(1, 3),
         keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
         armDelaySec = prefs.getInt(KEY_ARM_DELAY, 5).coerceIn(LockSettings.MIN_ARM_DELAY_SEC, LockSettings.MAX_ARM_DELAY_SEC),
         blockKeys = prefs.getBoolean(KEY_BLOCK_KEYS, true),
         blockShade = prefs.getBoolean(KEY_BLOCK_SHADE, true),
         relaunchApp = prefs.getBoolean(KEY_RELAUNCH, true),
-        blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, false),
+        blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, true),
         keepOrientation = prefs.getBoolean(KEY_KEEP_ORIENTATION, true),
         skipAds = prefs.getBoolean(KEY_SKIP_ADS, false),
         relockSameApp = prefs.getBoolean(KEY_RELOCK, true),

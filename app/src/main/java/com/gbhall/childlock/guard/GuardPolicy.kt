@@ -85,8 +85,13 @@ object GuardPolicy {
      * safe with a volume gesture, because touch exploration turns the
      * overlay's touches into hover events, so the touch-based unlocks stop.
      */
-    fun gestureBlockFlags(locked: Boolean, blockGestures: Boolean, gestureNeedsGuard: Boolean, sdkInt: Int): Int =
-        if (locked && blockGestures && gestureNeedsGuard && sdkInt >= 30) FLAG_TOUCH_EXPLORATION or FLAG_MULTI_FINGER else 0
+    fun gestureBlockFlags(locked: Boolean, blockGestures: Boolean, gestureNeedsGuard: Boolean, sdkInt: Int): Int = when {
+        !(locked && blockGestures && gestureNeedsGuard) -> 0
+        // Multi-finger gestures need API 30; touch exploration, which is what
+        // actually stops the swipes, has been there since long before minSdk.
+        sdkInt >= 30 -> FLAG_TOUCH_EXPLORATION or FLAG_MULTI_FINGER
+        else -> FLAG_TOUCH_EXPLORATION
+    }
 
     /** AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE. */
     /** AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS; without it no volume press reaches us. */
