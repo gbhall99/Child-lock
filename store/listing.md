@@ -3,7 +3,7 @@
 ## App details
 
 - **App name** (30 max): Child Lock: Touch Freeze
-- **Short description** (80 max): Hand your phone to your child. They can watch, they cannot touch.
+- **Short description** (80 max): Hand your phone to your child. Tap all they like, nothing happens.
 - **Category**: Parenting (secondary: Tools)
 - **Contact email**: your address
 - **Privacy policy URL**: https://github.com/gbhall99/Child-lock/blob/main/PRIVACY.md
@@ -13,13 +13,13 @@
 
 ## Full description (4000 max)
 
-Hand your phone to your child with a video, a video call or a game on screen. They can watch and listen; every touch is ignored. The screen is never covered or dimmed. The only sign is a small padlock badge in a corner.
+Hand your phone to your child with a video, a video call or a game on screen. They can watch, listen, tap, swipe and poke; nothing happens. The screen is never covered or dimmed. The only sign is a small padlock badge in a corner.
 
 LOCK AND UNLOCK WITHOUT TOUCHING THE SCREEN
 Press volume up, then volume down. That is it. The same pattern switches the lock on and off, so you never have to find a button while a small hand is reaching for the phone. A short notice confirms each change.
 
-WHAT THE CHILD CANNOT DO
-• Tap, swipe, pinch or scroll
+WHAT STOPS WORKING FOR THE CHILD
+• Taps, swipes, pinches and scrolls
 • Press back or the volume buttons
 • Pull down the notification shade
 • Swipe home or open recent apps

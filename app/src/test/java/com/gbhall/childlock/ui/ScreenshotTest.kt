@@ -57,9 +57,9 @@ class ScreenshotTest {
         val frame = android.widget.FrameLayout(ctx).apply { setBackgroundColor(0xFF6B7280.toInt()) }
         val column = android.widget.LinearLayout(ctx).apply { orientation = android.widget.LinearLayout.VERTICAL; gravity = android.view.Gravity.CENTER_HORIZONTAL }
         listOf(
-            com.gbhall.childlock.lock.BannerWindow.Kind.ARMING to "Touch locks in 15 s. Switch away to cancel.",
-            com.gbhall.childlock.lock.BannerWindow.Kind.ON to "Touch is off. Volume up then down to unlock.",
-            com.gbhall.childlock.lock.BannerWindow.Kind.OFF to "Touch is back.",
+            com.gbhall.childlock.lock.BannerWindow.Kind.ARMING to "Touches stop working in 15 s. Switch away to cancel.",
+            com.gbhall.childlock.lock.BannerWindow.Kind.ON to "Touches do nothing. Volume up then down to unlock.",
+            com.gbhall.childlock.lock.BannerWindow.Kind.OFF to "Touch works again.",
         ).forEach { (kind, detail) ->
             column.addView(com.gbhall.childlock.lock.BannerWindow.build(ctx, kind, detail),
                 android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (24 * d).toInt() })

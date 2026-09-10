@@ -59,7 +59,7 @@ Two policy items need care before submission:
 4. Store listing: 4 screenshots (locked call, volume gesture, setup assistant,
    settings), a 20-second video of the volume-button toggle. The hook is one
    sentence: "Hand your phone to your toddler on a video call. They can watch,
-   they cannot touch."
+   tap all they like, nothing happens."
 5. Closed test with 20 parents (Play requires 12 testers for 14 days for new
    personal accounts anyway). Collect device/skin data: Samsung and Xiaomi
    handle overlays and accessibility differently and are most of the market.

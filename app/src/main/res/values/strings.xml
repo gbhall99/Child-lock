@@ -10,20 +10,20 @@
     <string name="channel_lock_desc">Shown while the touch lock is armed or active.</string>
     <string name="notif_arming">Preparing to lock…</string>
     <string name="notif_locking_in">Locking in %1$d s. Get the screen ready to hand over.</string>
-    <string name="notif_locked">Touch is locked. %1$s</string>
+    <string name="notif_locked">Touches do nothing. %1$s</string>
 
     <string name="toast_locking_in">Child Lock: locking in %1$d s</string>
     <string name="toast_locked">Child Lock on</string>
     <string name="toast_unlocked">Child Lock off</string>
     <string name="banner_on">Child Lock on</string>
-    <string name="banner_on_detail_sequence">Touch is off. Volume %1$s to unlock.</string>
-    <string name="banner_on_detail_corners">Touch is off. Hold two corners to unlock.</string>
-    <string name="banner_on_detail_pin">Touch is off. Hold the badge for the PIN pad.</string>
-    <string name="banner_on_detail_chord">Touch is off. Hold both volume buttons to unlock.</string>
+    <string name="banner_on_detail_sequence">Touches do nothing. Volume %1$s to unlock.</string>
+    <string name="banner_on_detail_corners">Touches do nothing. Hold two corners to unlock.</string>
+    <string name="banner_on_detail_pin">Touches do nothing. Hold the badge for the PIN pad.</string>
+    <string name="banner_on_detail_chord">Touches do nothing. Hold both volume buttons to unlock.</string>
     <string name="banner_off">Child Lock off</string>
-    <string name="banner_off_detail">Touch is back.</string>
+    <string name="banner_off_detail">Touch works again.</string>
     <string name="banner_arming_title">Child Lock starting</string>
-    <string name="banner_arming_detail">Touch locks in %1$d s. Switch away to cancel.</string>
+    <string name="banner_arming_detail">Touches stop working in %1$d s. Switch away to cancel.</string>
     <string name="block_gestures">Block home and back swipes</string>
     <string name="block_gestures_desc">Stops them outright instead of returning to the app afterwards. Works with the volume gestures; while active, a three-finger triple tap is the touch fallback to unlock.</string>
     <string name="toast_lock_failed">Child Lock could not start. Nothing is locked.</string>
@@ -31,7 +31,7 @@
     <string name="toast_need_pin">Set a PIN first, or choose a different unlock gesture</string>
     <string name="toast_pin_invalid">PIN must be 4 to 8 digits</string>
 
-    <string name="shield_content_description">Child Lock is active. Touch is disabled.</string>
+    <string name="shield_content_description">Child Lock is active. Touches do nothing.</string>
     <string name="pin_wrong">Wrong PIN</string>
 
     <string name="accessibility_label">Child Lock guard</string>
@@ -75,14 +75,14 @@
     <string name="state_arming">Locking…</string>
     <string name="state_arming_sub">Get the screen ready to hand over.</string>
     <string name="state_locked">Locked</string>
-    <string name="state_locked_sub">Touch is frozen. Safe to hand over.</string>
+    <string name="state_locked_sub">Touches do nothing. Safe to hand over.</string>
     <string name="how_to_lock">To lock</string>
     <string name="how_to_unlock">To unlock</string>
     <string name="guard_warning">Your gesture needs the accessibility guard, which is off.</string>
     <string name="fix">Fix</string>
     <string name="enable">Enable</string>
     <string name="arm_button">Lock from here (in %1$d s)</string>
-    <string name="arm_hint">Returns you to the previous app, then freezes touch. The Child Lock tile in Quick Settings does the same.</string>
+    <string name="arm_hint">Returns you to the previous app, then touches stop doing anything. The Child Lock tile in Quick Settings does the same.</string>
 
     <string name="perm_overlay">Display over other apps</string>
     <string name="perm_overlay_desc">Required. How touches are blocked without covering the screen.</string>

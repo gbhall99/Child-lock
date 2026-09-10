@@ -1,8 +1,9 @@
 # Child Lock
 
 Hand your phone to your child with a video, a video call or a game on
-screen. They can watch and listen, but every touch is swallowed. The screen is never covered or dimmed; the only sign
-is a small padlock badge in one corner. You unlock with a quick gesture that an
+screen. They can tap, swipe and poke all they like; nothing happens. The
+screen is never covered or dimmed; the only sign is a small padlock badge
+in one corner. You unlock with a quick gesture that an
 adult does without thinking and a toddler will not stumble into.
 
 `PLAN.md` holds the full design. This file is the practical guide.
@@ -126,7 +127,7 @@ lock's notification is silent and shows no status-bar icon.
 
 | The child… | Result |
 |---|---|
-| Taps, swipes, pinches anywhere on screen | Nothing happens |
+| Taps, swipes, pokes anywhere on screen | Nothing happens |
 | Presses back or volume | Swallowed (with the accessibility guard) |
 | Pulls down the notification shade | Closed immediately (with the guard) |
 | Swipes home, back or recents | Blocked outright (with the guard and a volume gesture); otherwise the app you handed over is brought straight back |

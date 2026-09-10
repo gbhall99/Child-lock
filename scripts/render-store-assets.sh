@@ -36,7 +36,7 @@ cat > "$TMP/feature-graphic.png.html" <<H
 $CSS<body style="width:1024px;height:500px"><div class="bg"></div>
 <div style="position:absolute;left:80px;top:130px;width:240px;height:240px;border-radius:56px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center">$(ICON 150 '#fff')</div>
 <div style="position:absolute;left:370px;top:140px;color:#fff;font-size:84px;font-weight:700;letter-spacing:-1px">Child Lock</div>
-<div style="position:absolute;left:374px;top:250px;color:rgba(255,255,255,.9);font-size:36px;line-height:1.3">They can watch.<br>They cannot touch.</div>
+<div style="position:absolute;left:374px;top:250px;color:rgba(255,255,255,.9);font-size:36px;line-height:1.3">Tap all they like.<br>Nothing happens.</div>
 </body>
 H
 shot feature-graphic.png 1024,500
@@ -44,13 +44,13 @@ shot feature-graphic.png 1024,500
 # 3. Screenshot 1: locked scene (synthetic video)
 cat > "$TMP/screenshot-1-locked.png.html" <<H
 $CSS<body style="width:1080px;height:1920px"><div class="bg"></div>
-<div class="cap">Hand it over.<br>Every touch is ignored.</div>
-<div class="sub">The screen stays exactly as it was. Only a small badge shows the lock is on.</div>
+<div class="cap">Hand it over.<br>Taps do nothing.</div>
+<div class="sub">They can tap, swipe and poke. The screen stays exactly as it was; only a small badge shows the lock is on.</div>
 <div class="phone"><div class="screen" style="background:#1a1a1a">
   <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,#3a3f47 0%,#1a1a1a 70%)"></div>
   <div style="position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center"><div style="margin-left:14px;width:0;height:0;border-left:56px solid #fff;border-top:34px solid transparent;border-bottom:34px solid transparent"></div></div>
   <div style="position:absolute;left:48px;right:48px;bottom:120px;height:8px;border-radius:4px;background:rgba(255,255,255,.25)"><div style="width:38%;height:100%;border-radius:4px;background:#fff"></div></div>
-  <div class="chip">$(ICON 30 '#8AB4F8')<div><div class="t">Child Lock on</div><div class="d">Touch is off. Volume up then down to unlock.</div></div></div>
+  <div class="chip">$(ICON 30 '#8AB4F8')<div><div class="t">Child Lock on</div><div class="d">Touches do nothing. Volume up then down to unlock.</div></div></div>
   <div class="badge">$(ICON 26 '#fff')</div>
 </div></div></body>
 H
@@ -63,7 +63,7 @@ $CSS<body style="width:1080px;height:1920px"><div class="bg"></div>
 <div class="sub">No buttons to find on screen while a small hand is reaching for the phone.</div>
 <div class="phone"><div class="screen" style="background:#1a1a1a">
   <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,#3a3f47 0%,#1a1a1a 70%)"></div>
-  <div class="chip">$(ICON 30 '#BDC1C6')<div><div class="t">Child Lock off</div><div class="d">Touch is back.</div></div></div>
+  <div class="chip">$(ICON 30 '#BDC1C6')<div><div class="t">Child Lock off</div><div class="d">Touch works again.</div></div></div>
   <div style="position:absolute;right:-30px;top:520px;width:14px;height:120px;border-radius:7px;background:#5f6368"></div>
   <div style="position:absolute;right:-30px;top:660px;width:14px;height:120px;border-radius:7px;background:#5f6368"></div>
   <div style="position:absolute;right:40px;top:545px;color:#fff;font-size:44px;font-weight:700;text-align:right">1 &nbsp;▲</div>
