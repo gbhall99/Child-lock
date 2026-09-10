@@ -80,6 +80,9 @@ android {
         abortOnError = true
         warningsAsErrors = false
         checkReleaseBuilds = true
+        // Without this lint only speaks up when it aborts, so a green build
+        // hides every warning it found.
+        textReport = true
     }
 }
 

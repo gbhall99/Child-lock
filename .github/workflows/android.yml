@@ -25,6 +25,14 @@ jobs:
       - name: Lint (debug and release)
         run: ./gradlew --no-daemon lintPlayDebug lintPlayRelease
 
+      # textReport puts the findings in the log above; keep the full HTML/XML too.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-reports
+          path: app/build/reports/lint-results-*
+          if-no-files-found: ignore
+
       - name: Build both flavours
         run: ./gradlew --no-daemon assembleSideloadDebug assemblePlayRelease
 
