@@ -17,10 +17,22 @@ object LockPreflight {
         data object Ok : Result
         data object HelperNeeded : Result
         data object ScreenReaderNeedsVolume : Result
+        data object SwitchAccessNeedsTouch : Result
     }
 
-    fun check(gesture: GestureType, helperConnected: Boolean, touchExplorationOn: Boolean): Result = when {
+    /**
+     * @param keyFilteringToolActive another accessibility tool is filtering key
+     *   events, which is how Switch Access maps switches to the volume keys.
+     *   Consuming those keys would take the person's switches away.
+     */
+    fun check(
+        gesture: GestureType,
+        helperConnected: Boolean,
+        touchExplorationOn: Boolean,
+        keyFilteringToolActive: Boolean = false,
+    ): Result = when {
         gesture.needsGuard && !helperConnected -> Result.HelperNeeded
+        gesture.needsGuard && keyFilteringToolActive && !touchExplorationOn -> Result.SwitchAccessNeedsTouch
         !gesture.needsGuard && touchExplorationOn -> Result.ScreenReaderNeedsVolume
         else -> Result.Ok
     }

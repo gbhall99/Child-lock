@@ -91,7 +91,7 @@ class OverlayRoot(
     }
 
     private fun onPinEntered(pin: String) {
-        if (PinHasher.matches(pin, settings.pinHash)) {
+        if (PinHasher.matches(pin, settings.pinSalt, settings.pinHash)) {
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             hidePinPad()
             onUnlock.invoke()

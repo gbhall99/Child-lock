@@ -13,7 +13,16 @@ import android.content.pm.ApplicationInfo
 object FeatureGate {
     enum class Feature { AUTO_LOCK, SKIP_ADS, RELOCK, CUSTOM_BADGE }
 
-    const val PRICE_LABEL = "£2.99"
+    /**
+     * Flipped on when Play Billing is wired in. While false the app never
+     * offers a purchase, because offering one it cannot complete would be a
+     * misleading commercial practice as well as a Play violation.
+     */
+    const val BILLING_READY = false
+
+    /** Replaced by the billing library's localised price once billing is live. */
+    @Suppress("UNUSED_PARAMETER")
+    fun priceLabel(context: Context): String = "£2.99"
     private const val PREFS = "childlock"
     private const val KEY_PRO = "pro_unlocked"
     private const val KEY_PREVIEW_FREE = "pro_preview_free"

@@ -41,7 +41,7 @@ class SettingsRepositoryTest {
     fun `settings round-trip`() {
         val wanted = LockSettings(
             gesture = GestureType.BADGE_PIN, holdMs = 2200, cornerPair = CornerPair.TOP_RIGHT_BOTTOM_LEFT,
-            badgeCorner = Corner.BOTTOM_RIGHT, pinHash = "abc", pinLength = 6, keepScreenOn = false,
+            badgeCorner = Corner.BOTTOM_RIGHT, pinHash = "abc", pinSalt = "beef", pinLength = 6, keepScreenOn = false,
             volumePattern = VolumePattern.DOWN_THEN_UP, volumeRepeats = 2,
             armDelaySec = 8, blockKeys = false, blockShade = false, relaunchApp = false, blockGestures = false,
             autoLockRules = mapOf("com.a" to AutoLockTrigger.CALL, "com.b" to AutoLockTrigger.FULLSCREEN_PLAYBACK), autoLockDelaySec = 30,

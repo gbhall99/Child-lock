@@ -5,33 +5,38 @@
 - **App name** (30 max): Child Lock: Touch Freeze
 - **Short description** (80 max): Hand your phone to your child. Tap all they like, nothing happens.
 - **Category**: Parenting (secondary: Tools)
-- **Contact email**: your address
+- **Contact email**: _your address_ (required)
+- **Trader details (required for EEA distribution)**: registered name, postal address, phone and email. Play blocks EEA distribution without the Digital Services Act trader declaration.
+- **Terms URL**: publish a short EULA covering the right to withdraw within 14 days, refunds (Google's 48-hour window sits alongside statutory rights, it does not replace them), and the trader identity. Name that trader as the data controller in PRIVACY.md.
 - **Privacy policy URL**: https://github.com/gbhall99/Child-lock/blob/main/PRIVACY.md
 - **Target audience**: 18 and over (the app is for parents; it is not designed for children). Answer "No" to "Is your app designed for children?".
 - **Ads**: No.
+- **In-app purchases**: declare them at Pro launch; today the app sells nothing and the paywall never offers a purchase.
 - **Content rating questionnaire**: Utility; no violence, no user content, no sharing of location, no purchases (until Pro is added). Expect "Everyone".
 
 ## Full description (4000 max)
 
-Hand your phone to your child with a video, a video call or a game on screen. They can watch, listen, tap, swipe and poke; nothing happens. The screen is never covered or dimmed. The only sign is a small padlock badge in a corner.
+Hand your phone to your child with a video, a video call or a game on screen. They can watch, listen, tap, swipe and poke; nothing happens.
+
+Child Lock blocks touches. It does not filter or restrict content, and it is not a substitute for supervision. The screen is never covered or dimmed. The only sign is a small padlock badge in a corner.
 
 LOCK AND UNLOCK WITHOUT TOUCHING THE SCREEN
 Press volume up, then volume down. That is it. The same pattern switches the lock on and off, so you never have to find a button while a small hand is reaching for the phone. A short notice confirms each change.
 
 WHAT STOPS WORKING FOR THE CHILD
 • Taps, swipes, pinches and scrolls
-• Press back or the volume buttons
-• Pull down the notification shade
-• Swipe home or open recent apps
+• The back button and the volume buttons
+• Pulling down the notifications panel
+• Swiping home or opening recent apps
 The power button still works, and an incoming call unlocks the phone so you can answer it.
 
 AUTO-LOCK
-Choose the apps you hand over, a video app, a game, a video-call app, and Child Lock switches itself on a few seconds after one of them opens. Switch away or press the pattern to cancel.
+Choose the apps you hand over and Child Lock switches itself on a few seconds after one of them opens. Switch away or press the pattern to cancel.
 
 MADE TO BE TRUSTED
 • No ads, no accounts, no analytics, no internet permission
 • Open source
-• Nothing on screen is read or stored (unless you switch on Skip ads)
+• Nothing on screen is ever read or stored
 • The lock is never saved: a restart always leaves the phone unlocked
 • Colour-blind-safe design: every state has a shape and a word, never colour alone
 
@@ -41,7 +46,7 @@ Prefer touch? Hold one finger in each of two opposite corners for a moment, or h
 SETUP
 A short assistant walks you through two permissions: "Display over other apps", which is how touches are blocked, and the Child Lock helper accessibility service, which handles the volume pattern, swipe blocking and auto-lock. Both are explained before you enable them.
 
-Child Lock uses Android's accessibility service as a parental control, not as an accessibility aid. It observes volume-button presses and which app is in front, and while locked it blocks navigation. It never reads screen content, unless you switch on the optional "Skip ads" feature, which reads button labels in the one app you chose.
+Child Lock uses Android's accessibility service as a parental control, not as an accessibility aid. It observes volume-button presses and which app is in front, and while locked it blocks navigation. It never reads screen content.
 
 ## Declarations in Play Console
 
@@ -52,19 +57,17 @@ presses to switch the lock on and off; while locked, filter navigation keys,
 block system gestures via touch-exploration mode, dismiss the notification
 shade, and return to the foreground app the parent chose; while unlocked,
 observe the foreground package for the auto-lock feature. The service reads no
-window content, with one opt-in exception: the "Skip ads for them" option
-(off by default, Pro) reads on-screen button labels inside the app the
-parent handed over, while locked, to tap a "Skip ad" button using that
-app's own wording. An in-app
-prominent disclosure with explicit consent is shown before the user is sent
-to enable the service (see `Disclosures.kt`). The app's core touch lock also
-works with the service disabled.
+window content: this build is the `play` product flavour, which is compiled
+without any node-reading capability, so it cannot read window content at all.
+An in-app prominent disclosure with explicit consent is shown before the user
+is sent to enable the service (see `Disclosures.kt`). The app's core touch
+lock also works with the service disabled.
 
-Risk note: tapping "Skip ad" in another app may be read by Google as
-interfering with that app (Device and Network Abuse policy) and conflicts
-with YouTube's terms. Consider shipping the Play build with
-the feature disabled (`FeatureGate` can hide the switch) and keeping it for
-the GitHub build only.
+Mitigations to state in the declaration, alongside the required screen
+recording: the lock is always started by the user, it shows a visible badge
+for its whole duration, it is never persisted so a restart always ends it, it
+releases itself when the phone rings and after at most 90 minutes, and it
+refuses to start when the way out would not work.
 
 ### Foreground service, type "specialUse"
 

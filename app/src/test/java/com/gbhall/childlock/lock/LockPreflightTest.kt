@@ -35,6 +35,25 @@ class LockPreflightTest {
     }
 
     @Test
+    fun `volume unlocks are refused while switches use the volume keys`() {
+        assertEquals(
+            LockPreflight.Result.SwitchAccessNeedsTouch,
+            LockPreflight.check(
+                GestureType.VOLUME_SEQUENCE, helperConnected = true,
+                touchExplorationOn = false, keyFilteringToolActive = true,
+            ),
+        )
+        assertEquals(
+            "a screen reader is the other way round: touch is the problem, not keys",
+            LockPreflight.Result.Ok,
+            LockPreflight.check(
+                GestureType.VOLUME_SEQUENCE, helperConnected = true,
+                touchExplorationOn = true, keyFilteringToolActive = true,
+            ),
+        )
+    }
+
+    @Test
     fun `touch unlocks are fine without a screen reader and need no helper`() {
         assertEquals(
             LockPreflight.Result.Ok,

@@ -102,21 +102,24 @@ and explains why.
 requesting explore-by-touch, and stops claiming the three-finger triple tap,
 whenever another tool already owns them.
 
-**C3. Switch Access users are cut off. Planned (P1).** The commonest switch
-setup maps switches to the volume keys, which the helper consumes while
-locked. Needs detection of services that filter key events, and an
-alternative unlock offered.
+**C3. Switch Access users are cut off. Fixed.** The commonest switch setup
+maps switches to the volume keys, which the helper consumed while locked. The
+app now detects another tool filtering key events and refuses to lock with a
+volume gesture, pointing the parent at a touch unlock instead.
 
-**C4. Voice Access and Braille users have no route in or out. Planned (P1).**
-The overlay publishes no accessibility node to activate. Needs a labelled,
-focusable unlock node on the shield and real nodes for the PIN keys.
+**C4. Voice Access and Braille users had no route in or out. Fixed.** The
+shield now publishes a focusable node that announces the lock and the way out,
+and offers unlocking as a named custom action rather than a plain click, so a
+child cannot stumble into it. The PIN keys carry real labels.
 
-**C5. Our own screens fail several WCAG checks. Planned (P1).** Status chip
-text measures 2.0:1 to 4.3:1 against its own tinted background; switch
-tracks and thumbs fall below the 3:1 non-text requirement; almost no
-interactive control carries a content description; revealing hidden options
-destroys screen-reader focus; fixed pixel heights clip at large font sizes;
-the segmented control conveys selection by colour alone.
+**C5. Our own screens failed several WCAG checks. Fixed.** Chips now use a
+separate accessible text token rather than the tone colour on its own tint;
+switch tracks and thumbs use opaque tokens that clear 3:1; switches, sliders
+and expanders carry labels, states and roles; decorative icons are marked as
+such; headings announce as headings; the segmented control announces as a
+radio group instead of relying on colour; expanding a section moves focus and
+announces itself; touch targets are 48dp; fixed heights became minimums so
+large font sizes no longer clip.
 
 ---
 
@@ -128,31 +131,32 @@ feature reads button labels. Consent taken on a false statement is not
 consent. The disclosure, the policy and the listing now carry the same
 single exception, and the policy has a dedicated section for it.
 
-**D2. Skip-ad tapping should not ship on Play. Decision needed.** It is
-interference with another app's monetisation under the Device and Network
-Abuse policy, it conflicts with YouTube's terms, and it is the only feature
-that makes the privacy claims complicated. The recommendation is to compile
-it out of the Play variant entirely rather than hide it behind a flag, and
-keep it in the GitHub build.
+**D2. Skip-ad tapping does not ship on Play. Fixed.** The project now builds
+two flavours. `sideload` keeps the feature; `play` is compiled without it, so
+the matcher and every node-reading path are absent from the released binary
+rather than hidden behind a flag. Verified by compiling the Play flavour and
+confirming the matcher class does not exist in it.
 
-**D3. The paywall sells something that does not exist. Planned (P1).** It
-offers an upgrade and then shows a toast saying purchases are not available,
-and the price is hardcoded rather than read from the billing API. Either
-wire billing or hide the paywall before shipping.
+**D3. The paywall no longer sells something that does not exist. Fixed.**
+While billing is not wired, the sheet explains that the extras are unlocked
+and nothing is for sale. A single flag turns the purchase path on, and the
+price will come from the billing library rather than a constant.
 
-**D4. No trader identity, address, terms or withdrawal notice. Planned
-(P1).** All are required to sell into the UK and EU, and Play blocks EEA
-distribution without the trader declaration.
+**D4. No trader identity, address, terms or withdrawal notice. Documented,
+yours to complete.** The listing and release checklist now spell out exactly
+what is required: the Digital Services Act trader declaration, a terms URL
+covering the 14-day right of withdrawal and refunds, and naming that trader
+as data controller in the privacy policy.
 
 **D5. "No internet permission" stops being true when billing lands.**
 
-**D6. Brand names in marketing copy** imply affiliation. Nominative use in
-the internal package list is fine; the listing should say "works with
-popular video and video-call apps".
+**D6. Brand names removed from marketing copy. Fixed.** Nominative use in the
+internal package list stays; the listing no longer names other companies'
+apps.
 
-**D7. The app must never imply it makes a phone child-safe.** It blocks
-touches, filters no content, and fails open. A sentence saying so belongs in
-the listing.
+**D7. The app no longer implies it makes a phone child-safe. Fixed.** Both
+the listing and the README now say plainly that it blocks touches, filters no
+content, and is not a substitute for supervision.
 
 ---
 
@@ -163,25 +167,24 @@ relaunch check ran on every event, including the content-change storm inside
 a video app, on the same thread that must answer key events within 500 ms.
 They now run only on window changes.
 
-**E2. Screen bounds taken from the service's display metrics. Planned.**
-Wrong in split screen, freeform, picture-in-picture, on foldable inner
-displays and on tablets, so the full-screen trigger and the skip-ad size
-check misjudge. Should use the window metrics.
+**E2. Screen bounds taken from the service's display metrics. Fixed.** They
+now come from the window metrics, which are correct in split screen,
+freeform, picture-in-picture and on foldable inner displays.
 
 **E3. Orientation pinning from a translucent overlay is unverified.**
 WindowManager generally ignores orientation requests from non-opaque overlay
 windows. Needs a device check.
 
-**E4. Release CI gaps. Planned.** The version code is pinned at 1, so every
-tag would ship the same build; a missing signing secret produces a silently
-unsigned bundle; release shrinking and lint only run at tag time; the
-settings enums are not kept by the shrinker, so obfuscation could silently
-reset every setting.
+**E4. Release CI gaps. Fixed.** The version code is derived from the commit
+count at tag time; a missing signing secret now fails the job instead of
+producing an unsigned bundle; release lint and both flavours build on every
+pull request; the wrapper is validated; and the shrinker keeps the enum
+constants that settings are persisted by.
 
-**E5. Smaller items.** The setup guide relaunches on every resume while
-required steps are missing; the launchable and home-package caches never
-invalidate; the banner ignores display cutouts; the screen receiver is not
-registered as not-exported.
+**E5. Smaller items. Fixed.** The setup guide is offered once per visit
+rather than on every resume; the package caches expire and are bounded; the
+banner keeps clear of display cutouts; the screen receiver is registered as
+not-exported.
 
 ---
 
@@ -189,13 +192,12 @@ registered as not-exported.
 
 Ranked by value at the actual moment of use.
 
-1. **A session timer that hands the phone back.** The most requested feature
-   in every competitor's reviews. The 90-minute safety cap now exists as a
-   floor; a user-visible timer is the real feature. Small.
-2. **A rehearsal step at the end of setup.** A parent who has unlocked once
-   will not panic later. Small, highest return per hour.
-3. **The unlock instruction where it survives.** The banner vanishes; the
-   notification should carry the gesture permanently.
+1. **A session timer that hands the phone back. Done.** Settable in five
+   minute steps up to an hour, off by default, alongside the 90-minute cap.
+2. **A rehearsal step. Done.** A "Practise" button locks the app's own screen
+   so the parent can try unlocking before it matters.
+3. **The unlock instruction where it survives. Already true**: the lock
+   notification carries the gesture for as long as the lock is on.
 4. **A deliberate way for the child to end a call.** During a grandparent
    call the child is the one who wants to wave goodbye. Medium.
 5. **A tablet story.** The car and restaurant cases are tablets, and
@@ -223,15 +225,17 @@ A restore-purchase path must exist before billing ships.
 ## Group H — Hygiene (P3)
 
 - Seven dead strings removed. **Fixed.**
-- The PIN is one SHA-256 pass with an app-wide salt over a four to eight
-  digit space, and the wrong-attempt counter resets when the overlay is
-  rebuilt. Should be a per-install salt with a slow hash.
+- The PIN is now PBKDF2 with 120,000 rounds and a random per-install salt,
+  compared in constant time. **Fixed.** The wrong-attempt counter still
+  resets when the overlay is rebuilt.
 - A view-id helper for skip-ad matching is defined and never called, so a
   broader capability is requested than exercised.
-- The setup script edits a secure settings list with substring matching and
-  an unescaped substitution, which can corrupt a real screen reader's entry.
-- The notifications permission can only be granted from the setup guide.
-- Price differs between the monetisation document and the code.
+- The setup script now edits that secure settings list element by element
+  rather than by substring, so a real screen reader's entry cannot be
+  corrupted. **Fixed.**
+- The notifications permission is grantable from the main screen again.
+  **Fixed.**
+- Price is now one number across the code and the documents. **Fixed.**
 
 ---
 

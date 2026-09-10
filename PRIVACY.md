@@ -28,14 +28,18 @@ request the internet permission, so it has no way to transmit anything.
 - **Foreground service (special use).** Keeps the touch lock alive while it is
   on.
 
-## The one exception: "Skip ads for them"
+## The one exception, and only outside the Play Store
 
-This feature is **off by default**. If you switch it on, then while the lock
-is on, and only inside the app you handed over, Child Lock looks at that
-app's on-screen button labels for one that says "Skip ad" and taps it. It
-looks at nothing else, taps nothing else, and stores and transmits nothing.
-Switching the feature off stops it entirely. Every other statement in this
-policy holds whether or not you use it.
+Child Lock is built in two versions. **The version on Google Play cannot read
+screen content at all**: the capability is compiled out of it, so the
+paragraph above is unconditional there.
+
+A separate version, built from source and installed by hand, has an optional
+"Skip ads for them" feature. It is off unless you switch it on. When it is
+on, and only while the lock is on and only inside the app you handed over, it
+looks at that app's on-screen button labels for one that says "Skip ad" and
+taps it. It looks at nothing else, taps nothing else, and stores and
+transmits nothing.
 
 ## Data storage
 
@@ -51,5 +55,7 @@ collects no information from anyone.
 
 ## Changes and contact
 
-Changes to this policy are published at the same address as this document,
-in the app's source repository. Questions: open an issue on the repository.
+The trader and data controller is named in the app's store listing and terms.
+Changes to this policy are published at the same address as this document.
+Questions: the contact address in the store listing, or an issue on the
+repository.

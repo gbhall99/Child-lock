@@ -40,6 +40,7 @@ data class LockSettings(
     val cornerPair: CornerPair = CornerPair.TOP_LEFT_BOTTOM_RIGHT,
     val badgeCorner: Corner = Corner.TOP_LEFT,
     val pinHash: String? = null,
+    val pinSalt: String? = null,
     val pinLength: Int = 0,
     val volumePattern: VolumePattern = VolumePattern.UP_THEN_DOWN,
     /** 1 = press the pattern once, 2 = twice in a row. */
@@ -60,10 +61,12 @@ data class LockSettings(
     /** Packages that arm the lock automatically, each with the moment that arms it (needs the guard). */
     val autoLockRules: Map<String, AutoLockTrigger> = emptyMap(),
     val autoLockDelaySec: Int = 15,
+    /** Hand the phone back after this many minutes. 0 means no timer. */
+    val sessionMinutes: Int = 0,
 ) {
     val autoLockApps: Set<String> get() = autoLockRules.keys
 
-    val hasPin: Boolean get() = !pinHash.isNullOrEmpty() && pinLength >= MIN_PIN_LENGTH
+    val hasPin: Boolean get() = !pinHash.isNullOrEmpty() && !pinSalt.isNullOrEmpty() && pinLength >= MIN_PIN_LENGTH
 
     companion object {
         const val MIN_PIN_LENGTH = 4
@@ -74,6 +77,7 @@ data class LockSettings(
         const val MAX_ARM_DELAY_SEC = 10
         const val MIN_AUTO_LOCK_DELAY_SEC = 3
         const val MAX_AUTO_LOCK_DELAY_SEC = 60
+        const val MAX_SESSION_MINUTES = 60
     }
 }
 
@@ -91,6 +95,7 @@ class SettingsRepository private constructor(context: Context) {
         cornerPair = prefs.enum(KEY_CORNER_PAIR, CornerPair.TOP_LEFT_BOTTOM_RIGHT),
         badgeCorner = prefs.enum(KEY_BADGE_CORNER, Corner.TOP_LEFT),
         pinHash = prefs.getString(KEY_PIN_HASH, null),
+        pinSalt = prefs.getString(KEY_PIN_SALT, null),
         pinLength = prefs.getInt(KEY_PIN_LENGTH, 0),
         volumePattern = prefs.enum(KEY_VOLUME_PATTERN, VolumePattern.UP_THEN_DOWN),
         volumeRepeats = prefs.getInt(KEY_VOLUME_REPEATS, 1).coerceIn(1, 2),
@@ -110,6 +115,7 @@ class SettingsRepository private constructor(context: Context) {
             entry.substring(0, i) to trigger
         }.toMap(),
         autoLockDelaySec = prefs.getInt(KEY_AUTO_LOCK_DELAY, 15).coerceIn(LockSettings.MIN_AUTO_LOCK_DELAY_SEC, LockSettings.MAX_AUTO_LOCK_DELAY_SEC),
+        sessionMinutes = prefs.getInt(KEY_SESSION_MIN, 0).coerceIn(0, LockSettings.MAX_SESSION_MINUTES),
     )
 
     fun save(s: LockSettings) {
@@ -119,6 +125,7 @@ class SettingsRepository private constructor(context: Context) {
             .putString(KEY_CORNER_PAIR, s.cornerPair.name)
             .putString(KEY_BADGE_CORNER, s.badgeCorner.name)
             .putString(KEY_PIN_HASH, s.pinHash)
+            .putString(KEY_PIN_SALT, s.pinSalt)
             .putInt(KEY_PIN_LENGTH, s.pinLength)
             .putString(KEY_VOLUME_PATTERN, s.volumePattern.name)
             .putInt(KEY_VOLUME_REPEATS, s.volumeRepeats)
@@ -133,6 +140,7 @@ class SettingsRepository private constructor(context: Context) {
             .putBoolean(KEY_RELOCK, s.relockSameApp)
             .putStringSet(KEY_AUTO_LOCK_RULES, s.autoLockRules.map { (pkg, t) -> "$pkg=${t.name}" }.toSet())
             .putInt(KEY_AUTO_LOCK_DELAY, s.autoLockDelaySec)
+            .putInt(KEY_SESSION_MIN, s.sessionMinutes)
             .apply()
     }
 
@@ -169,6 +177,7 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_CORNER_PAIR = "corner_pair"
         private const val KEY_BADGE_CORNER = "badge_corner"
         private const val KEY_PIN_HASH = "pin_hash"
+        private const val KEY_PIN_SALT = "pin_salt"
         private const val KEY_PIN_LENGTH = "pin_length"
         private const val KEY_VOLUME_PATTERN = "volume_pattern"
         private const val KEY_VOLUME_REPEATS = "volume_repeats"
@@ -183,6 +192,7 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_RELOCK = "relock_same_app"
         private const val KEY_AUTO_LOCK_RULES = "auto_lock_rules"
         private const val KEY_AUTO_LOCK_DELAY = "auto_lock_delay_sec"
+        private const val KEY_SESSION_MIN = "session_minutes"
         private const val KEY_TILE_ADDED = "tile_added"
         private const val KEY_SETUP_DISMISSED = "setup_dismissed"
         private const val KEY_OVERLAY_ATTEMPTED = "overlay_attempted"

@@ -57,6 +57,7 @@ class MainActivity : Activity() {
     private lateinit var helperRow: View
     private lateinit var restrictedHint: View
     private lateinit var shortcutHint: View
+    private lateinit var notificationRow: View
 
     // How it works
     private lateinit var lockHow: TextView
@@ -75,6 +76,9 @@ class MainActivity : Activity() {
     private lateinit var autoLockNote: View
     private lateinit var proChipHolder: LinearLayout
 
+    /** The guide is offered once per visit, not every time this screen resumes. */
+    private var setupShown = false
+
     private val stateListener: (LockState) -> Unit = { renderStatus(it) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,7 +90,8 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (!repo.setupDismissed && SetupActivity.isNeeded(this)) {
+        if (!setupShown && !repo.setupDismissed && SetupActivity.isNeeded(this)) {
+            setupShown = true
             startActivity(Intent(this, SetupActivity::class.java))
             return
         }
@@ -157,6 +162,29 @@ class MainActivity : Activity() {
         armButton = primaryButton(getString(R.string.arm_button, s.armDelaySec)) { arm() }
         addView(armButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)).apply { topMargin = dp(18) })
         addView(caption(getString(R.string.arm_hint)).apply { setPadding(dp(4), dp(8), dp(4), 0) })
+        addView(divider().apply { (layoutParams as LinearLayout.LayoutParams).topMargin = dp(10) })
+        addView(
+            seekRow(
+                getString(R.string.session_title), 0, LockSettings.MAX_SESSION_MINUTES / 5, s.sessionMinutes / 5,
+                format = { if (it == 0) getString(R.string.session_off) else getString(R.string.session_minutes, it * 5) },
+            ) { steps -> repo.update { it.copy(sessionMinutes = steps * 5) } },
+        )
+        addView(caption(getString(R.string.session_desc)))
+        addView(row(getString(R.string.rehearse_title), getString(R.string.rehearse_desc), actionButton(getString(R.string.rehearse_go)) { rehearse() }, null, R.drawable.ic_touch))
+    }
+
+    /**
+     * Locks straight away without leaving the app, so the parent can practise
+     * getting out. A parent who has unlocked once will not panic later.
+     */
+    private fun rehearse() {
+        val s = repo.load()
+        if (!Settings.canDrawOverlays(this)) {
+            toast(R.string.toast_no_overlay_permission)
+            return
+        }
+        if (preflight(s) != null) return
+        if (!LockController.requestLock(this, null, 0)) toast(R.string.toast_lock_failed)
     }
 
     private fun attentionCard(): View {
@@ -185,6 +213,16 @@ class MainActivity : Activity() {
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
             })
             addView(restrictedHint, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+            notificationRow = row(
+                getString(R.string.perm_notifications), getString(R.string.setup_notifications_desc),
+                actionButton(getString(R.string.allow)) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
+                    }
+                },
+                chip(getString(R.string.status_optional), Tone.NEUTRAL), R.drawable.ic_bell, Palette.GREY,
+            )
+            addView(notificationRow)
             shortcutHint = callout(getString(R.string.shortcut_button_desc), actionButton(getString(R.string.open)) {
                 startActivity(GuardAccessibilityService.settingsIntent(this@MainActivity))
             })
@@ -313,9 +351,11 @@ class MainActivity : Activity() {
             addView(switchRow(getString(R.string.relock_title), getString(R.string.relock_desc), s.relockSameApp) { v ->
                 Paywall.require(this@MainActivity, FeatureGate.Feature.RELOCK) { repo.update { it.copy(relockSameApp = v) } }
             })
-            addView(switchRow(getString(R.string.skip_ads_title), getString(R.string.skip_ads_desc), s.skipAds) { v ->
-                Paywall.require(this@MainActivity, FeatureGate.Feature.SKIP_ADS) { repo.update { it.copy(skipAds = v) } }
-            })
+            if (com.gbhall.childlock.guard.SkipAdFeature.AVAILABLE) {
+                addView(switchRow(getString(R.string.skip_ads_title), getString(R.string.skip_ads_desc), s.skipAds) { v ->
+                    Paywall.require(this@MainActivity, FeatureGate.Feature.SKIP_ADS) { repo.update { it.copy(skipAds = v) } }
+                })
+            }
             autoLockNote = callout(getString(R.string.autolock_note), actionButton(getString(R.string.turn_on)) {
                 Disclosures.accessibility(this@MainActivity) { startActivity(GuardAccessibilityService.settingsIntent(this@MainActivity)) }
             })
@@ -450,19 +490,7 @@ class MainActivity : Activity() {
             toast(R.string.toast_need_pin)
             return
         }
-        when (com.gbhall.childlock.lock.LockPreflight.check(
-            s.gesture,
-            GuardAccessibilityService.isConnected,
-            screenReaderOn(),
-        )) {
-            com.gbhall.childlock.lock.LockPreflight.Result.HelperNeeded -> {
-                toast(R.string.toast_needs_helper); return
-            }
-            com.gbhall.childlock.lock.LockPreflight.Result.ScreenReaderNeedsVolume -> {
-                toast(R.string.toast_screen_reader); return
-            }
-            com.gbhall.childlock.lock.LockPreflight.Result.Ok -> Unit
-        }
+        if (preflight(s) != null) return
         if (!LockController.requestLock(this, ForegroundTracker.lastApp, s.armDelaySec * 1000L)) {
             toast(R.string.toast_lock_failed)
             return
@@ -485,7 +513,8 @@ class MainActivity : Activity() {
                 if (pin.length !in LockSettings.MIN_PIN_LENGTH..LockSettings.MAX_PIN_LENGTH || !pin.all { it.isDigit() }) {
                     toast(R.string.toast_pin_invalid)
                 } else {
-                    repo.update { it.copy(pinHash = PinHasher.hash(pin), pinLength = pin.length) }
+                    val salt = PinHasher.newSalt()
+                    repo.update { it.copy(pinHash = PinHasher.hash(pin, salt), pinSalt = salt, pinLength = pin.length) }
                     renderGestureDependents(repo.load())
                 }
             }
@@ -498,11 +527,14 @@ class MainActivity : Activity() {
         val helper = GuardAccessibilityService.isEnabled(this)
         val shortcut = helper && GuardAccessibilityService.isShortcutButtonOn(this)
         val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && repo.overlayAttempted && (!overlay || !helper)
+        val notify = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         overlayRow.visibility = if (overlay) View.GONE else View.VISIBLE
         helperRow.visibility = if (helper) View.GONE else View.VISIBLE
+        notificationRow.visibility = if (notify) View.GONE else View.VISIBLE
         restrictedHint.visibility = if (restricted) View.VISIBLE else View.GONE
         shortcutHint.visibility = if (shortcut) View.VISIBLE else View.GONE
-        attentionCard.visibility = if (overlay && helper && !shortcut) View.GONE else View.VISIBLE
+        attentionCard.visibility = if (overlay && helper && notify && !shortcut) View.GONE else View.VISIBLE
         armButton.isEnabled = overlay
         renderGestureDependents(repo.load())
     }
@@ -545,6 +577,25 @@ class MainActivity : Activity() {
         )
         lockHow.text = GestureText.lockHint(this, s)
         unlockHow.text = GestureText.unlockHint(this, s)
+    }
+
+    /** Returns the reason a lock would strand the parent, or null when it is safe. */
+    private fun preflight(s: LockSettings): Int? {
+        val reason = when (
+            com.gbhall.childlock.lock.LockPreflight.check(
+                s.gesture,
+                GuardAccessibilityService.isConnected,
+                screenReaderOn(),
+                GuardAccessibilityService.keyToolActive,
+            )
+        ) {
+            com.gbhall.childlock.lock.LockPreflight.Result.HelperNeeded -> R.string.toast_needs_helper
+            com.gbhall.childlock.lock.LockPreflight.Result.ScreenReaderNeedsVolume -> R.string.toast_screen_reader
+            com.gbhall.childlock.lock.LockPreflight.Result.SwitchAccessNeedsTouch -> R.string.toast_switch_access
+            com.gbhall.childlock.lock.LockPreflight.Result.Ok -> null
+        }
+        if (reason != null) toast(reason)
+        return reason
     }
 
     private fun screenReaderOn(): Boolean =

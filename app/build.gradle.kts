@@ -23,7 +23,8 @@ android {
         applicationId = "com.gbhall.childlock"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
+        // CI derives the version code from the release tag; 1 is the local default.
+        versionCode = (System.getenv("CHILDLOCK_VERSION_CODE") ?: "1").toInt()
         versionName = "1.0.0"
         resourceConfigurations += listOf("en")
     }
@@ -36,6 +37,20 @@ android {
                 keyAlias = signingValue("keyAlias")
                 keyPassword = signingValue("keyPassword")
             }
+        }
+    }
+
+    // Two builds. The released app cannot skip ads at all: the capability is
+    // compiled out, not merely hidden (see REVIEW.md, group D).
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("play") {
+            dimension = "distribution"
+            isDefault = true
+        }
+        create("sideload") {
+            dimension = "distribution"
+            versionNameSuffix = "-sideload"
         }
     }
 
@@ -52,13 +67,13 @@ android {
         language { enableSplit = false }
     }
 
-    testOptions {
-        unitTests.isIncludeAndroidResources = true
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
 
     lint {

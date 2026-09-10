@@ -1,5 +1,8 @@
 # Child Lock
 
+Child Lock blocks touches. It does not filter or restrict content, and it is
+not a substitute for supervision.
+
 Hand your phone to your child with a video, a video call or a game on
 screen. They can tap, swipe and poke all they like; nothing happens. The
 screen is never covered or dimmed; the only sign is a small padlock badge
@@ -105,10 +108,17 @@ the status bar is hidden; never screen content. Two more automatic options:
 "Lock again by itself" re-locks if the same moment happens again after you
 unlock (the video goes full screen again, another call connects), and "Skip
 ads for them" taps a "Skip ad" button when one appears in the app you handed
-over, using each app's own wording (YouTube's bare "Skip" counts there and
-nowhere else; "Skip intro" and "Skip recap" are never tapped). Most streaming
-services make their ads unskippable, so in practice this helps on YouTube,
-YouTube Kids, Dailymotion and a few others. Skip ads is off by default and is the one feature that reads anything
+over, using each app's own wording ("Skip intro" and "Skip recap" are never
+tapped). Most streaming services make their ads unskippable, so in practice
+this helps on YouTube, YouTube Kids, Dailymotion and a few others.
+
+**Skip ads only exists in the sideload build.** The project builds two
+flavours: `sideload`, which has it, and `play`, which is compiled without the
+capability at all. Tapping another app's skip button conflicts with Google
+Play's Device and Network Abuse policy and with YouTube's terms, and it is
+the only thing that would make Child Lock read screen content. Build
+`assembleSideloadDebug` for your own phone and `bundlePlayRelease` for the
+store. Skip ads is off by default and is the one feature that reads anything
 on screen: button labels, in that one app, while locked. The automatic
 features are Child Lock Pro; the lock, the volume buttons and every safety
 feature are free. A countdown (15 s by default) follows;

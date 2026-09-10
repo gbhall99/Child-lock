@@ -65,6 +65,11 @@ class PinPadView(
         val gap = (3 * density).toInt()
         return TextView(context).apply {
             text = label
+            contentDescription = when (label) {
+                "⌫" -> context.getString(R.string.a11y_pin_backspace)
+                "✕" -> context.getString(R.string.a11y_pin_clear)
+                else -> label
+            }
             textSize = 22f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER

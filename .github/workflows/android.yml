@@ -11,24 +11,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+
       - name: Unit tests
-        run: ./gradlew --no-daemon test
-      - name: Lint
-        run: ./gradlew --no-daemon lintDebug
-      - name: Build debug APK
-        run: ./gradlew --no-daemon assembleDebug
+        run: ./gradlew --no-daemon testSideloadDebugUnitTest testPlayDebugUnitTest
+
+      # Release shrinking and lint break at tag time otherwise, when it is too late.
+      - name: Lint (debug and release)
+        run: ./gradlew --no-daemon lintPlayDebug lintPlayRelease
+
+      - name: Build both flavours
+        run: ./gradlew --no-daemon assembleSideloadDebug assemblePlayRelease
+
       - uses: actions/upload-artifact@v4
         with:
-          name: childlock-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: childlock-sideload-debug-apk
+          path: app/build/outputs/apk/sideload/debug/app-sideload-debug.apk
 
   release:
-    # Signed Play bundle, only when the signing secrets exist (see RELEASING.md).
+    # Signed Play bundle on a v* tag. See RELEASING.md.
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
@@ -39,17 +45,33 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+
+      - name: Require signing secrets
+        env:
+          KEYSTORE: ${{ secrets.CHILDLOCK_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE" ]; then
+            echo "::error::Signing secrets are missing; refusing to produce an unsigned bundle."
+            exit 1
+          fi
+
       - name: Restore upload keystore
-        if: ${{ secrets.CHILDLOCK_KEYSTORE_BASE64 != '' }}
         run: echo "${{ secrets.CHILDLOCK_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload.jks"
+
+      # Every tag must ship a distinct version code, or Play rejects the upload.
+      - name: Derive version code from the tag
+        run: |
+          echo "CHILDLOCK_VERSION_CODE=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
+
       - name: Build release bundle
         env:
           CHILDLOCK_STOREFILE: ${{ runner.temp }}/upload.jks
           CHILDLOCK_STOREPASSWORD: ${{ secrets.CHILDLOCK_STOREPASSWORD }}
           CHILDLOCK_KEYALIAS: ${{ secrets.CHILDLOCK_KEYALIAS }}
           CHILDLOCK_KEYPASSWORD: ${{ secrets.CHILDLOCK_KEYPASSWORD }}
-        run: ./gradlew --no-daemon bundleRelease
+        run: ./gradlew --no-daemon bundlePlayRelease
+
       - uses: actions/upload-artifact@v4
         with:
-          name: childlock-release-bundle
-          path: app/build/outputs/bundle/release/app-release.aab
+          name: childlock-play-release-bundle
+          path: app/build/outputs/bundle/playRelease/app-play-release.aab

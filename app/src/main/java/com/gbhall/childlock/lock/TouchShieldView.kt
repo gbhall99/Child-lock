@@ -92,8 +92,37 @@ class TouchShieldView(
         isClickable = true
         isHapticFeedbackEnabled = true
         setWillNotDraw(false)
-        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
-        contentDescription = context.getString(R.string.shield_content_description)
+        // Announce the lock and how to leave it. A screen reader would
+        // otherwise find nothing here at all.
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
+        isFocusable = true
+        contentDescription = context.getString(
+            R.string.shield_content_description,
+            com.gbhall.childlock.settings.GestureText.unlockShort(context, settings),
+        )
+    }
+
+    /**
+     * Unlocking is offered as a custom action rather than a click: a child
+     * cannot stumble into it, but a parent using a screen reader, Voice
+     * Access or a Braille display can always find it.
+     */
+    override fun onInitializeAccessibilityNodeInfo(info: android.view.accessibility.AccessibilityNodeInfo) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        info.addAction(
+            android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction(
+                ACTION_UNLOCK_ID,
+                context.getString(R.string.a11y_unlock_action),
+            ),
+        )
+    }
+
+    override fun performAccessibilityAction(action: Int, arguments: android.os.Bundle?): Boolean {
+        if (action == ACTION_UNLOCK_ID) {
+            host.onUnlock()
+            return true
+        }
+        return super.performAccessibilityAction(action, arguments)
     }
 
     override fun onApplyWindowInsets(windowInsets: WindowInsets): WindowInsets {
@@ -235,5 +264,8 @@ class TouchShieldView(
         const val BADGE_SLOP_DP = 16f
         const val EDGE_EXCLUSION_DP = 48f
         private const val TICK_MS = 33L
+
+        /** Custom accessibility action id for "unlock". */
+        val ACTION_UNLOCK_ID = R.id.action_unlock
     }
 }

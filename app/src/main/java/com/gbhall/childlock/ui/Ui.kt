@@ -55,10 +55,26 @@ enum class Tone(val glyph: String) {
     ACTIVE("●"),
     PENDING("◐");
 
+    /** For icons and large shapes, where the 3:1 non-text ratio applies. */
     fun color(context: Context): Int = when (this) {
         GOOD, ACTIVE -> context.accent
         ATTENTION, PENDING -> Palette.ORANGE
         NEUTRAL -> Palette.GREY
+    }
+
+    /** For small text on a tint of the same colour, where 4.5:1 applies. */
+    fun textColor(context: Context): Int = if (context.isNight) {
+        when (this) {
+            GOOD, ACTIVE -> 0xFF9CD3F2.toInt()
+            ATTENTION, PENDING -> 0xFFFFD37A.toInt()
+            NEUTRAL -> 0xFFC2C5CC.toInt()
+        }
+    } else {
+        when (this) {
+            GOOD, ACTIVE -> 0xFF005B8F.toInt()
+            ATTENTION, PENDING -> 0xFF6E4600.toInt()
+            NEUTRAL -> 0xFF4F525A.toInt()
+        }
     }
 }
 
@@ -133,6 +149,7 @@ internal fun Context.heading(text: String): TextView = TextView(this).apply {
     textSize = Type.SECTION
     typeface = Typeface.DEFAULT_BOLD
     setTextColor(textPrimary)
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) isAccessibilityHeading = true
 }
 
 internal fun Context.body(text: CharSequence, secondary: Boolean = false, size: Float = Type.BODY): TextView = TextView(this).apply {
@@ -148,6 +165,7 @@ internal fun Context.caption(text: CharSequence): TextView = body(text, secondar
 
 internal fun Context.icon(resId: Int, tint: Int, sizeDp: Int = 24): ImageView = ImageView(this).apply {
     setImageResource(resId)
+    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     imageTintList = ColorStateList.valueOf(tint)
     scaleType = ImageView.ScaleType.FIT_CENTER
     layoutParams = ViewGroup.LayoutParams(dp(sizeDp), dp(sizeDp))
@@ -170,11 +188,13 @@ internal fun Context.chip(text: String, tone: Tone): TextView = TextView(this).a
         append(tone.glyph, RelativeSizeSpan(0.9f), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         append(" ").append(text)
     }
+    // The glyph is decoration for sighted users; the word carries the meaning.
+    contentDescription = text
     textSize = Type.CAPTION
     typeface = Typeface.DEFAULT_BOLD
-    setTextColor(c)
-    setPadding(dp(8), dp(3), dp(8), dp(3))
-    minHeight = dp(22)
+    setTextColor(tone.textColor(context))
+    setPadding(dp(8), dp(4), dp(8), dp(4))
+    minHeight = dp(24)
     background = GradientDrawable().apply {
         cornerRadius = dp(999).toFloat()
         setColor(tint(c, 0x22))
@@ -185,6 +205,8 @@ internal fun Context.chip(text: String, tone: Tone): TextView = TextView(this).a
 /** Full-width primary action; when disabled, a quiet tonal "not yet" rather than a grey slab. */
 internal fun Context.primaryButton(text: String, onClick: () -> Unit): Button = Button(this).apply {
     this.text = text
+    minHeight = dp(56)
+    minimumHeight = dp(56)
     textSize = Type.ROW
     typeface = Typeface.DEFAULT_BOLD
     isAllCaps = false
@@ -214,9 +236,9 @@ internal fun Context.actionButton(text: String, onClick: () -> Unit): Button = B
     stateListAnimator = null
     minWidth = 0
     minimumWidth = 0
-    minHeight = 0
-    minimumHeight = 0
-    setPadding(dp(16), dp(8), dp(16), dp(8))
+    minHeight = dp(48)
+    minimumHeight = dp(48)
+    setPadding(dp(16), dp(10), dp(16), dp(10))
     background = GradientDrawable().apply {
         cornerRadius = dp(999).toFloat()
         setColor(tint(accent, 0x1A))
@@ -236,6 +258,7 @@ internal fun Context.segmented(labels: List<String>, selected: Int, onSelect: (I
     fun render(sel: Int) {
         buttons.forEachIndexed { i, b ->
             val on = i == sel
+            b.isSelected = on
             b.setTextColor(if (on) Color.WHITE else accent)
             b.background = GradientDrawable().apply {
                 cornerRadius = dp(9).toFloat()
@@ -249,8 +272,19 @@ internal fun Context.segmented(labels: List<String>, selected: Int, onSelect: (I
             textSize = Type.BODY
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setPadding(0, dp(10), 0, dp(10))
+            setPadding(0, dp(12), 0, dp(12))
+            minHeight = dp(48)
             isClickable = true
+            isFocusable = true
+            // Announced as a radio button, so selection is not colour-only.
+            accessibilityDelegate = object : View.AccessibilityDelegate() {
+                override fun onInitializeAccessibilityNodeInfo(host: View, info: android.view.accessibility.AccessibilityNodeInfo) {
+                    super.onInitializeAccessibilityNodeInfo(host, info)
+                    info.className = android.widget.RadioButton::class.java.name
+                    info.isCheckable = true
+                    info.isChecked = host.isSelected
+                }
+            }
             setOnClickListener {
                 render(i)
                 onSelect(i)
@@ -296,14 +330,25 @@ internal fun Context.row(
 
 internal fun Context.styledSwitch(checked: Boolean, onChange: (Boolean) -> Unit): Switch = Switch(this).apply {
     isChecked = checked
-    val off = if (isNight) 0xFF3A3D46.toInt() else 0xFFC7C9D0.toInt()
-    thumbTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(accent, Color.WHITE))
-    trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(tint(accent, 0x80), off))
+    // Opaque tokens: the translucent defaults fell below the 3:1 non-text ratio.
+    val offTrack = if (isNight) 0xFF6B6E76.toInt() else 0xFF8C8F97.toInt()
+    val offThumb = if (isNight) 0xFFC7C9D0.toInt() else Color.WHITE
+    val onTrack = if (isNight) 0xFF2E6C8E.toInt() else 0xFF7FB6D6.toInt()
+    thumbTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(Palette.BLUE, offThumb))
+    trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(onTrack, offTrack))
     setOnCheckedChangeListener { _, value -> onChange(value) }
 }
 
-internal fun Context.switchRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit): LinearLayout =
-    row(title, subtitle, styledSwitch(checked, onChange))
+internal fun Context.switchRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit): LinearLayout {
+    val sw = styledSwitch(checked, onChange).apply { contentDescription = title }
+    val r = row(title, subtitle, sw)
+    // One focus stop that reads the title and toggles, instead of three.
+    r.isClickable = true
+    r.isFocusable = true
+    r.contentDescription = if (subtitle == null) title else "$title. $subtitle"
+    r.setOnClickListener { sw.toggle() }
+    return r
+}
 
 internal fun Context.divider(): View = View(this).apply {
     setBackgroundColor(hairline)
@@ -394,10 +439,17 @@ internal fun Context.seekRow(
         progressTintList = ColorStateList.valueOf(accent)
         thumbTintList = ColorStateList.valueOf(accent)
         progressBackgroundTintList = ColorStateList.valueOf(hairline)
+        contentDescription = title
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) stateDescription = format(value)
+        minimumHeight = dp(48)
         setPadding(dp(8), dp(8), dp(8), dp(4))
         setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, p: Int, fromUser: Boolean) {
                 text.text = "$title: ${format(p)}"
+                seekBar.contentDescription = title
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    seekBar.stateDescription = format(p)
+                }
                 if (fromUser) onChange(p)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
@@ -417,11 +469,22 @@ internal fun Context.expander(title: String, iconRes: Int?, content: View): Line
             addView(heading(title), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(chevron, LinearLayout.LayoutParams(dp(24), dp(24)))
             isClickable = true
-            minimumHeight = dp(44)
+            isFocusable = true
+            minimumHeight = dp(48)
+            fun describe(open: Boolean) {
+                contentDescription = context.getString(
+                    if (open) com.gbhall.childlock.R.string.a11y_collapse else com.gbhall.childlock.R.string.a11y_expand,
+                    title,
+                )
+            }
+            describe(false)
             setOnClickListener {
                 val open = content.visibility != View.VISIBLE
                 content.visibility = if (open) View.VISIBLE else View.GONE
                 chevron.setImageResource(if (open) com.gbhall.childlock.R.drawable.ic_collapse else com.gbhall.childlock.R.drawable.ic_expand)
+                describe(open)
+                if (open) content.requestFocus()
+                announceForAccessibility(contentDescription)
             }
         },
     )

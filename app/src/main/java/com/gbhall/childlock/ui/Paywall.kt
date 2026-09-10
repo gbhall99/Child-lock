@@ -14,14 +14,20 @@ object Paywall {
     }
 
     fun show(activity: Activity) {
-        AlertDialog.Builder(activity)
+        val builder = AlertDialog.Builder(activity)
             .setTitle(activity.getString(R.string.pro_title))
-            .setMessage(activity.getString(R.string.pro_body))
-            .setPositiveButton(activity.getString(R.string.pro_upgrade, FeatureGate.PRICE_LABEL)) { _, _ ->
-                // Play Billing launches the purchase flow here; until then, explain.
-                Toast.makeText(activity, R.string.pro_coming, Toast.LENGTH_LONG).show()
-            }
-            .setNegativeButton(R.string.pro_not_now, null)
-            .show()
+        if (FeatureGate.BILLING_READY) {
+            builder.setMessage(activity.getString(R.string.pro_body))
+                .setPositiveButton(activity.getString(R.string.pro_upgrade, FeatureGate.priceLabel(activity))) { _, _ ->
+                    // Play Billing launches the purchase flow here.
+                    Toast.makeText(activity, R.string.pro_coming, Toast.LENGTH_LONG).show()
+                }
+                .setNegativeButton(R.string.pro_not_now, null)
+        } else {
+            // Never offer a purchase that cannot be completed.
+            builder.setMessage(activity.getString(R.string.pro_body_soon))
+                .setPositiveButton(R.string.done, null)
+        }
+        builder.show()
     }
 }

@@ -25,21 +25,22 @@
     <string name="toast_no_overlay_permission">Turn on “Show over other apps” first</string>
     <string name="toast_need_pin">Set a PIN first</string>
     <string name="toast_needs_helper">Turn on the Child Lock helper first, or you would not be able to unlock.</string>
+    <string name="toast_switch_access">Your switches use the volume buttons. Choose a touch unlock instead, so your switches keep working.</string>
     <string name="toast_screen_reader">Your screen reader changes how touches work. Choose the volume buttons so you can still unlock.</string>
     <string name="toast_pin_invalid">PIN must be 4 to 8 digits</string>
     <string name="toast_no_browser">No browser available to open the link</string>
 
-    <string name="shield_content_description">Child Lock is on. Touches do nothing.</string>
+    <string name="shield_content_description">Child Lock is on. Touches do nothing. %1$s</string>
     <string name="pin_wrong">Wrong PIN</string>
 
     <!-- Android's Accessibility list -->
     <string name="accessibility_label">Child Lock helper</string>
     <string name="accessibility_summary">Lets Child Lock use the volume buttons and keep your child in the app</string>
-    <string name="accessibility_description">While the lock is on, Child Lock uses this to notice the volume-button pattern, block the back button and swipes, close the notifications panel, and return to the app you handed over. While off, it only notices which app is open and whether a call or video is playing, so it can lock automatically. It never reads or stores what is on screen, except button labels when “Skip ads” is switched on.</string>
+    <string name="accessibility_description">While the lock is on, Child Lock uses this to notice the volume-button pattern, block the back button and swipes, close the notifications panel, and return to the app you handed over. While off, it only notices which app is open and whether a call or video is playing, so it can lock automatically. It never reads or stores what is on screen. (Where the optional “Skip ads” feature exists and is switched on, it reads button labels in the app you handed over, and nothing else.)</string>
 
     <!-- Disclosure shown before enabling the helper -->
     <string name="disclosure_title">Why Child Lock needs this</string>
-    <string name="disclosure_body">Child Lock uses Android’s accessibility feature as a parental lock, not as an accessibility aid.\n\nWhile locked, it:\n• Notices the volume-button pattern that unlocks\n• Blocks the back button and home/back swipes\n• Closes the notifications panel and returns to the app\n\nWhile unlocked, it only notices which app is open, and whether a call or video is playing, for automatic locking.\n\nIt never reads, stores or sends what is on your screen. The one exception is “Skip ads for them”, which is off unless you turn it on: that reads button labels in the app you handed over, so it can tap “Skip ad”.\n\nNext, switch on “Child Lock helper” and tap Allow.</string>
+    <string name="disclosure_body">Child Lock uses Android’s accessibility feature as a parental lock, not as an accessibility aid.\n\nWhile locked, it:\n• Notices the volume-button pattern that unlocks\n• Blocks the back button and home/back swipes\n• Closes the notifications panel and returns to the app\n\nWhile unlocked, it only notices which app is open, and whether a call or video is playing, for automatic locking.\n\nIt never reads, stores or sends what is on your screen.\n\n(If this copy of Child Lock offers “Skip ads for them”, that one feature is off unless you turn it on, and when on it reads button labels in the app you handed over so it can tap “Skip ad”. The Play Store version does not include it.)\n\nNext, switch on “Child Lock helper” and tap Allow.</string>
     <string name="disclosure_agree">Continue</string>
 
     <!-- Main screen -->
@@ -76,6 +77,11 @@
     <string name="save">Save</string>
     <string name="done">Done</string>
     <string name="back">Back</string>
+    <string name="a11y_expand">%1$s, collapsed, double tap to expand</string>
+    <string name="a11y_collapse">%1$s, expanded, double tap to collapse</string>
+    <string name="a11y_unlock_action">Unlock Child Lock</string>
+    <string name="a11y_pin_backspace">Delete last digit</string>
+    <string name="a11y_pin_clear">Clear</string>
     <string name="status_optional">Optional</string>
     <string name="setup_assistant">Setup guide</string>
     <string name="setup_assistant_desc">See the setup steps again.</string>
@@ -147,6 +153,14 @@
     <string name="skip_ads_desc">While locked, if a “Skip ad” button appears in the app you handed over, Child Lock taps it. Never the ad itself, and never “Skip intro”. To do this it reads button labels in that one app; nothing is stored or sent.</string>
     <string name="pro_title">Child Lock Pro</string>
     <string name="pro_body">Everything automatic: locking by itself when a call connects or a video goes full screen, locking again after you unlock, and skipping ads.\n\nThe lock itself, the volume buttons and every safety feature stay free, always.</string>
+    <string name="pro_body_soon">These automatic extras are still being finished, so they are unlocked for now and nothing is for sale yet.\n\nThe lock itself, the volume buttons and every safety feature will always be free.</string>
+    <string name="session_title">Hand back after</string>
+    <string name="session_off">No timer</string>
+    <string name="session_minutes">%1$d minutes</string>
+    <string name="session_desc">Child Lock unlocks itself when the time is up, so the phone always comes back to you.</string>
+    <string name="rehearse_title">Try it now</string>
+    <string name="rehearse_desc">Lock this screen and practise unlocking, so it is familiar before it matters.</string>
+    <string name="rehearse_go">Practise</string>
     <string name="pro_upgrade">Upgrade for %1$s</string>
     <string name="pro_not_now">Not now</string>
     <string name="pro_coming">Purchases arrive with the Play Store release.</string>

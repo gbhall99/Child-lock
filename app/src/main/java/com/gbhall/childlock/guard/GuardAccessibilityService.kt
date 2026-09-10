@@ -126,11 +126,17 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     public override fun onServiceConnected() {
         super.onServiceConnected()
         isConnected = true
+        keyToolActive = keyFilteringToolActive()
         // Never inherit a stored touch-exploration request from a previous run.
         applyServiceFlags(locked = false)
         startCameraTracking()
         try {
-            registerReceiver(screenReceiver, IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON) })
+            val filter = IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON) }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(screenReceiver, filter)
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Screen receiver not registered", e)
         }
@@ -141,6 +147,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
 
     override fun onUnbind(intent: Intent?): Boolean {
         isConnected = false
+        keyToolActive = false
         // Leaving the phone in explore-by-touch would strand the user.
         try {
             applyServiceFlags(locked = false)
@@ -161,6 +168,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     /** Which key gesture applies right now depends on both settings and lock state. */
     private fun rebuildKeyGesture() {
         settings = SettingsRepository.get(this).load()
+        keyToolActive = keyFilteringToolActive()
         engine.rules = settings.autoLockRules
         engine.relockEnabled = settings.relockSameApp
         handler.removeCallbacks(tick)
@@ -272,9 +280,10 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     private var scanFailures = 0
 
     private fun skipAdsActive(): Boolean {
+        if (!SkipAdFeature.AVAILABLE) return false
         val locked = LockController.state as? LockState.Locked ?: return false
         val pkg = locked.protectedPackage ?: return false
-        return settings.skipAds && SkipAdMatcher.isSupported(pkg) && scanFailures < 3
+        return settings.skipAds && SkipAdFeature.isSupported(pkg) && scanFailures < 3
     }
 
     private fun onContentChanged(pkg: String) {
@@ -289,22 +298,10 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         try {
             val root = rootInActiveWindow ?: return
             if (root.packageName?.toString() != pkg) return
-            val dm = resources.displayMetrics
-            val bounds = android.graphics.Rect()
-            val hits = root.findAccessibilityNodeInfosByText("skip") ?: return
-            for (node in hits) {
-                node.getBoundsInScreen(bounds)
-                val parentText = node.parent?.let { p -> (p.text ?: p.contentDescription) }
-                val ok = SkipAdMatcher.isCandidate(
-                    pkg, node.text, node.contentDescription, parentText,
-                    node.isClickable, node.isEnabled, node.isVisibleToUser, node.isEditable,
-                    bounds.width(), bounds.height(), dm.widthPixels, dm.heightPixels,
-                )
-                if (ok && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
-                    lastClickMs = now
-                    clickTimes.addLast(now)
-                    break
-                }
+            val bounds = windowBounds()
+            if (SkipAdFeature.clickSkip(root, pkg, bounds.width(), bounds.height())) {
+                lastClickMs = now
+                clickTimes.addLast(now)
             }
             scanFailures = 0
         } catch (e: Exception) {
@@ -376,9 +373,41 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         camerasInUse.clear()
     }
 
+    /** The window's own bounds. A Service's displayMetrics is wrong in split screen and on foldables. */
+    private fun windowBounds(): android.graphics.Rect =
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                android.graphics.Rect(getSystemService(android.view.WindowManager::class.java).maximumWindowMetrics.bounds)
+            } else {
+                val dm = resources.displayMetrics
+                android.graphics.Rect(0, 0, dm.widthPixels, dm.heightPixels)
+            }
+        } catch (e: Exception) {
+            val dm = resources.displayMetrics
+            android.graphics.Rect(0, 0, dm.widthPixels, dm.heightPixels)
+        }
+
     private fun keyguardLocked(): Boolean =
         try {
             getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
+        } catch (e: Exception) {
+            false
+        }
+
+    /**
+     * Another enabled accessibility tool is filtering key events. Switch Access
+     * commonly maps physical switches to the volume keys, so consuming them
+     * would take away the person's only means of operating the phone.
+     */
+    internal fun keyFilteringToolActive(): Boolean =
+        try {
+            val am = getSystemService(android.view.accessibility.AccessibilityManager::class.java)
+            val mine = packageName
+            am?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+                ?.any {
+                    it.resolveInfo?.serviceInfo?.packageName != mine &&
+                        (it.flags and AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS) != 0
+                } == true
         } catch (e: Exception) {
             false
         }
@@ -398,7 +427,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         try { getSystemService(android.media.AudioManager::class.java)?.isMusicActive == true } catch (e: Exception) { false }
 
     private fun statusBarVisible(): Boolean {
-        val screenHeight = resources.displayMetrics.heightPixels
+        val screenHeight = windowBounds().height()
         val bounds = android.graphics.Rect()
         return try {
             windows.any { w ->
@@ -427,13 +456,25 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         return imePackages
     }
 
-    private val homePackages: Set<String> by lazy {
+    private var homePackagesCache: Set<String>? = null
+    private var homeCheckedMs = 0L
+
+    private val homePackages: Set<String>
+        get() {
+            val now = SystemClock.uptimeMillis()
+            val cached = homePackagesCache
+            if (cached != null && now - homeCheckedMs < CACHE_MS) return cached
+            homeCheckedMs = now
+            return loadHomePackages().also { homePackagesCache = it }
+        }
+
+    private fun loadHomePackages(): Set<String> {
         try {
             @Suppress("DEPRECATION")
-            packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
+            return packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
                 .map { it.activityInfo.packageName }.toSet()
         } catch (e: Exception) {
-            emptySet()
+            return emptySet()
         }
     }
 
@@ -442,12 +483,14 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     private fun isIgnoredForeground(pkg: String): Boolean =
         pkg == packageName || pkg == GuardPolicy.SYSTEM_UI || pkg in imePackages()
 
-    private fun isLaunchable(pkg: String): Boolean = launchable.getOrPut(pkg) {
-        packageManager.getLaunchIntentForPackage(pkg) != null
+    private fun isLaunchable(pkg: String): Boolean {
+        // Bounded so a long session cannot grow it without limit, and cheap to rebuild.
+        if (launchable.size > MAX_CACHED_PACKAGES) launchable.clear()
+        return launchable.getOrPut(pkg) { packageManager.getLaunchIntentForPackage(pkg) != null }
     }
 
     private fun isShadeOpen(): Boolean {
-        val screenHeight = resources.displayMetrics.heightPixels
+        val screenHeight = windowBounds().height()
         val bounds = android.graphics.Rect()
         for (w in windows) {
             if (w.type != AccessibilityWindowInfo.TYPE_SYSTEM) continue
@@ -500,6 +543,8 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         private const val TAG = "GuardService"
         private const val TICK_MS = 33L
         private const val WATCH_MS = 1000L
+        private const val CACHE_MS = 5 * 60 * 1000L
+        private const val MAX_CACHED_PACKAGES = 200
         private const val SCAN_MS = 500L
         private const val CLICK_COOLDOWN_MS = 3000L
         private const val MAX_CLICKS_PER_MINUTE = 6
@@ -509,6 +554,11 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
 
         @Volatile
         var isConnected: Boolean = false
+            private set
+
+        /** Set while the helper is running, so the UI can pre-flight a lock. */
+        @Volatile
+        var keyToolActive: Boolean = false
             private set
 
         private fun component(context: Context) = ComponentName(context, GuardAccessibilityService::class.java)

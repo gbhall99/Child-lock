@@ -44,7 +44,7 @@ class LockOverlayService : Service() {
     /** Safety net: a lock never outlives this, so a parent can never be stranded. */
     private val maxDurationStop = Runnable {
         if (LockController.isLocked) {
-            Log.w(TAG, "Maximum lock duration reached; unlocking")
+            Log.i(TAG, "Session over; unlocking")
             LockController.unlock()
         }
     }
@@ -175,7 +175,9 @@ class LockOverlayService : Service() {
             updateNotification(getString(R.string.notif_locked, GestureText.unlockHint(this, settings)))
             banner.show(BannerWindow.Kind.ON, GestureText.unlockShort(this, settings))
             handler.removeCallbacks(maxDurationStop)
-            handler.postDelayed(maxDurationStop, MAX_LOCK_MS)
+            // The parent's own timer if they set one, and the hard cap regardless.
+            val sessionMs = settings.sessionMinutes.takeIf { it > 0 }?.times(60_000L) ?: MAX_LOCK_MS
+            handler.postDelayed(maxDurationStop, minOf(sessionMs, MAX_LOCK_MS))
             handler.removeCallbacks(callWatch)
             handler.postDelayed(callWatch, CALL_WATCH_MS)
         } catch (e: Exception) {

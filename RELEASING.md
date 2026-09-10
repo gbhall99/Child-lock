@@ -25,9 +25,10 @@ workflow's release job produces a signed bundle.
 
 ## Each release
 
-1. Bump `versionCode` (always +1) and `versionName` in `app/build.gradle.kts`.
-2. `./gradlew test lint bundleRelease`
-3. Upload `app/build/outputs/bundle/release/app-release.aab` to Play Console.
+1. Bump `versionName` in `app/build.gradle.kts`. The version code is derived
+   from the commit count in CI, so it always increases.
+2. `./gradlew testPlayDebugUnitTest lintPlayRelease bundlePlayRelease`
+3. Upload `app/build/outputs/bundle/playRelease/app-play-release.aab`.
 4. Fill in release notes. Tag the commit: `git tag v1.0.0 && git push --tags`.
 
 ## First submission checklist
@@ -42,6 +43,23 @@ workflow's release job produces a signed bundle.
   closed test with at least 12 testers for 14 days before production. Use it
   to cover Samsung, Pixel and one Xiaomi.
 - Play App Signing enrolled (default for new apps).
+
+## Two flavours
+
+- `sideload` keeps the skip-ad feature, for your own phone.
+- `play` is compiled without it and is the only flavour to publish.
+
+`./gradlew assembleSideloadDebug` builds the personal one.
+
+## Before the first paid release
+
+- Complete the Play trader declaration (name, postal address, phone, email);
+  the EEA cannot be served without it.
+- Publish terms covering the 14-day right of withdrawal and refunds, and name
+  the trader as the data controller in the privacy policy.
+- Wire Play Billing and flip `FeatureGate.BILLING_READY`; until then the app
+  never offers a purchase.
+- Add a visible "Restore purchase" row.
 
 ## Notes
 

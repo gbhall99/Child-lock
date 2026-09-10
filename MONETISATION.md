@@ -20,7 +20,7 @@ small cause refunds and one-star reviews.
 | | Badge position, size and colour |
 | | Auto-lock when a chosen app opens (a natural next feature) |
 
-Suggested price: £3.99 / $4.99 / €4.49, with an introductory £2.99. Pro is a
+Price: £2.99, matching `FeatureGate` in the code. (An earlier draft suggested £3.99 with a £2.99 introduction; the single price is simpler and is what the code and copy now say.) Pro is a
 single non-consumable product in Play Billing, restored automatically on
 reinstall. Offer a "Family" variant later only if data shows shared devices.
 

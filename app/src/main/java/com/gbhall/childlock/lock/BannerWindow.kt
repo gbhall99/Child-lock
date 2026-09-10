@@ -46,8 +46,13 @@ class BannerWindow(private val context: Context) {
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = (12 * d).toInt() // below the status bar: the window is laid out inside the system-bar insets
+            y = (12 * d).toInt()
             title = "ChildLockBanner"
+            // Keep clear of a display cutout rather than sitting under it.
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER
+            }
         }
         try {
             wm.addView(v, params)
