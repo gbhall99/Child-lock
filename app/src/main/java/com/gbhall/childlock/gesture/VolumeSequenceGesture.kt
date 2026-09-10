@@ -37,7 +37,13 @@ class VolumeSequenceGesture(
     private var blockedUntil = -1L
     private var finalDownMs = -1L
 
-    override val wantsTicks: Boolean get() = false
+    /**
+     * True while the last press is being held, so the host keeps ticking and
+     * the unlock can complete on time alone. The release is a fast path, not
+     * a requirement: a device that never delivers the release of a key we
+     * consumed must not be able to trap the parent.
+     */
+    override val wantsTicks: Boolean get() = finalDownMs >= 0
 
     override fun onKey(key: HardwareKey, down: Boolean, timeMs: Long) {
         if (key == HardwareKey.BACK) {
@@ -60,11 +66,21 @@ class VolumeSequenceGesture(
             lastMs = timeMs
             if (index == expected.size) {
                 finalDownMs = timeMs
+                listener.onGestureEvent(GestureEvent.Progress(1f))
             } else {
                 listener.onGestureEvent(GestureEvent.Progress(index.toFloat() / expected.size))
             }
         } else {
             abort(timeMs)
+        }
+    }
+
+    /** Completes on time alone, so a missing release cannot strand anyone. */
+    override fun onTick(nowMs: Long) {
+        if (finalDownMs < 0) return
+        if (nowMs - finalDownMs >= finalHoldMs) {
+            clear()
+            listener.onGestureEvent(GestureEvent.Unlocked)
         }
     }
 

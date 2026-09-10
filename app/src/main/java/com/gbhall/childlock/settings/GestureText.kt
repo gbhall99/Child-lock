@@ -20,6 +20,21 @@ object GestureText {
         GestureType.VOLUME_CHORD -> context.getString(R.string.hint_volume_chord)
     }
 
+    /**
+     * The unlock that still works when the main one does not.
+     *
+     * Blocking swipes uses the same mode a screen reader uses, and in that
+     * mode the screen sends hover, not touches, so the corner hold cannot
+     * fire. The three-finger triple tap is the fallback there. Saying "two
+     * corners always works" would be untrue in the default setup.
+     */
+    fun fallbackHint(context: Context, s: LockSettings): String =
+        if (s.gesture.needsGuard && s.blockGestures) {
+            context.getString(R.string.fallback_three_finger)
+        } else {
+            context.getString(R.string.fallback_corners)
+        }
+
     /** One short line for the ON banner: how to get out again. */
     fun unlockShort(context: Context, s: LockSettings): String = when (s.gesture) {
         GestureType.VOLUME_SEQUENCE -> context.getString(R.string.banner_on_detail_sequence, patternWords(context, s))

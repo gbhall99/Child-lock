@@ -119,7 +119,8 @@ class VolumeSequenceGestureTest {
 
     /**
      * The headline property: a child mashing the rocker must not stumble into
-     * the pattern. The previous forgiving recogniser unlocked within seconds.
+     * the pattern. Ticks are driven the way the helper drives them, so that
+     * completing on a held key cannot open a new way in.
      */
     @Test
     fun `a child mashing the rocker for ten minutes never unlocks`() {
@@ -132,11 +133,28 @@ class VolumeSequenceGestureTest {
                 val key = if (rnd.nextBoolean()) HardwareKey.VOLUME_UP else HardwareKey.VOLUME_DOWN
                 val hold = 40L + rnd.nextInt(260)
                 g.onKey(key, true, t)
+                // The helper ticks while the gesture asks for it, including
+                // through the whole time the key is held down.
+                var tick = t
+                while (g.wantsTicks && tick < t + hold) {
+                    tick += 33
+                    g.onTick(minOf(tick, t + hold))
+                }
                 g.onKey(key, false, t + hold)
                 if (heard.unlocked) break
                 t += 150 + rnd.nextInt(550)
             }
             assertFalse("trial $trial unlocked by mashing", heard.unlocked)
         }
+    }
+
+    @Test
+    fun `a long accidental hold of the right key still needs the right order first`() {
+        val g = gesture()
+        // A child leaning on volume down for a full second: wrong first key.
+        g.onKey(HardwareKey.VOLUME_DOWN, true, 0)
+        repeat(40) { g.onTick(it * 33L) }
+        g.onKey(HardwareKey.VOLUME_DOWN, false, 1400)
+        assertFalse(listener.unlocked)
     }
 }

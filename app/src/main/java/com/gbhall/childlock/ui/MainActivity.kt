@@ -70,6 +70,7 @@ class MainActivity : Activity() {
     private lateinit var cornerPairSection: View
     private lateinit var pinSection: View
     private lateinit var pinChip: LinearLayout
+    private lateinit var fallbackNote: TextView
 
     // Auto-lock
     private lateinit var autoLockList: LinearLayout
@@ -184,7 +185,7 @@ class MainActivity : Activity() {
             return
         }
         if (preflight(s) != null) return
-        if (!LockController.requestLock(this, null, 0)) toast(R.string.toast_lock_failed)
+        if (!LockController.requestLock(this, null, 0, rehearsal = true)) toast(R.string.toast_lock_failed)
     }
 
     private fun attentionCard(): View {
@@ -301,7 +302,8 @@ class MainActivity : Activity() {
                 repo.update { it.copy(volumeRepeats = if (v) 2 else 1) }
                 renderGestureDependents(repo.load())
             })
-            addView(caption(getString(R.string.fallback_note)))
+            fallbackNote = caption("")
+            addView(fallbackNote)
         }
         addView(sequenceSection)
 
@@ -576,7 +578,8 @@ class MainActivity : Activity() {
             if (s.hasPin) Tone.GOOD else Tone.ATTENTION,
         )
         lockHow.text = GestureText.lockHint(this, s)
-        unlockHow.text = GestureText.unlockHint(this, s)
+        unlockHow.text = GestureText.unlockHint(this, s) + " " + GestureText.fallbackHint(this, s)
+        fallbackNote.text = GestureText.fallbackHint(this, s)
     }
 
     /** Returns the reason a lock would strand the parent, or null when it is safe. */

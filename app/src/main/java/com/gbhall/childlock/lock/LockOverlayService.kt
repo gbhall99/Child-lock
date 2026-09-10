@@ -103,6 +103,7 @@ class LockOverlayService : Service() {
             ACTION_LOCK -> handleLock(
                 intent.getStringExtra(EXTRA_PACKAGE),
                 intent.getLongExtra(EXTRA_DELAY_MS, 0L).coerceAtLeast(0L),
+                intent.getBooleanExtra(EXTRA_REHEARSAL, false),
             )
             ACTION_UNLOCK -> LockController.unlock()
             else -> if (LockController.state is LockState.Unlocked) stopSelf()
@@ -112,7 +113,10 @@ class LockOverlayService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun handleLock(protectedPackage: String?, delayMs: Long) {
+    private var rehearsal = false
+
+    private fun handleLock(protectedPackage: String?, delayMs: Long, isRehearsal: Boolean = false) {
+        rehearsal = isRehearsal
         // A lock arriving during the OFF banner must cancel the pending stop.
         handler.removeCallbacks(stopAfterBanner)
         if (!Settings.canDrawOverlays(this)) {
@@ -172,12 +176,19 @@ class LockOverlayService : Service() {
             windowManager.addView(root, params)
             overlay = root
             LockController.set(LockState.Locked(protectedPackage, SystemClock.uptimeMillis()))
-            updateNotification(getString(R.string.notif_locked, GestureText.unlockHint(this, settings)))
+            updateNotification(
+                getString(
+                    R.string.notif_locked,
+                    GestureText.unlockHint(this, settings) + " " + GestureText.fallbackHint(this, settings),
+                ),
+            )
             banner.show(BannerWindow.Kind.ON, GestureText.unlockShort(this, settings))
             handler.removeCallbacks(maxDurationStop)
             // The parent's own timer if they set one, and the hard cap regardless.
             val sessionMs = settings.sessionMinutes.takeIf { it > 0 }?.times(60_000L) ?: MAX_LOCK_MS
-            handler.postDelayed(maxDurationStop, minOf(sessionMs, MAX_LOCK_MS))
+            // A practice run always ends by itself, so trying it out can never strand anyone.
+            val cap = if (rehearsal) REHEARSAL_MS else minOf(sessionMs, MAX_LOCK_MS)
+            handler.postDelayed(maxDurationStop, cap)
             handler.removeCallbacks(callWatch)
             handler.postDelayed(callWatch, CALL_WATCH_MS)
         } catch (e: Exception) {
@@ -268,11 +279,15 @@ class LockOverlayService : Service() {
         /** No lock outlives this. The parent is never stranded, whatever else fails. */
         const val MAX_LOCK_MS = 90 * 60 * 1000L
         private const val CALL_WATCH_MS = 1000L
+
+        /** A practice lock releases itself after this long, whatever happens. */
+        const val REHEARSAL_MS = 60_000L
         private const val NOTIFICATION_ID = 1
         const val ACTION_LOCK = "com.gbhall.childlock.action.LOCK"
         const val ACTION_UNLOCK = "com.gbhall.childlock.action.UNLOCK"
         const val EXTRA_PACKAGE = "package"
         const val EXTRA_DELAY_MS = "delay_ms"
+        const val EXTRA_REHEARSAL = "rehearsal"
 
         /** Type-safe insets helper shared with the views. */
         fun systemInsets(insets: WindowInsets?): IntArray {

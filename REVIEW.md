@@ -21,6 +21,32 @@ Items marked **Fixed** were corrected in the commit that adds this document.
 
 ---
 
+## Group A0 — Trapped by the lock (P0, found in use)
+
+**A0.1. The unlock depended on receiving the final key's release. Fixed.**
+The rewritten volume pattern completed only when the last press was released
+and had been held long enough. If a device never delivers the release of a key
+the helper consumed, that completion never fires and the parent cannot get
+out. Reproduced in a test, then fixed: the unlock now completes on the hold
+itself, driven by the same tick the helper already runs, with the release kept
+only as a fast path. The mashing simulation was re-run with ticks driven the
+way the helper drives them, so completing on a hold has not opened a new way
+in.
+
+**A0.2. A practice lock could strand the parent. Fixed.** Trying the lock out
+is exactly when a parent does not yet know how to escape it, so a practice
+lock now always releases itself after a minute regardless of anything else.
+
+**A0.3. The advertised backup unlock did not exist in the default setup.
+Fixed.** The app said "holding two corners always works as a backup", but
+blocking swipes uses the same mode a screen reader uses, and in that mode the
+screen sends hover rather than touches, so the corner hold cannot fire. With
+the volume pattern also failing, there was no way out at all. The app now
+names the backup that can actually work in the current configuration, and
+repeats it in the lock notification, which is the reminder that survives.
+
+---
+
 ## Group A — The lock did not actually hold (P0)
 
 **A1. Random volume mashing unlocked the phone in seconds. Fixed.**

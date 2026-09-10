@@ -45,11 +45,17 @@ object LockController {
      * system refused to start the service (Android 12+ background-start rules),
      * in which case nothing is locked and the caller should tell the user.
      */
-    fun requestLock(context: Context, protectedPackage: String?, delayMs: Long): Boolean {
+    fun requestLock(
+        context: Context,
+        protectedPackage: String?,
+        delayMs: Long,
+        rehearsal: Boolean = false,
+    ): Boolean {
         val intent = Intent(context, LockOverlayService::class.java)
             .setAction(LockOverlayService.ACTION_LOCK)
             .putExtra(LockOverlayService.EXTRA_PACKAGE, protectedPackage)
             .putExtra(LockOverlayService.EXTRA_DELAY_MS, delayMs)
+            .putExtra(LockOverlayService.EXTRA_REHEARSAL, rehearsal)
         return try {
             context.startForegroundService(intent)
             true

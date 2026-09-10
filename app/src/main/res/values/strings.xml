@@ -99,7 +99,9 @@
     <string name="pattern_option_down_up">Down, then up</string>
     <string name="pattern_twice_title">Press it twice</string>
     <string name="pattern_twice_desc">Up, down, up, down. Harder to hit by accident.</string>
-    <string name="fallback_note">Holding two corners always works as a backup.</string>
+    
+    <string name="fallback_corners">If that ever fails, hold two opposite corners of the screen.</string>
+    <string name="fallback_three_finger">If that ever fails, tap the screen three times with three fingers.</string>
     <string name="hold_duration">Hold for</string>
     <string name="corner_pair">Which corners</string>
     <string name="pair_tl_br">Top-left and bottom-right</string>
@@ -159,7 +161,7 @@
     <string name="session_minutes">%1$d minutes</string>
     <string name="session_desc">Child Lock unlocks itself when the time is up, so the phone always comes back to you.</string>
     <string name="rehearse_title">Try it now</string>
-    <string name="rehearse_desc">Lock this screen and practise unlocking, so it is familiar before it matters.</string>
+    <string name="rehearse_desc">Lock this screen and practise unlocking. A practice lock always ends by itself after a minute, so you cannot get stuck.</string>
     <string name="rehearse_go">Practise</string>
     <string name="pro_upgrade">Upgrade for %1$s</string>
     <string name="pro_not_now">Not now</string>
@@ -177,7 +179,7 @@
     <string name="keep_inside_desc">Home and back swipes, the back button and the notifications panel do nothing while locked, and the app comes straight back if they get out. Needs the Child Lock helper.</string>
     <string name="keep_inside_more">Fine-tune</string>
     <string name="block_gestures">Block home and back swipes</string>
-    <string name="block_gestures_desc">The swipes do nothing at all. If needed, a three-finger triple tap also unlocks.</string>
+    <string name="block_gestures_desc">The swipes do nothing at all. This uses the same mode a screen reader uses, so while it is on the corner hold cannot work and a three-finger triple tap is the backup unlock instead.</string>
     <string name="block_keys">Block the back button</string>
     <string name="block_keys_desc">Volume buttons still unlock.</string>
     <string name="block_shade">Keep the notifications panel closed</string>
