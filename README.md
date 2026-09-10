@@ -6,6 +6,9 @@ is a small padlock badge in one corner. You unlock with a quick gesture that an
 adult does without thinking and a toddler will not stumble into.
 
 `PLAN.md` holds the full design. This file is the practical guide.
+`RELEASING.md` covers signing and Play submission, `store/listing.md` the
+store copy and declarations, `PRIVACY.md` the privacy policy, and
+`MONETISATION.md` the business plan.
 
 ## Build and install
 

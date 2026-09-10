@@ -45,7 +45,7 @@ class LockOverlayService : Service() {
             if (wasLocked) {
                 // Touch is already free (overlay gone); keep the process alive just
                 // long enough for the OFF banner to be seen.
-                banner.show(getString(R.string.banner_off), on = false)
+                banner.show(BannerWindow.Kind.OFF, getString(R.string.banner_off_detail))
                 handler.postDelayed(stopAfterBanner, BannerWindow.DURATION_MS + 100)
             } else {
                 stopSelf()
@@ -88,7 +88,7 @@ class LockOverlayService : Service() {
         LockController.set(LockState.Arming(lockAt, protectedPackage))
         if (delayMs > 0) {
             val seconds = ((delayMs + 999) / 1000).toInt()
-            banner.show(getString(R.string.banner_arming, seconds), on = true)
+            banner.show(BannerWindow.Kind.ARMING, getString(R.string.banner_arming_detail, seconds))
             updateNotification(getString(R.string.notif_locking_in, seconds))
             val r = Runnable { attach(protectedPackage) }
             pendingAttach = r
@@ -129,7 +129,7 @@ class LockOverlayService : Service() {
             overlay = root
             LockController.set(LockState.Locked(protectedPackage, SystemClock.uptimeMillis()))
             updateNotification(getString(R.string.notif_locked, GestureText.unlockHint(this, settings)))
-            banner.show(getString(R.string.banner_on), on = true)
+            banner.show(BannerWindow.Kind.ON, GestureText.unlockShort(this, settings))
         } catch (e: Exception) {
             // Half-locking is worse than not locking: fail loudly and stay unlocked.
             Log.e(TAG, "Could not attach overlay", e)

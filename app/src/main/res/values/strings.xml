@@ -15,9 +15,15 @@
     <string name="toast_locking_in">Child Lock: locking in %1$d s</string>
     <string name="toast_locked">Child Lock on</string>
     <string name="toast_unlocked">Child Lock off</string>
-    <string name="banner_on">🔒  Child Lock ON</string>
-    <string name="banner_off">🔓  Child Lock OFF</string>
-    <string name="banner_arming">🔒  Child Lock in %1$d s</string>
+    <string name="banner_on">Child Lock on</string>
+    <string name="banner_on_detail_sequence">Touch is off. Volume %1$s to unlock.</string>
+    <string name="banner_on_detail_corners">Touch is off. Hold two corners to unlock.</string>
+    <string name="banner_on_detail_pin">Touch is off. Hold the badge for the PIN pad.</string>
+    <string name="banner_on_detail_chord">Touch is off. Hold both volume buttons to unlock.</string>
+    <string name="banner_off">Child Lock off</string>
+    <string name="banner_off_detail">Touch is back.</string>
+    <string name="banner_arming_title">Child Lock starting</string>
+    <string name="banner_arming_detail">Touch locks in %1$d s. Switch away to cancel.</string>
     <string name="block_gestures">Block home and back swipes</string>
     <string name="block_gestures_desc">Stops them outright instead of returning to the app afterwards. Works with the volume gestures; while active, a three-finger triple tap is the touch fallback to unlock.</string>
     <string name="toast_lock_failed">Child Lock could not start. Nothing is locked.</string>
@@ -33,6 +39,16 @@
     <string name="accessibility_summary">Volume-button lock toggle and hardening for Child Lock</string>
 
     <string name="section_setup">Set up</string>
+    <string name="section_about">About</string>
+    <string name="about_version">Child Lock %1$s. Open source, no ads, no accounts, no analytics.</string>
+    <string name="about_privacy_summary">Nothing leaves your phone. Child Lock has no internet permission, collects no data and never reads what is on screen.</string>
+    <string name="about_privacy">Privacy policy</string>
+    <string name="about_source">Source code</string>
+    <string name="about_licence">Licence</string>
+    <string name="toast_no_browser">No browser available to open the link</string>
+    <string name="disclosure_title">Accessibility guard</string>
+    <string name="disclosure_body">Child Lock uses Android’s accessibility service to work as a parental touch lock, not as an accessibility aid.\n\nWhile the lock is on it will:\n• Notice volume-button presses, for the lock/unlock pattern\n• Block the back and volume buttons and home/back swipes\n• Close the notification shade if it is pulled down\n• Bring back the app you handed over if the child leaves it\n\nWhile the lock is off it only watches which app is in front, for auto-lock and to remember what to return to.\n\nIt never reads, stores or sends anything shown on screen. No data leaves your phone.\n\nOn the next screen, switch on “Child Lock guard”.</string>
+    <string name="disclosure_agree">Agree and continue</string>
     <string name="setup_title">Set up Child Lock</string>
     <string name="setup_progress">%1$d of %2$d done. Each step is one tap, then come back here.</string>
     <string name="setup_all_done">All set. Hand the phone over whenever you like.</string>

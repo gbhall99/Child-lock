@@ -140,8 +140,10 @@ class SetupActivity : Activity() {
             getString(R.string.perm_accessibility), getString(R.string.setup_guard_desc), R.drawable.ic_shield,
             required = true, done = guard, actionLabel = getString(R.string.setup_open),
             action = {
-                repo.overlayAttempted = true
-                startActivity(GuardAccessibilityService.settingsIntent(this))
+                Disclosures.accessibility(this) {
+                    repo.overlayAttempted = true
+                    startActivity(GuardAccessibilityService.settingsIntent(this))
+                }
             },
             extra = if (overlay && !guard) restrictedHint else if (guard && GuardAccessibilityService.isShortcutButtonOn(this)) shortcutCallout() else null,
         )

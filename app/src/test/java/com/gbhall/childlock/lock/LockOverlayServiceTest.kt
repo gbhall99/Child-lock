@@ -61,7 +61,19 @@ class LockOverlayServiceTest {
 
     private fun overlayViews(): List<android.view.View> = allWindows().filter { it is OverlayRoot }
 
-    private fun banners(): List<android.widget.TextView> = allWindows().filterIsInstance<android.widget.TextView>()
+    private fun banners(): List<android.view.View> = allWindows().filter {
+        (it.layoutParams as? WindowManager.LayoutParams)?.title == "ChildLockBanner"
+    }
+
+    private fun bannerText(v: android.view.View): String {
+        val out = StringBuilder()
+        fun walk(x: android.view.View) {
+            if (x is android.widget.TextView) out.append(x.text).append(' ')
+            if (x is android.view.ViewGroup) for (i in 0 until x.childCount) walk(x.getChildAt(i))
+        }
+        walk(v)
+        return out.toString()
+    }
 
     @Test
     fun `immediate lock goes foreground, attaches the overlay and reports Locked`() {
@@ -98,7 +110,7 @@ class LockOverlayServiceTest {
         idle()
         assertEquals("touch freed immediately", 0, overlayViews().size)
         assertEquals(1, banners().size)
-        assertTrue(banners().single().text.contains("OFF"))
+        assertTrue(bannerText(banners().single()).contains("Child Lock off"))
         assertFalse(shadowOf(service).isStoppedBySelf)
         idle(2000)
         assertEquals(0, banners().size)

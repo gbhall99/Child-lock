@@ -20,6 +20,14 @@ object GestureText {
         GestureType.VOLUME_CHORD -> context.getString(R.string.hint_volume_chord)
     }
 
+    /** One short line for the ON banner: how to get out again. */
+    fun unlockShort(context: Context, s: LockSettings): String = when (s.gesture) {
+        GestureType.VOLUME_SEQUENCE -> context.getString(R.string.banner_on_detail_sequence, patternWords(context, s))
+        GestureType.CORNER_HOLD -> context.getString(R.string.banner_on_detail_corners)
+        GestureType.BADGE_PIN -> context.getString(R.string.banner_on_detail_pin)
+        GestureType.VOLUME_CHORD -> context.getString(R.string.banner_on_detail_chord)
+    }
+
     fun lockHint(context: Context, s: LockSettings): String = when (s.gesture) {
         GestureType.VOLUME_SEQUENCE -> context.getString(R.string.lock_hint_volume_sequence, patternWords(context, s))
         else -> context.getString(R.string.lock_hint_other)

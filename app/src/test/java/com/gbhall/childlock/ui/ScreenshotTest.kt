@@ -3,6 +3,7 @@ package com.gbhall.childlock.ui
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
+import android.view.ViewGroup
 import com.gbhall.childlock.TestSupport
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -46,6 +47,30 @@ class ScreenshotTest {
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         root.draw(Canvas(bitmap))
         FileOutputStream(File(dir, "$name.png")).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    @Test
+    fun banners() {
+        val dir = outDir ?: return
+        val ctx = TestSupport.app
+        val d = ctx.resources.displayMetrics.density
+        val frame = android.widget.FrameLayout(ctx).apply { setBackgroundColor(0xFF6B7280.toInt()) }
+        val column = android.widget.LinearLayout(ctx).apply { orientation = android.widget.LinearLayout.VERTICAL; gravity = android.view.Gravity.CENTER_HORIZONTAL }
+        listOf(
+            com.gbhall.childlock.lock.BannerWindow.Kind.ARMING to "Touch locks in 15 s. Switch away to cancel.",
+            com.gbhall.childlock.lock.BannerWindow.Kind.ON to "Touch is off. Volume up then down to unlock.",
+            com.gbhall.childlock.lock.BannerWindow.Kind.OFF to "Touch is back.",
+        ).forEach { (kind, detail) ->
+            column.addView(com.gbhall.childlock.lock.BannerWindow.build(ctx, kind, detail),
+                android.widget.LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = (24 * d).toInt() })
+        }
+        frame.addView(column, android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val w = 1080; val h = 700
+        frame.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
+        frame.layout(0, 0, w, h)
+        val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        frame.draw(Canvas(bitmap))
+        FileOutputStream(File(dir, "banners.png")).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
     @Test fun light() = shoot("settings-light", night = false, overlay = true)

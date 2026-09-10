@@ -114,6 +114,7 @@ class MainActivity : Activity() {
             addView(gestureCard(s))
             addView(autoLockCard(s))
             addView(advancedCard(s))
+            addView(aboutCard())
             addView(body(getString(R.string.safety_note), secondary = true, size = 13f).apply {
                 setPadding(dp(6), dp(4), dp(6), 0)
             })
@@ -172,7 +173,7 @@ class MainActivity : Activity() {
         addView(stepRow(R.drawable.ic_lock_open, getString(R.string.how_to_unlock), unlockHow))
 
         guardWarning = callout(getString(R.string.guard_warning), actionButton(getString(R.string.fix)) {
-            startActivity(GuardAccessibilityService.settingsIntent(this@MainActivity))
+            Disclosures.accessibility(this@MainActivity) { startActivity(GuardAccessibilityService.settingsIntent(this@MainActivity)) }
         })
         addView(guardWarning, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(10)
@@ -219,7 +220,9 @@ class MainActivity : Activity() {
         addView(divider())
 
         guardChip = chipHolder()
-        guardAction = actionButton(getString(R.string.enable)) { startActivity(GuardAccessibilityService.settingsIntent(this@MainActivity)) }
+        guardAction = actionButton(getString(R.string.enable)) {
+            Disclosures.accessibility(this@MainActivity) { startActivity(GuardAccessibilityService.settingsIntent(this@MainActivity)) }
+        }
         addView(row(getString(R.string.perm_accessibility), getString(R.string.perm_accessibility_desc), guardAction, guardChip, R.drawable.ic_shield))
         addView(divider())
 
@@ -392,6 +395,27 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun aboutCard() = card(getString(R.string.section_about), R.drawable.ic_shield) {
+        val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { null } ?: "?"
+        addView(body(getString(R.string.about_version, version), secondary = true, size = 13.5f))
+        addView(body(getString(R.string.about_privacy_summary), size = 14f).apply { setPadding(0, dp(8), 0, dp(8)) })
+        addView(
+            horizontal {
+                addView(actionButton(getString(R.string.about_privacy)) { open(URL_PRIVACY) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(8) })
+                addView(actionButton(getString(R.string.about_source)) { open(URL_SOURCE) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(8) })
+                addView(actionButton(getString(R.string.about_licence)) { open(URL_LICENCE) })
+            },
+        )
+    }
+
+    private fun open(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (e: Exception) {
+            toast(R.string.toast_no_browser)
+        }
+    }
+
     // ---- behaviour --------------------------------------------------------
 
     private fun arm() {
@@ -497,5 +521,8 @@ class MainActivity : Activity() {
 
     companion object {
         private const val REQUEST_NOTIFICATIONS = 1
+        const val URL_SOURCE = "https://github.com/gbhall99/Child-lock"
+        const val URL_PRIVACY = "https://github.com/gbhall99/Child-lock/blob/main/PRIVACY.md"
+        const val URL_LICENCE = "https://github.com/gbhall99/Child-lock/blob/main/LICENSE"
     }
 }
