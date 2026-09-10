@@ -1,12 +1,14 @@
 package com.gbhall.childlock.guard
 
-import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityGestureEvent
+import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.KeyguardManager
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.os.Build
 import android.os.Handler
@@ -17,6 +19,7 @@ import android.telecom.TelecomManager
 import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.Toast
 import com.gbhall.childlock.R
@@ -32,46 +35,84 @@ import com.gbhall.childlock.settings.LockSettings
 import com.gbhall.childlock.settings.SettingsRepository
 
 /**
- * Optional hardening. While unlocked it only remembers the foreground app and
- * listens (without consuming) for the volume pattern that arms the lock.
- * While locked it swallows back and volume keys, closes the notification
- * shade, brings the protected app back if the child leaves it, and recognises
- * the volume gesture that unlocks.
+ * The "Child Lock helper". While unlocked it only remembers the foreground app,
+ * listens (without consuming) for the volume pattern that locks, and runs the
+ * auto-lock engine. While locked it swallows back and volume keys, blocks
+ * system gestures, closes the notifications panel, brings the protected app
+ * back, recognises the volume gesture that unlocks, and optionally taps
+ * "Skip ad" buttons in the app the child is watching.
  */
-class GuardAccessibilityService : AccessibilityService() {
+class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listener {
     private val handler = Handler(Looper.getMainLooper())
     private var settings = LockSettings()
     private var keyGesture: UnlockGesture? = null
     private var lastRelaunchMs = 0L
     private var lastShadeDismissMs = 0L
     private val launchable = HashMap<String, Boolean>()
-
-    /** Key codes whose press we swallowed; their release must be swallowed too, whatever happened between. */
     private val consumedKeys = HashSet<Int>()
+    private var lastState: LockState = LockState.Unlocked
+    private var screenOn = true
 
     /** Flags we last asked the system for, so tests and rebuilds can reason about them. */
     @Volatile
     var requestedFlags: Int = 0
         private set
 
-    /** Auto-lock bookkeeping: the app we armed for, and the app not to re-arm for until it leaves. */
-    private var autoArmedPackage: String? = null
-    private var suppressedPackage: String? = null
-    private var lastState: LockState = LockState.Unlocked
+    // ---- auto-lock ------------------------------------------------------------
+
+    internal val engine = AutoLockEngine(this)
+
+    /** Cameras some app currently holds open; a video call shows up here. Visible for tests. */
+    internal val camerasInUse = HashSet<String>()
+    private var cameraCallback: android.hardware.camera2.CameraManager.AvailabilityCallback? = null
+
+    private val autoLockTick = object : Runnable {
+        override fun run() {
+            if (!screenOn) return
+            val trigger = engine.trigger
+            if (trigger != null) {
+                engine.onTick(GuardPolicy.triggerSatisfied(trigger, audioMode(), mediaPlaying(), statusBarVisible(), camerasInUse.isNotEmpty()))
+            }
+            if (engine.wantsTicks) handler.postDelayed(this, WATCH_MS)
+        }
+    }
+
+    private fun ensureAutoLockTicking() {
+        handler.removeCallbacks(autoLockTick)
+        if (engine.wantsTicks && screenOn) handler.post(autoLockTick)
+    }
+
+    override fun requestArm(packageName: String) {
+        if (!Settings.canDrawOverlays(this) || !LockController.requestLock(this, packageName, settings.autoLockDelaySec * 1000L)) {
+            engine.onUnlocked(byParent = false)
+        }
+    }
+
+    override fun cancelArm() {
+        if (LockController.state is LockState.Arming) LockController.unlock()
+    }
+
+    // ---- lifecycle ----------------------------------------------------------
 
     private val stateListener: (LockState) -> Unit = { state ->
         val previous = lastState
         lastState = state
-        if (state is LockState.Unlocked) {
-            // Do not re-arm for the app the parent just unlocked from until it has left the front.
-            if (previous is LockState.Locked) suppressedPackage = previous.protectedPackage
-            autoArmedPackage = null
-        } else {
-            stopWatching()
+        when (state) {
+            is LockState.Locked -> engine.onLocked()
+            is LockState.Unlocked -> if (previous !is LockState.Unlocked) engine.onUnlocked(byParent = previous is LockState.Locked)
+            is LockState.Arming -> Unit
         }
         rebuildKeyGesture()
+        ensureAutoLockTicking()
     }
     private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> rebuildKeyGesture() }
+
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            screenOn = intent.action != Intent.ACTION_SCREEN_OFF
+            ensureAutoLockTicking()
+        }
+    }
 
     private val tick = object : Runnable {
         override fun run() {
@@ -85,6 +126,11 @@ class GuardAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         isConnected = true
         startCameraTracking()
+        try {
+            registerReceiver(screenReceiver, IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON) })
+        } catch (e: Exception) {
+            Log.w(TAG, "Screen receiver not registered", e)
+        }
         SettingsRepository.get(this).addChangeListener(settingsListener)
         LockController.addListener(stateListener)
         rebuildKeyGesture()
@@ -94,9 +140,11 @@ class GuardAccessibilityService : AccessibilityService() {
         isConnected = false
         LockController.removeListener(stateListener)
         SettingsRepository.get(this).removeChangeListener(settingsListener)
+        try { unregisterReceiver(screenReceiver) } catch (e: Exception) { Log.w(TAG, "Screen receiver already gone") }
         keyGesture = null
         handler.removeCallbacks(tick)
-        stopWatching()
+        handler.removeCallbacks(autoLockTick)
+        engine.reset()
         stopCameraTracking()
         return super.onUnbind(intent)
     }
@@ -104,6 +152,8 @@ class GuardAccessibilityService : AccessibilityService() {
     /** Which key gesture applies right now depends on both settings and lock state. */
     private fun rebuildKeyGesture() {
         settings = SettingsRepository.get(this).load()
+        engine.rules = settings.autoLockRules
+        engine.relockEnabled = settings.relockSameApp
         handler.removeCallbacks(tick)
         val locked = LockController.isLocked
         applyServiceFlags(locked)
@@ -118,19 +168,21 @@ class GuardAccessibilityService : AccessibilityService() {
 
     /**
      * Base flags always; touch-exploration + multi-finger only while locked with a
-     * volume gesture, which is what blocks one-finger home/back swipes. Cleared
-     * on unlock, unbind and reconnect so the phone can never be left in that mode.
+     * volume gesture (blocks one-finger home/back swipes); content-change events
+     * and view ids only while skip-ad tapping can actually run.
      */
     private fun applyServiceFlags(locked: Boolean) {
         val extra = GuardPolicy.gestureBlockFlags(locked, settings.blockGestures, settings.gesture.needsGuard, Build.VERSION.SDK_INT)
-        val wanted = BASE_FLAGS or extra
+        val wanted = BASE_FLAGS or extra or (if (skipAdsActive()) AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS else 0)
+        val events = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED or
+            (if (skipAdsActive()) AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED else 0)
         if (wanted == requestedFlags && locked) return
         requestedFlags = wanted
         serviceInfo = (serviceInfo ?: AccessibilityServiceInfo()).apply {
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOWS_CHANGED
+            eventTypes = events
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             notificationTimeout = 50
-            flags = (flags and (GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER).inv()) or wanted
+            flags = (flags and (GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS).inv()) or wanted
         }
     }
 
@@ -148,7 +200,6 @@ class GuardAccessibilityService : AccessibilityService() {
 
     private fun onKeyGestureEvent(event: GestureEvent) {
         if (event != GestureEvent.Unlocked) return
-        // Decide now, act later: the key callback must return immediately.
         val stateAtPress = LockController.state
         handler.post { toggleLock(stateAtPress) }
     }
@@ -167,15 +218,13 @@ class GuardAccessibilityService : AccessibilityService() {
         }
     }
 
+    // ---- events -------------------------------------------------------------
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            val pkg = event.packageName?.toString()
-            if (pkg != null && !isIgnoredForeground(pkg)) {
-                if (isLaunchable(pkg)) ForegroundTracker.lastApp = pkg
-                // Home screens often have no launcher activity, yet going home must
-                // still cancel a countdown and clear re-arm suppression.
-                onForegroundApp(pkg)
-            }
+        val pkg = event.packageName?.toString()
+        when (event.eventType) {
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> if (pkg != null) onWindowChanged(pkg)
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> if (pkg != null) onContentChanged(pkg)
         }
         val locked = LockController.state as? LockState.Locked ?: return
         if (settings.blockShade && isShadeOpen()) {
@@ -185,21 +234,99 @@ class GuardAccessibilityService : AccessibilityService() {
         if (settings.relaunchApp) maybeRelaunch(locked.protectedPackage)
     }
 
+    /** Only real apps and the home screen count as "the user moved"; dialogs, keyboards and SystemUI do not. */
+    private fun onWindowChanged(pkg: String) {
+        if (isIgnoredForeground(pkg)) return
+        val app = isLaunchable(pkg)
+        val home = isHome(pkg)
+        if (!app && !home) return // a system dialog or a transient window over the app
+        if (app) ForegroundTracker.lastApp = pkg
+        engine.onForeground(pkg)
+        ensureAutoLockTicking()
+    }
+
+    // ---- skip ads -------------------------------------------------------------
+
+    private var lastScanMs = 0L
+    private var lastClickMs = 0L
+    private val clickTimes = ArrayDeque<Long>()
+    private var scanFailures = 0
+
+    private fun skipAdsActive(): Boolean {
+        val locked = LockController.state as? LockState.Locked ?: return false
+        return settings.skipAds && locked.protectedPackage in SkipAdMatcher.supportedPackages && scanFailures < 3
+    }
+
+    private fun onContentChanged(pkg: String) {
+        if (!skipAdsActive()) return
+        val locked = LockController.state as? LockState.Locked ?: return
+        if (pkg != locked.protectedPackage) return
+        val now = SystemClock.uptimeMillis()
+        if (now - lastScanMs < SCAN_MS || now - lastClickMs < CLICK_COOLDOWN_MS) return
+        while (clickTimes.isNotEmpty() && now - clickTimes.first() > 60_000) clickTimes.removeFirst()
+        if (clickTimes.size >= MAX_CLICKS_PER_MINUTE) return
+        lastScanMs = now
+        try {
+            val root = rootInActiveWindow ?: return
+            if (root.packageName?.toString() != pkg) return
+            val dm = resources.displayMetrics
+            val bounds = android.graphics.Rect()
+            val hits = root.findAccessibilityNodeInfosByText("skip") ?: return
+            for (node in hits) {
+                node.getBoundsInScreen(bounds)
+                val parentText = node.parent?.let { p -> (p.text ?: p.contentDescription) }
+                val ok = SkipAdMatcher.isCandidate(
+                    node.text, node.contentDescription, parentText,
+                    node.isClickable, node.isEnabled, node.isVisibleToUser, node.isEditable,
+                    bounds.width(), bounds.height(), dm.widthPixels, dm.heightPixels,
+                )
+                if (ok && node.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                    lastClickMs = now
+                    clickTimes.addLast(now)
+                    break
+                }
+            }
+            scanFailures = 0
+        } catch (e: Exception) {
+            scanFailures++
+            Log.w(TAG, "Skip-ad scan failed", e)
+        }
+    }
+
+    // ---- keys -----------------------------------------------------------------
+
     /**
      * Must answer fast: the system gives us 500 ms, then treats the key as not
      * consumed. So no heavy work happens here; gesture results are posted.
-     *
-     * Only presses (and their auto-repeats) are ever consumed. A release always
-     * passes through: a stray release is harmless, but a swallowed release
-     * leaves the input dispatcher believing the key is still held, and it keeps
-     * synthesising repeats straight to the app, which is how the volume drained.
+     * Only presses (and their auto-repeats) are ever consumed; a release always
+     * passes through, otherwise the input dispatcher believes the key is held.
      */
-    /** The chosen app currently in front whose trigger has not fired yet, if any. */
-    private var watchedPackage: String? = null
+    public override fun onKeyEvent(event: KeyEvent): Boolean {
+        val key = when (event.keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> HardwareKey.VOLUME_UP
+            KeyEvent.KEYCODE_VOLUME_DOWN -> HardwareKey.VOLUME_DOWN
+            KeyEvent.KEYCODE_BACK -> HardwareKey.BACK
+            else -> return false
+        }
+        val down = event.action == KeyEvent.ACTION_DOWN
+        if (down && event.repeatCount > 0) return event.keyCode in consumedKeys
+        keyGesture?.let { g ->
+            g.onKey(key, down, event.eventTime)
+            handler.removeCallbacks(tick)
+            if (g.wantsTicks) handler.postDelayed(tick, TICK_MS)
+        }
+        if (!down) {
+            consumedKeys.remove(event.keyCode)
+            return false
+        }
+        val consume = LockController.isLocked && GuardPolicy.consumeKey(key, settings.blockKeys, chordActive = keyGesture != null)
+        if (consume) consumedKeys.add(event.keyCode) else consumedKeys.remove(event.keyCode)
+        return consume
+    }
 
-    /** Cameras some app currently holds open; a video call shows up here. Visible for tests. */
-    internal val camerasInUse = HashSet<String>()
-    private var cameraCallback: android.hardware.camera2.CameraManager.AvailabilityCallback? = null
+    override fun onInterrupt() = Unit
+
+    // ---- signals ----------------------------------------------------------------
 
     private fun startCameraTracking() {
         if (cameraCallback != null) return
@@ -227,62 +354,6 @@ class GuardAccessibilityService : AccessibilityService() {
         camerasInUse.clear()
     }
 
-    private val watchTick = object : Runnable {
-        override fun run() {
-            val pkg = watchedPackage ?: return
-            if (LockController.state !is LockState.Unlocked) return
-            val trigger = settings.autoLockRules[pkg] ?: return
-            if (GuardPolicy.triggerSatisfied(trigger, audioMode(), mediaPlaying(), statusBarVisible(), camerasInUse.isNotEmpty())) {
-                watchedPackage = null
-                arm(pkg)
-            } else {
-                handler.postDelayed(this, WATCH_MS)
-            }
-        }
-    }
-
-    private fun onForegroundApp(pkg: String) {
-        val state = LockController.state
-        val decision = GuardPolicy.autoLockDecision(
-            foreground = pkg,
-            autoLockApps = settings.autoLockApps,
-            locked = state is LockState.Locked,
-            arming = state is LockState.Arming,
-            armedPackage = autoArmedPackage,
-            suppressedPackage = suppressedPackage,
-        )
-        if (pkg != suppressedPackage) suppressedPackage = null
-        if (pkg != watchedPackage) stopWatching()
-        when (decision) {
-            GuardPolicy.AutoLockDecision.Arm -> {
-                val trigger = settings.autoLockRules[pkg] ?: com.gbhall.childlock.settings.AutoLockTrigger.OPEN
-                if (GuardPolicy.triggerSatisfied(trigger, audioMode(), mediaPlaying(), statusBarVisible(), camerasInUse.isNotEmpty())) {
-                    arm(pkg)
-                } else if (watchedPackage != pkg) {
-                    // Wait for the call to connect or the video to go full screen.
-                    watchedPackage = pkg
-                    handler.postDelayed(watchTick, WATCH_MS)
-                }
-            }
-            GuardPolicy.AutoLockDecision.CancelArm -> {
-                autoArmedPackage = null
-                LockController.unlock()
-            }
-            GuardPolicy.AutoLockDecision.None -> Unit
-        }
-    }
-
-    private fun arm(pkg: String) {
-        if (Settings.canDrawOverlays(this) && LockController.requestLock(this, pkg, settings.autoLockDelaySec * 1000L)) {
-            autoArmedPackage = pkg
-        }
-    }
-
-    private fun stopWatching() {
-        watchedPackage = null
-        handler.removeCallbacks(watchTick)
-    }
-
     private fun audioMode(): Int =
         try { getSystemService(android.media.AudioManager::class.java)?.mode ?: 0 } catch (e: Exception) { 0 }
 
@@ -302,47 +373,37 @@ class GuardAccessibilityService : AccessibilityService() {
         }
     }
 
-    public override fun onKeyEvent(event: KeyEvent): Boolean {
-        val key = when (event.keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP -> HardwareKey.VOLUME_UP
-            KeyEvent.KEYCODE_VOLUME_DOWN -> HardwareKey.VOLUME_DOWN
-            KeyEvent.KEYCODE_BACK -> HardwareKey.BACK
-            else -> return false
+    private var imePackages: Set<String> = emptySet()
+    private var imeCheckedMs = 0L
+
+    private fun imePackages(): Set<String> {
+        val now = SystemClock.uptimeMillis()
+        if (now - imeCheckedMs > 60_000) {
+            imeCheckedMs = now
+            imePackages = try {
+                getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                    ?.enabledInputMethodList?.map { it.packageName }?.toSet() ?: emptySet()
+            } catch (e: Exception) {
+                emptySet()
+            }
         }
-        val down = event.action == KeyEvent.ACTION_DOWN
-        if (down && event.repeatCount > 0) {
-            // Auto-repeat of a held key: same fate as its first press, never fed to gestures.
-            return event.keyCode in consumedKeys
-        }
-        keyGesture?.let { g ->
-            g.onKey(key, down, event.eventTime)
-            handler.removeCallbacks(tick)
-            if (g.wantsTicks) handler.postDelayed(tick, TICK_MS)
-        }
-        if (!down) {
-            consumedKeys.remove(event.keyCode)
-            return false
-        }
-        // While unlocked the phone must behave normally: observe only, never consume.
-        val consume = LockController.isLocked && GuardPolicy.consumeKey(key, settings.blockKeys, chordActive = keyGesture != null)
-        if (consume) consumedKeys.add(event.keyCode) else consumedKeys.remove(event.keyCode)
-        return consume
+        return imePackages
     }
 
-    override fun onInterrupt() = Unit
-
-    private val imePackages: Set<String> by lazy {
+    private val homePackages: Set<String> by lazy {
         try {
-            getSystemService(android.view.inputmethod.InputMethodManager::class.java)
-                ?.enabledInputMethodList?.map { it.packageName }?.toSet() ?: emptySet()
+            @Suppress("DEPRECATION")
+            packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
+                .map { it.activityInfo.packageName }.toSet()
         } catch (e: Exception) {
             emptySet()
         }
     }
 
-    /** Windows that come and go without meaning the user moved to another app. */
+    private fun isHome(pkg: String) = pkg in homePackages
+
     private fun isIgnoredForeground(pkg: String): Boolean =
-        pkg == packageName || pkg == GuardPolicy.SYSTEM_UI || pkg in imePackages
+        pkg == packageName || pkg == GuardPolicy.SYSTEM_UI || pkg in imePackages()
 
     private fun isLaunchable(pkg: String): Boolean = launchable.getOrPut(pkg) {
         packageManager.getLaunchIntentForPackage(pkg) != null
@@ -354,7 +415,6 @@ class GuardAccessibilityService : AccessibilityService() {
         for (w in windows) {
             if (w.type != AccessibilityWindowInfo.TYPE_SYSTEM) continue
             w.getBoundsInScreen(bounds)
-            // Cheap size check first; only then pay for the window root.
             if (!GuardPolicy.isShadeWindow(true, bounds.height(), screenHeight, GuardPolicy.SYSTEM_UI)) continue
             val pkg = w.root?.packageName?.toString()
             if (GuardPolicy.isShadeWindow(true, bounds.height(), screenHeight, pkg)) return true
@@ -403,6 +463,9 @@ class GuardAccessibilityService : AccessibilityService() {
         private const val TAG = "GuardService"
         private const val TICK_MS = 33L
         private const val WATCH_MS = 1000L
+        private const val SCAN_MS = 500L
+        private const val CLICK_COOLDOWN_MS = 3000L
+        private const val MAX_CLICKS_PER_MINUTE = 6
         private const val BASE_FLAGS =
             AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS or
                 AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
@@ -413,11 +476,7 @@ class GuardAccessibilityService : AccessibilityService() {
 
         private fun component(context: Context) = ComponentName(context, GuardAccessibilityService::class.java)
 
-        /**
-         * True when Android's floating accessibility button is pointed at this
-         * service. The app never asks for it; the Settings UI offers it as a
-         * shortcut when the service is enabled. It is the only icon Android adds.
-         */
+        /** True when Android's floating accessibility button is pointed at this service. */
         fun isShortcutButtonOn(context: Context): Boolean {
             val flat = component(context).flattenToString()
             val targets = Settings.Secure.getString(context.contentResolver, "accessibility_button_targets") ?: return false
@@ -438,7 +497,7 @@ class GuardAccessibilityService : AccessibilityService() {
 
         /** True when the user has enabled this service in accessibility settings. */
         fun isEnabled(context: Context): Boolean {
-            val expected = ComponentName(context, GuardAccessibilityService::class.java).flattenToString()
+            val expected = component(context).flattenToString()
             val enabled = Settings.Secure.getString(
                 context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
             ) ?: return false

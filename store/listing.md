@@ -39,9 +39,9 @@ OTHER WAYS TO UNLOCK
 Prefer touch? Hold one finger in each of two opposite corners for a moment, or hold the badge and type a PIN. Choose what suits you.
 
 SETUP
-A short assistant walks you through two permissions: "Display over other apps", which is how touches are blocked, and the Child Lock guard accessibility service, which handles the volume pattern, swipe blocking and auto-lock. Both are explained before you enable them.
+A short assistant walks you through two permissions: "Display over other apps", which is how touches are blocked, and the Child Lock helper accessibility service, which handles the volume pattern, swipe blocking and auto-lock. Both are explained before you enable them.
 
-Child Lock uses Android's accessibility service as a parental control, not as an accessibility aid. It observes volume-button presses and which app is in front, and while locked it blocks navigation. It never reads screen content.
+Child Lock uses Android's accessibility service as a parental control, not as an accessibility aid. It observes volume-button presses and which app is in front, and while locked it blocks navigation. It never reads screen content, unless you switch on the optional "Skip ads" feature, which reads button labels in the one app you chose.
 
 ## Declarations in Play Console
 
@@ -52,9 +52,18 @@ presses to switch the lock on and off; while locked, filter navigation keys,
 block system gestures via touch-exploration mode, dismiss the notification
 shade, and return to the foreground app the parent chose; while unlocked,
 observe the foreground package for the auto-lock feature. The service reads no
-window content. An in-app prominent disclosure with explicit consent is shown
-before the user is sent to enable the service (see `Disclosures.kt`). The
-app's core touch lock also works with the service disabled.
+window content, with one opt-in exception: the "Skip ads for them" option
+(off by default, Pro) reads on-screen button labels inside the single app
+the parent chose, while locked, to tap a "Skip ad" button. An in-app
+prominent disclosure with explicit consent is shown before the user is sent
+to enable the service (see `Disclosures.kt`). The app's core touch lock also
+works with the service disabled.
+
+Risk note: tapping "Skip ad" in another app may be read by Google as
+interfering with that app (Device and Network Abuse policy) and conflicts
+with YouTube's terms. Consider shipping the Play build with
+`SkipAdMatcher.supportedPackages` empty (which hides the option) and keeping
+the feature for the GitHub build only.
 
 ### Foreground service, type "specialUse"
 
@@ -77,7 +86,7 @@ Used to draw the transparent touch shield and the corner badge.
 ### App access
 
 All functionality is available without login. Provide the reviewer with the
-note: "Grant Display over other apps and enable Child Lock guard in
+note: "Grant Display over other apps and enable Child Lock helper in
 Accessibility settings, then open any app and press volume up then down."
 
 ## Assets (in `store/assets/`)

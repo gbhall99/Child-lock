@@ -6,6 +6,7 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
@@ -35,7 +36,16 @@ object Palette {
     const val SKY = 0xFF56B4E9.toInt()
     const val ORANGE = 0xFFE69F00.toInt()
     const val GREY = 0xFF8C8C91.toInt()
-    const val DISABLED = 0xFFB0B0B5.toInt()
+}
+
+/** Type scale: Display 28, Title 22, Section 17, Row 16, Body 14, Caption 12. */
+object Type {
+    const val DISPLAY = 28f
+    const val TITLE = 22f
+    const val SECTION = 17f
+    const val ROW = 16f
+    const val BODY = 14f
+    const val CAPTION = 12f
 }
 
 enum class Tone(val glyph: String) {
@@ -46,7 +56,7 @@ enum class Tone(val glyph: String) {
     PENDING("◐");
 
     fun color(context: Context): Int = when (this) {
-        GOOD, ACTIVE -> if (context.isNight) Palette.SKY else Palette.BLUE
+        GOOD, ACTIVE -> context.accent
         ATTENTION, PENDING -> Palette.ORANGE
         NEUTRAL -> Palette.GREY
     }
@@ -61,6 +71,10 @@ internal val Context.pageBackground: Int get() = if (isNight) 0xFF121317.toInt()
 internal val Context.cardBackground: Int get() = if (isNight) 0xFF1E2027.toInt() else Color.WHITE
 internal val Context.hairline: Int get() = if (isNight) 0xFF34363E.toInt() else 0xFFE4E6EC.toInt()
 internal val Context.accent: Int get() = if (isNight) Palette.SKY else Palette.BLUE
+internal val Context.textPrimary: Int get() = themeColor(android.R.attr.textColorPrimary)
+internal val Context.textSecondary: Int get() = themeColor(android.R.attr.textColorSecondary)
+
+internal fun tint(color: Int, alpha: Int): Int = (color and 0x00FFFFFF) or (alpha shl 24)
 
 internal fun Context.themeColor(attr: Int): Int {
     val tv = TypedValue()
@@ -81,41 +95,56 @@ internal fun Context.horizontal(build: LinearLayout.() -> Unit): LinearLayout =
         build()
     }
 
-internal fun Context.card(title: String?, iconRes: Int? = null, build: LinearLayout.() -> Unit): LinearLayout =
+internal fun Context.card(title: String?, iconRes: Int? = null, trailing: View? = null, build: LinearLayout.() -> Unit): LinearLayout =
     vertical {
-        val p = dp(20)
-        setPadding(p, p, p, p)
+        setPadding(dp(20), dp(18), dp(20), dp(18))
         background = GradientDrawable().apply {
-            cornerRadius = dp(24).toFloat()
+            cornerRadius = dp(20).toFloat()
             setColor(cardBackground)
         }
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            bottomMargin = dp(14)
+            bottomMargin = dp(12)
         }
         if (title != null) {
             addView(
                 horizontal {
                     if (iconRes != null) addView(icon(iconRes, accent, 20), LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(8) })
-                    addView(heading(title))
-                }.apply { setPadding(0, 0, 0, dp(12)) },
+                    addView(heading(title), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    if (trailing != null) addView(trailing)
+                }.apply { setPadding(0, 0, 0, dp(10)) },
             )
         }
         build()
     }
 
-internal fun Context.heading(text: String): TextView = TextView(this).apply {
-    this.text = text
-    textSize = 17f
-    typeface = Typeface.DEFAULT_BOLD
-    setTextColor(themeColor(android.R.attr.textColorPrimary))
+internal fun Context.pageTitle(text: String): LinearLayout = horizontal {
+    setPadding(dp(6), dp(6), dp(6), dp(20))
+    addView(icon(com.gbhall.childlock.R.drawable.ic_lock, accent, 22), LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(12) })
+    addView(TextView(context).apply {
+        this.text = text
+        textSize = Type.TITLE
+        typeface = Typeface.DEFAULT_BOLD
+        setTextColor(textPrimary)
+    })
 }
 
-internal fun Context.body(text: CharSequence, secondary: Boolean = false, size: Float = 15f): TextView = TextView(this).apply {
+internal fun Context.heading(text: String): TextView = TextView(this).apply {
+    this.text = text
+    textSize = Type.SECTION
+    typeface = Typeface.DEFAULT_BOLD
+    setTextColor(textPrimary)
+}
+
+internal fun Context.body(text: CharSequence, secondary: Boolean = false, size: Float = Type.BODY): TextView = TextView(this).apply {
     this.text = text
     textSize = size
-    setLineSpacing(0f, 1.15f)
-    setTextColor(themeColor(if (secondary) android.R.attr.textColorSecondary else android.R.attr.textColorPrimary))
+    setLineSpacing(0f, 1.25f)
+    setTextColor(if (secondary) textSecondary else textPrimary)
 }
+
+internal fun Context.label(text: CharSequence): TextView = body(text, size = Type.ROW).apply { typeface = Typeface.DEFAULT_BOLD }
+
+internal fun Context.caption(text: CharSequence): TextView = body(text, secondary = true, size = Type.CAPTION)
 
 internal fun Context.icon(resId: Int, tint: Int, sizeDp: Int = 24): ImageView = ImageView(this).apply {
     setImageResource(resId)
@@ -125,10 +154,10 @@ internal fun Context.icon(resId: Int, tint: Int, sizeDp: Int = 24): ImageView = 
 }
 
 /** Icon inside a soft tinted disc. */
-internal fun Context.iconDisc(resId: Int, tint: Int, discDp: Int = 44, iconDp: Int = 22): FrameLayout = FrameLayout(this).apply {
+internal fun Context.iconDisc(resId: Int, tint: Int, discDp: Int = 44, iconDp: Int = 22, discAlpha: Int = 0x1F): FrameLayout = FrameLayout(this).apply {
     background = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
-        setColor((tint and 0x00FFFFFF) or 0x1F000000)
+        setColor(tint(tint, discAlpha))
     }
     addView(icon(resId, tint, iconDp), FrameLayout.LayoutParams(dp(iconDp), dp(iconDp), Gravity.CENTER))
     layoutParams = ViewGroup.LayoutParams(dp(discDp), dp(discDp))
@@ -137,41 +166,48 @@ internal fun Context.iconDisc(resId: Int, tint: Int, discDp: Int = 44, iconDp: I
 /** Rounded pill: glyph + word in the tone's colour on a tinted background. */
 internal fun Context.chip(text: String, tone: Tone): TextView = TextView(this).apply {
     val c = tone.color(context)
-    this.text = "${tone.glyph} $text"
-    textSize = 12.5f
+    this.text = SpannableStringBuilder().apply {
+        append(tone.glyph, RelativeSizeSpan(0.9f), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        append(" ").append(text)
+    }
+    textSize = Type.CAPTION
     typeface = Typeface.DEFAULT_BOLD
     setTextColor(c)
-    setPadding(dp(10), dp(4), dp(10), dp(4))
+    setPadding(dp(8), dp(3), dp(8), dp(3))
+    minHeight = dp(22)
     background = GradientDrawable().apply {
         cornerRadius = dp(999).toFloat()
-        setColor((c and 0x00FFFFFF) or 0x22000000)
+        setColor(tint(c, 0x22))
     }
     gravity = Gravity.CENTER_VERTICAL
 }
 
-/** Full-width primary action in the palette blue; grey when disabled. */
+/** Full-width primary action; when disabled, a quiet tonal "not yet" rather than a grey slab. */
 internal fun Context.primaryButton(text: String, onClick: () -> Unit): Button = Button(this).apply {
     this.text = text
-    textSize = 17f
+    textSize = Type.ROW
     typeface = Typeface.DEFAULT_BOLD
     isAllCaps = false
-    setTextColor(Color.WHITE)
     stateListAnimator = null
+    setTextColor(ColorStateList(
+        arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
+        intArrayOf(if (isNight) 0xFF8C8C91.toInt() else 0xFF6B6E76.toInt(), Color.WHITE),
+    ))
     background = GradientDrawable().apply {
-        cornerRadius = dp(18).toFloat()
+        cornerRadius = dp(16).toFloat()
         setColor(Color.WHITE)
     }
     backgroundTintList = ColorStateList(
         arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
-        intArrayOf(Palette.DISABLED, Palette.BLUE),
+        intArrayOf(if (isNight) 0xFF2A2C34.toInt() else 0xFFE1E3E9.toInt(), Palette.BLUE),
     )
     setOnClickListener { onClick() }
 }
 
-/** Compact secondary action: tinted pill. */
+/** Compact secondary action: tonal pill. */
 internal fun Context.actionButton(text: String, onClick: () -> Unit): Button = Button(this).apply {
     this.text = text
-    textSize = 14f
+    textSize = Type.BODY
     isAllCaps = false
     typeface = Typeface.DEFAULT_BOLD
     setTextColor(accent)
@@ -183,7 +219,7 @@ internal fun Context.actionButton(text: String, onClick: () -> Unit): Button = B
     setPadding(dp(16), dp(8), dp(16), dp(8))
     background = GradientDrawable().apply {
         cornerRadius = dp(999).toFloat()
-        setColor((accent and 0x00FFFFFF) or 0x1A000000)
+        setColor(tint(accent, 0x1A))
     }
     setOnClickListener { onClick() }
 }
@@ -192,8 +228,8 @@ internal fun Context.actionButton(text: String, onClick: () -> Unit): Button = B
 internal fun Context.segmented(labels: List<String>, selected: Int, onSelect: (Int) -> Unit): LinearLayout = horizontal {
     val track = this
     background = GradientDrawable().apply {
-        cornerRadius = dp(14).toFloat()
-        setColor((accent and 0x00FFFFFF) or 0x14000000)
+        cornerRadius = dp(12).toFloat()
+        setColor(tint(accent, 0x14))
     }
     setPadding(dp(4), dp(4), dp(4), dp(4))
     val buttons = ArrayList<TextView>()
@@ -202,7 +238,7 @@ internal fun Context.segmented(labels: List<String>, selected: Int, onSelect: (I
             val on = i == sel
             b.setTextColor(if (on) Color.WHITE else accent)
             b.background = GradientDrawable().apply {
-                cornerRadius = dp(11).toFloat()
+                cornerRadius = dp(9).toFloat()
                 setColor(if (on) Palette.BLUE else Color.TRANSPARENT)
             }
         }
@@ -210,7 +246,7 @@ internal fun Context.segmented(labels: List<String>, selected: Int, onSelect: (I
     labels.forEachIndexed { i, label ->
         val b = TextView(context).apply {
             text = label
-            textSize = 14f
+            textSize = Type.BODY
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setPadding(0, dp(10), 0, dp(10))
@@ -226,7 +262,7 @@ internal fun Context.segmented(labels: List<String>, selected: Int, onSelect: (I
     render(selected)
 }
 
-/** Leading icon, title + subtitle (+ optional status chip), optional trailing action. */
+/** Leading icon, title (+ inline status chip) and subtitle, optional trailing action. */
 internal fun Context.row(
     title: String,
     subtitle: CharSequence?,
@@ -241,13 +277,13 @@ internal fun Context.row(
     }
     addView(
         vertical {
-            addView(body(title).apply { typeface = Typeface.DEFAULT_BOLD; textSize = 16f })
-            if (subtitle != null) addView(body(subtitle, secondary = true, size = 13.5f).apply { setPadding(0, dp(2), 0, 0) })
-            if (chip != null) {
-                addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                    topMargin = dp(6)
-                })
-            }
+            addView(
+                horizontal {
+                    addView(label(title), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    if (chip != null) addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8) })
+                },
+            )
+            if (subtitle != null) addView(body(subtitle, secondary = true).apply { setPadding(0, dp(2), 0, 0) })
         },
         LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
     )
@@ -258,13 +294,16 @@ internal fun Context.row(
     }
 }
 
-internal fun Context.switchRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit): LinearLayout {
-    val sw = Switch(this).apply {
-        isChecked = checked
-        setOnCheckedChangeListener { _, value -> onChange(value) }
-    }
-    return row(title, subtitle, sw)
+internal fun Context.styledSwitch(checked: Boolean, onChange: (Boolean) -> Unit): Switch = Switch(this).apply {
+    isChecked = checked
+    val off = if (isNight) 0xFF3A3D46.toInt() else 0xFFC7C9D0.toInt()
+    thumbTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(accent, Color.WHITE))
+    trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(tint(accent, 0x80), off))
+    setOnCheckedChangeListener { _, value -> onChange(value) }
 }
+
+internal fun Context.switchRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit): LinearLayout =
+    row(title, subtitle, styledSwitch(checked, onChange))
 
 internal fun Context.divider(): View = View(this).apply {
     setBackgroundColor(hairline)
@@ -274,19 +313,25 @@ internal fun Context.divider(): View = View(this).apply {
     }
 }
 
-/** Soft orange call-out for something the user has to do; the action sits under the text. */
+/** Orange call-out for something the parent has to do now: leading bar, body text, action underneath. */
 internal fun Context.callout(text: CharSequence, action: View? = null): LinearLayout = vertical {
-    val p = dp(14)
-    setPadding(p, p, p, p)
-    background = GradientDrawable().apply {
-        cornerRadius = dp(16).toFloat()
-        setColor((Palette.ORANGE and 0x00FFFFFF) or 0x1F000000)
-    }
+    setPadding(dp(14), dp(12), dp(14), dp(12))
+    background = LayerDrawable(arrayOf(
+        GradientDrawable().apply {
+            cornerRadius = dp(12).toFloat()
+            setColor(tint(Palette.ORANGE, 0x14))
+            setStroke(dp(1), tint(Palette.ORANGE, 0x66))
+        },
+        GradientDrawable().apply {
+            cornerRadius = dp(2).toFloat()
+            setColor(Palette.ORANGE)
+        },
+    )).apply { setLayerInset(1, 0, dp(10), 0, dp(10)); setLayerWidth(1, dp(3)); setLayerGravity(1, Gravity.START) }
     addView(
         horizontal {
             gravity = Gravity.TOP
-            addView(icon(com.gbhall.childlock.R.drawable.ic_warning, Palette.ORANGE, 22), LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(12) })
-            addView(body(text, size = 13.5f), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(icon(com.gbhall.childlock.R.drawable.ic_warning, Palette.ORANGE, 20), LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(10); marginStart = dp(6) })
+            addView(body(text), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         },
     )
     if (action != null) {
@@ -297,14 +342,15 @@ internal fun Context.callout(text: CharSequence, action: View? = null): LinearLa
     }
 }
 
-/** Radio list where each option has a bold label and a smaller secondary description. */
+/** Radio list: top-aligned tinted radios, bold label, body-size secondary description. */
 internal fun Context.radioGroup(
     options: List<Pair<String, String?>>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
 ): RadioGroup = RadioGroup(this).apply {
     orientation = RadioGroup.VERTICAL
-    val secondary = themeColor(android.R.attr.textColorSecondary)
+    val secondary = textSecondary
+    val tintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(accent, Palette.GREY))
     options.forEachIndexed { index, (label, description) ->
         val button = RadioButton(context).apply {
             id = View.generateViewId()
@@ -314,13 +360,15 @@ internal fun Context.radioGroup(
                     append("\n")
                     val start = length
                     append(description)
-                    setSpan(RelativeSizeSpan(0.86f), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    setSpan(RelativeSizeSpan(0.875f), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     setSpan(ForegroundColorSpan(secondary), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 }
             }
-            textSize = 15f
-            setLineSpacing(0f, 1.12f)
-            setPadding(dp(10), dp(10), dp(4), dp(10))
+            textSize = Type.ROW
+            setLineSpacing(0f, 1.2f)
+            gravity = Gravity.TOP
+            buttonTintList = tintList
+            setPadding(dp(10), dp(8), dp(4), dp(8))
             isChecked = index == selectedIndex
             setOnClickListener { onSelect(index) }
         }
@@ -337,15 +385,19 @@ internal fun Context.seekRow(
     onChange: (Int) -> Unit,
 ): LinearLayout = vertical {
     setPadding(0, dp(8), 0, dp(4))
-    val label = body("$title: ${format(value)}").apply { typeface = Typeface.DEFAULT_BOLD; textSize = 16f }
-    addView(label)
+    val text = label("$title: ${format(value)}")
+    addView(text)
     val seek = SeekBar(context).apply {
         this.min = min
         this.max = max
         progress = value
+        progressTintList = ColorStateList.valueOf(accent)
+        thumbTintList = ColorStateList.valueOf(accent)
+        progressBackgroundTintList = ColorStateList.valueOf(hairline)
+        setPadding(dp(8), dp(8), dp(8), dp(4))
         setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, p: Int, fromUser: Boolean) {
-                label.text = "$title: ${format(p)}"
+                text.text = "$title: ${format(p)}"
                 if (fromUser) onChange(p)
             }
             override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
@@ -353,4 +405,25 @@ internal fun Context.seekRow(
         })
     }
     addView(seek)
+}
+
+/** Collapsible section header with a chevron; [content] starts hidden. */
+internal fun Context.expander(title: String, iconRes: Int?, content: View): LinearLayout = vertical {
+    content.visibility = View.GONE
+    val chevron = icon(com.gbhall.childlock.R.drawable.ic_expand, accent, 24)
+    addView(
+        horizontal {
+            if (iconRes != null) addView(icon(iconRes, accent, 20), LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginEnd = dp(8) })
+            addView(heading(title), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(chevron, LinearLayout.LayoutParams(dp(24), dp(24)))
+            isClickable = true
+            minimumHeight = dp(44)
+            setOnClickListener {
+                val open = content.visibility != View.VISIBLE
+                content.visibility = if (open) View.VISIBLE else View.GONE
+                chevron.setImageResource(if (open) com.gbhall.childlock.R.drawable.ic_collapse else com.gbhall.childlock.R.drawable.ic_expand)
+            }
+        },
+    )
+    addView(content)
 }

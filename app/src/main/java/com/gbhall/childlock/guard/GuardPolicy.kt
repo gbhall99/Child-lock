@@ -20,6 +20,11 @@ object GuardPolicy {
             screenHeight > 0 &&
             windowHeight >= screenHeight * SHADE_MIN_HEIGHT_FRACTION
 
+    /** Windows the system puts up over apps; fighting them only causes a loop. */
+    fun isSystemDialogPackage(pkg: String): Boolean =
+        pkg == "android" || pkg.contains("permissioncontroller") || pkg == "com.google.android.gms" ||
+            pkg == "com.android.settings" || pkg.endsWith(".packageinstaller") || pkg == "com.android.vending"
+
     sealed interface RelaunchDecision {
         data object Relaunch : RelaunchDecision
         data class Skip(val reason: String) : RelaunchDecision
@@ -43,6 +48,7 @@ object GuardPolicy {
         if (foregroundPackage == protectedPackage) return RelaunchDecision.Skip("already in front")
         if (foregroundPackage == selfPackage) return RelaunchDecision.Skip("child lock itself")
         if (foregroundPackage == SYSTEM_UI) return RelaunchDecision.Skip("system ui")
+        if (isSystemDialogPackage(foregroundPackage)) return RelaunchDecision.Skip("system dialog")
         if (dialerPackage != null && foregroundPackage == dialerPackage) return RelaunchDecision.Skip("phone call")
         if (foregroundPackage.contains("incallui")) return RelaunchDecision.Skip("phone call")
         if (keyguardLocked) return RelaunchDecision.Skip("keyguard")
@@ -65,11 +71,12 @@ object GuardPolicy {
     /** AccessibilityServiceInfo.FLAG_REQUEST_MULTI_FINGER_GESTURES. */
     const val FLAG_MULTI_FINGER = 0x00001000
 
-    /** A sensible default trigger for well-known apps; anything else arms on open. */
+    /** Default trigger by package name only (no Context); AppCatalog.profile is the full version. */
     fun smartTrigger(packageName: String): com.gbhall.childlock.settings.AutoLockTrigger {
+        com.gbhall.childlock.settings.AppCatalog.curated[packageName]?.let { return it.default }
         val p = packageName.lowercase()
-        val call = listOf("whatsapp", "meet", "tachyon", "teams", "call", "voip", "zoom", "skype", "duo", "facetime", "signal", "telegram", "viber", "messenger", "orca", "dialer", "telecom", "facebook.talk", "discord", "webex")
-        val video = listOf("youtube", "netflix", "iplayer", "disney", "primevideo", "amazon.avod", "twitch", "plex", "vlc", "mxtech", "tv.", "player", "video", "itv", "channel4", "hulu", "hbo", "paramount", "peacock", "kids", "cbeebies", "pbs", "nick")
+        val call = listOf("whatsapp", "tachyon", "teams", "voip", "zoom", "skype", "signal", "telegram", "viber", "messenger", "orca", "dialer", "telecom", "discord", "webex", "jitsi")
+        val video = listOf("youtube", "netflix", "iplayer", "disney", "primevideo", "amazon.avod", "twitch", "plex", "vlc", "mxtech", "itv", "channel4", "hulu", "hbo", "paramount", "peacock", "cbeebies", "pbskids", "nowtv", "skygo")
         return when {
             call.any { it in p } -> com.gbhall.childlock.settings.AutoLockTrigger.VIDEO_CALL
             video.any { it in p } -> com.gbhall.childlock.settings.AutoLockTrigger.FULLSCREEN_PLAYBACK
@@ -101,7 +108,7 @@ object GuardPolicy {
 
     /** The status bar is a thin system window pinned to the top edge. */
     fun isStatusBarWindow(isSystemType: Boolean, top: Int, height: Int, screenHeight: Int): Boolean =
-        isSystemType && top <= 0 && height > 0 && height < screenHeight * 0.12f
+        isSystemType && top <= 0 && height > 0 && height < screenHeight * 0.07f
 
     sealed interface AutoLockDecision {
         data object Arm : AutoLockDecision

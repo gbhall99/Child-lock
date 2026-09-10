@@ -58,6 +58,8 @@ class GuardPolicyTest {
         assertTrue(decide(keyguard = true) is RelaunchDecision.Skip)
         assertTrue(decide(foreground = GuardPolicy.SYSTEM_UI) is RelaunchDecision.Skip)
         assertTrue(decide(foreground = "com.gbhall.childlock") is RelaunchDecision.Skip)
+        assertTrue("permission prompt", decide(foreground = "com.google.android.permissioncontroller") is RelaunchDecision.Skip)
+        assertTrue("system dialog", decide(foreground = "android") is RelaunchDecision.Skip)
     }
 
     @Test
@@ -107,6 +109,7 @@ class GuardPolicyTest {
         assertEquals(T.FULLSCREEN_PLAYBACK, GuardPolicy.smartTrigger("bbc.iplayer.android"))
         assertEquals(T.FULLSCREEN_PLAYBACK, GuardPolicy.smartTrigger("com.netflix.mediaclient"))
         assertEquals(T.OPEN, GuardPolicy.smartTrigger("com.rovio.angrybirds"))
+        assertEquals("duolingo is not a video-call app", T.OPEN, GuardPolicy.smartTrigger("com.duolingo"))
     }
 
     @Test
@@ -129,6 +132,7 @@ class GuardPolicyTest {
     @Test
     fun `status bar is a thin system window at the top`() {
         assertTrue(GuardPolicy.isStatusBarWindow(true, 0, 120, 2400))
+        assertFalse("heads-up notification is taller", GuardPolicy.isStatusBarWindow(true, 0, 300, 2400))
         assertFalse("shade is tall", GuardPolicy.isStatusBarWindow(true, 0, 2400, 2400))
         assertFalse("nav bar is at the bottom", GuardPolicy.isStatusBarWindow(true, 2280, 120, 2400))
         assertFalse("app window", GuardPolicy.isStatusBarWindow(false, 0, 120, 2400))

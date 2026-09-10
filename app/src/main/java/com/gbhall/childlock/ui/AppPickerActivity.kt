@@ -13,21 +13,20 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.TextView
 import com.gbhall.childlock.R
-import com.gbhall.childlock.guard.GuardPolicy
 import com.gbhall.childlock.lock.LockOverlayService
-import com.gbhall.childlock.settings.AutoLockTrigger
+import com.gbhall.childlock.settings.AppCatalog
 import com.gbhall.childlock.settings.SettingsRepository
 
 /**
- * Multi-select list of launchable apps for auto-lock. A ticked app shows a
- * row of "lock when" choices underneath. Everything saves as you tap.
+ * "Add an app" screen: a searchable list, one tap adds the app with the best
+ * default moment for it and returns to the main screen, where the rule can be
+ * edited or removed. Apps already added are marked and tap through to edit.
  */
 class AppPickerActivity : Activity() {
     data class AppEntry(val packageName: String, val label: String, val icon: Drawable?)
@@ -62,7 +61,6 @@ class AppPickerActivity : Activity() {
                 },
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
             )
-            addView(actionButton(getString(R.string.done)) { finish() })
         }
         val search = EditText(this).apply {
             hint = getString(R.string.picker_search)
@@ -82,10 +80,7 @@ class AppPickerActivity : Activity() {
         val list = ListView(this).apply {
             adapter = this@AppPickerActivity.adapter
             divider = null
-            setOnItemClickListener { _, _, position, _ ->
-                toggle(this@AppPickerActivity.adapter.getItem(position))
-                this@AppPickerActivity.adapter.notifyDataSetChanged()
-            }
+            setOnItemClickListener { _, _, position, _ -> choose(this@AppPickerActivity.adapter.getItem(position)) }
         }
         val page = vertical {
             setBackgroundColor(pageBackground)
@@ -105,18 +100,19 @@ class AppPickerActivity : Activity() {
         setContentView(page)
     }
 
-    private fun rules(): Map<String, AutoLockTrigger> = repo.load().autoLockRules
-
-    private fun toggle(entry: AppEntry) {
-        repo.update { s ->
-            val next = s.autoLockRules.toMutableMap()
-            if (next.remove(entry.packageName) == null) next[entry.packageName] = GuardPolicy.smartTrigger(entry.packageName)
-            s.copy(autoLockRules = next)
-        }
+    override fun onResume() {
+        super.onResume()
+        adapter.notifyDataSetChanged()
     }
 
-    private fun setTrigger(entry: AppEntry, trigger: AutoLockTrigger) {
-        repo.update { s -> s.copy(autoLockRules = s.autoLockRules + (entry.packageName to trigger)) }
+    private fun choose(entry: AppEntry) {
+        val existing = repo.load().autoLockRules[entry.packageName]
+        if (existing == null) {
+            val profile = AppCatalog.profile(this, entry.packageName)
+            repo.update { s -> s.copy(autoLockRules = s.autoLockRules + (entry.packageName to profile.default)) }
+        }
+        // Straight into the editor so the parent sees and can change the moment.
+        RuleEditor.show(this, entry.packageName, entry.label) { finish() }
     }
 
     @Suppress("DEPRECATION")
@@ -153,58 +149,23 @@ class AppPickerActivity : Activity() {
 
         override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
             val entry = getItem(position)
-            val trigger = rules()[entry.packageName]
-            val row = (convertView as? LinearLayout) ?: vertical {
-                setPadding(dp(4), dp(6), dp(4), dp(6))
-                addView(
-                    horizontal {
-                        tag = "top"
-                        setPadding(dp(4), dp(6), dp(4), dp(6))
-                        addView(ImageView(context).apply { tag = "icon" }, LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(14) })
-                        addView(TextView(context).apply {
-                            tag = "label"
-                            textSize = 16f
-                            setTextColor(themeColor(android.R.attr.textColorPrimary))
-                        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                        addView(CheckBox(context).apply { tag = "check"; isClickable = false; isFocusable = false })
-                    },
-                )
-                addView(LinearLayout(context).apply { tag = "triggers"; orientation = LinearLayout.VERTICAL })
+            val added = repo.load().autoLockRules.containsKey(entry.packageName)
+            val row = (convertView as? LinearLayout) ?: horizontal {
+                setPadding(dp(8), dp(10), dp(8), dp(10))
+                addView(ImageView(context).apply { tag = "icon" }, LinearLayout.LayoutParams(dp(40), dp(40)).apply { marginEnd = dp(14) })
+                addView(TextView(context).apply {
+                    tag = "label"
+                    textSize = 16f
+                    setTextColor(themeColor(android.R.attr.textColorPrimary))
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(LinearLayout(context).apply { tag = "chip"; orientation = LinearLayout.HORIZONTAL })
+                gravity = Gravity.CENTER_VERTICAL
             }
             row.findViewWithTag<ImageView>("icon").setImageDrawable(entry.icon)
             row.findViewWithTag<TextView>("label").text = entry.label
-            row.findViewWithTag<CheckBox>("check").isChecked = trigger != null
-            val holder = row.findViewWithTag<LinearLayout>("triggers")
-            holder.removeAllViews()
-            if (trigger != null) {
-                holder.addView(body(getString(R.string.picker_lock_when), secondary = true, size = 12.5f).apply {
-                    setPadding(dp(58), 0, 0, dp(6))
-                    isAllCaps = true
-                    letterSpacing = 0.06f
-                })
-                val options = listOf(
-                    AutoLockTrigger.VIDEO_CALL to R.string.trigger_video_call,
-                    AutoLockTrigger.VOICE_CALL to R.string.trigger_voice_call,
-                    AutoLockTrigger.CALL to R.string.trigger_call,
-                    AutoLockTrigger.FULLSCREEN_PLAYBACK to R.string.trigger_fullscreen,
-                    AutoLockTrigger.PLAYBACK to R.string.trigger_playback,
-                    AutoLockTrigger.OPEN to R.string.trigger_open,
-                )
-                val group = android.widget.RadioGroup(this@AppPickerActivity).apply {
-                    orientation = android.widget.RadioGroup.VERTICAL
-                    setPadding(dp(46), 0, 0, dp(4))
-                }
-                options.forEach { (t, label) ->
-                    group.addView(android.widget.RadioButton(this@AppPickerActivity).apply {
-                        id = View.generateViewId()
-                        text = getString(label)
-                        textSize = 14.5f
-                        isChecked = t == trigger
-                        setOnClickListener { setTrigger(entry, t) }
-                    })
-                }
-                holder.addView(group)
-            }
+            val chipHolder = row.findViewWithTag<LinearLayout>("chip")
+            chipHolder.removeAllViews()
+            chipHolder.addView(if (added) chip(getString(R.string.picker_added), Tone.GOOD) else actionButton(getString(R.string.picker_add)) { choose(entry) })
             return row
         }
     }

@@ -15,7 +15,7 @@ request the internet permission, so it has no way to transmit anything.
 
 - **Display over other apps.** Draws the transparent layer that blocks touches
   and the small badge that shows the lock is on. Nothing is captured.
-- **Accessibility service (Child Lock guard).** Used as a parental control,
+- **Accessibility service (Child Lock helper).** Used as a parental control,
   not as an accessibility aid. While the lock is on it observes volume-button
   presses for the lock/unlock pattern, blocks the back and volume buttons and
   home/back swipes, closes the notification shade, and brings back the app you

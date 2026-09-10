@@ -29,13 +29,15 @@ import com.gbhall.childlock.settings.SettingsRepository
 import com.gbhall.childlock.tile.LockTileService
 
 /**
- * First-run assistant: one step at a time, each a single tap that opens the
- * right system screen, with completion detected automatically on return.
+ * First-run guide: two required steps, one tap each, completion detected on
+ * return; then two optional extras. Done is always Done; the progress line
+ * carries the guidance.
  */
 class SetupActivity : Activity() {
     private lateinit var repo: SettingsRepository
     private lateinit var progress: TextView
-    private lateinit var steps: LinearLayout
+    private lateinit var required: LinearLayout
+    private lateinit var optional: LinearLayout
     private lateinit var doneButton: Button
     private lateinit var skipButton: TextView
 
@@ -68,31 +70,24 @@ class SetupActivity : Activity() {
 
     private fun buildContent(): View {
         val page = vertical {
-            setPadding(dp(20), dp(16), dp(20), dp(24))
-            addView(
-                horizontal {
-                    addView(icon(R.drawable.ic_lock, accent, 28), LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(10) })
-                    addView(TextView(context).apply {
-                        text = getString(R.string.setup_title)
-                        textSize = 26f
-                        typeface = Typeface.DEFAULT_BOLD
-                        setTextColor(themeColor(android.R.attr.textColorPrimary))
-                    })
-                },
-            )
-            progress = body("", secondary = true, size = 14f).apply { setPadding(0, dp(6), 0, dp(18)) }
+            setPadding(dp(16), dp(12), dp(16), dp(24))
+            addView(pageTitle(getString(R.string.setup_title)))
+            progress = body("", secondary = true).apply { setPadding(dp(6), 0, dp(6), dp(16)) }
             addView(progress)
-            steps = vertical {}
-            addView(steps)
-            doneButton = primaryButton(getString(R.string.setup_done)) { finishSetup() }
-            addView(doneButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(58)).apply { topMargin = dp(8) })
+            required = vertical {}
+            addView(required)
+            doneButton = primaryButton(getString(R.string.done)) { finishSetup() }
+            addView(doneButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)).apply { topMargin = dp(4); bottomMargin = dp(20) })
+            addView(heading(getString(R.string.setup_nice)).apply { setPadding(dp(6), 0, dp(6), dp(10)) })
+            optional = vertical {}
+            addView(optional)
             skipButton = TextView(context).apply {
                 text = getString(R.string.setup_skip)
-                textSize = 14f
+                textSize = Type.BODY
                 typeface = Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
-                setTextColor(themeColor(android.R.attr.textColorSecondary))
-                setPadding(0, dp(18), 0, dp(8))
+                setTextColor(textSecondary)
+                setPadding(0, dp(14), 0, dp(8))
                 setOnClickListener {
                     repo.setupDismissed = true
                     finish()
@@ -107,7 +102,7 @@ class SetupActivity : Activity() {
         }
         scroll.setOnApplyWindowInsetsListener { _, insets ->
             val i = LockOverlayService.systemInsets(insets)
-            page.setPadding(dp(20) + i[0], dp(16) + i[1], dp(20) + i[2], dp(24) + i[3])
+            page.setPadding(dp(16) + i[0], dp(12) + i[1], dp(16) + i[2], dp(24) + i[3])
             insets
         }
         return scroll
@@ -117,8 +112,8 @@ class SetupActivity : Activity() {
 
     private fun currentSteps(): List<Step> {
         val overlay = Settings.canDrawOverlays(this)
-        val guard = GuardAccessibilityService.isEnabled(this)
-        val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && repo.overlayAttempted && (!overlay || !guard)
+        val helper = GuardAccessibilityService.isEnabled(this)
+        val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && repo.overlayAttempted && (!overlay || !helper)
         val restrictedHint = if (restricted) {
             callout(getString(R.string.restricted_desc), actionButton(getString(R.string.app_info)) {
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
@@ -138,14 +133,14 @@ class SetupActivity : Activity() {
         )
         list += Step(
             getString(R.string.perm_accessibility), getString(R.string.setup_guard_desc), R.drawable.ic_shield,
-            required = true, done = guard, actionLabel = getString(R.string.setup_open),
+            required = true, done = helper, actionLabel = getString(R.string.setup_open),
             action = {
                 Disclosures.accessibility(this) {
                     repo.overlayAttempted = true
                     startActivity(GuardAccessibilityService.settingsIntent(this))
                 }
             },
-            extra = if (overlay && !guard) restrictedHint else if (guard && GuardAccessibilityService.isShortcutButtonOn(this)) shortcutCallout() else null,
+            extra = if (overlay && !helper) restrictedHint else if (helper && GuardAccessibilityService.isShortcutButtonOn(this)) shortcutCallout() else null,
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -190,26 +185,24 @@ class SetupActivity : Activity() {
 
     private fun render() {
         val list = currentSteps()
-        val requiredLeft = list.count { it.required && !it.done }
-        val doneCount = list.count { it.done }
-        progress.text = if (requiredLeft == 0) getString(R.string.setup_all_done) else getString(R.string.setup_progress, doneCount, list.size)
-        steps.removeAllViews()
+        val requiredSteps = list.filter { it.required }
+        val requiredLeft = requiredSteps.count { !it.done }
+        progress.text = if (requiredLeft == 0) getString(R.string.setup_all_done) else getString(R.string.setup_progress, requiredSteps.count { it.done }, requiredSteps.size)
+        required.removeAllViews()
+        optional.removeAllViews()
         var firstOpen = true
         list.forEachIndexed { index, step ->
-            val active = !step.done && firstOpen
+            val active = step.required && !step.done && firstOpen
             if (active) firstOpen = false
-            steps.addView(stepCard(index + 1, step, active))
+            (if (step.required) required else optional).addView(stepCard(index + 1, step, active))
         }
-        doneButton.text = getString(if (requiredLeft == 0) R.string.setup_done else R.string.setup_done_later)
         doneButton.isEnabled = requiredLeft == 0
         skipButton.visibility = if (requiredLeft == 0) View.GONE else View.VISIBLE
     }
 
     private fun stepCard(number: Int, step: Step, active: Boolean): View = card(null) {
-        alpha = if (step.done || active) 1f else 0.62f
-        if (active) {
-            (background as GradientDrawable).setStroke(dp(2), accent)
-        }
+        if (active) (background as GradientDrawable).setStroke(dp(2), accent)
+        val pending = !step.done && !active
         addView(
             horizontal {
                 gravity = Gravity.TOP
@@ -219,11 +212,11 @@ class SetupActivity : Activity() {
                     FrameLayout(context).apply {
                         background = GradientDrawable().apply {
                             shape = GradientDrawable.OVAL
-                            setColor(if (active) Palette.BLUE else (Palette.GREY and 0x00FFFFFF) or 0x33000000)
+                            setColor(if (active) Palette.BLUE else tint(Palette.GREY, 0x33))
                         }
                         addView(TextView(context).apply {
                             text = number.toString()
-                            textSize = 17f
+                            textSize = Type.SECTION
                             typeface = Typeface.DEFAULT_BOLD
                             setTextColor(if (active) android.graphics.Color.WHITE else Palette.GREY)
                             gravity = Gravity.CENTER
@@ -235,14 +228,14 @@ class SetupActivity : Activity() {
                     vertical {
                         addView(
                             horizontal {
-                                addView(body(step.title, size = 17f).apply { typeface = Typeface.DEFAULT_BOLD }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                                if (!step.required) addView(chip(getString(R.string.setup_optional), Tone.NEUTRAL))
+                                addView(label(step.title).apply { if (pending) setTextColor(textSecondary) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                                if (!step.required) addView(chip(getString(R.string.status_optional), Tone.NEUTRAL))
                             },
                         )
-                        addView(body(step.description, secondary = true, size = 14f).apply { setPadding(0, dp(4), 0, 0) })
+                        addView(body(step.description, secondary = true).apply { setPadding(0, dp(4), 0, 0) })
                         if (!step.done) {
-                            addView(primaryButton(step.actionLabel) { step.action() }.apply { textSize = 15f },
-                                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(46)).apply { topMargin = dp(12) })
+                            val button: View = if (active) primaryButton(step.actionLabel) { step.action() } else actionButton(step.actionLabel) { step.action() }
+                            addView(button, LinearLayout.LayoutParams(if (active) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT, if (active) dp(46) else ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })
                         }
                         step.extra?.let { addView(it, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }) }
                     },
@@ -260,7 +253,7 @@ class SetupActivity : Activity() {
     companion object {
         private const val REQUEST_NOTIFICATIONS = 1
 
-        /** Required permissions still missing, so the assistant should run. */
+        /** Required permissions still missing, so the guide should run. */
         fun isNeeded(activity: Activity): Boolean =
             !Settings.canDrawOverlays(activity) || !GuardAccessibilityService.isEnabled(activity)
     }

@@ -97,9 +97,17 @@ arm delay (5 s by default).
 video call connects (WhatsApp, Meet, Teams and the like; a voice call is a
 separate choice, as is "any call"), when a video goes full screen (YouTube,
 iPlayer, Netflix), when anything plays, or simply when the app opens.
-Well-known apps get the right default. Child Lock reads only Android's audio
-mode, whether a camera is in use, whether media is playing, and whether the
-status bar is hidden; never screen content. A countdown (15 s by default) follows;
+Well-known apps get the right options and default; the rest are classified
+by the category they declare to Android. Child Lock reads only Android's
+audio mode, whether a camera is in use, whether media is playing, and whether
+the status bar is hidden; never screen content. Two more automatic options:
+"Lock again by itself" re-locks if the same moment happens again after you
+unlock (the video goes full screen again, another call connects), and "Skip
+ads for them" taps a "Skip ad" button when one appears in the app you handed
+over. Skip ads is off by default and is the one feature that reads anything
+on screen: button labels, in that one app, while locked. The automatic
+features are Child Lock Pro; the lock, the volume buttons and every safety
+feature are free. A countdown (15 s by default) follows;
 switching away or pressing the volume pattern cancels it. After you unlock,
 it will not re-arm for that app until you have left it and come back. Needs
 the accessibility guard.
@@ -119,7 +127,7 @@ green) and every status also carries a distinct symbol and word.
 
 **About the floating accessibility button.** Android itself never shows an
 icon for the guard. If you see a floating accessibility button, it is the
-"Child Lock guard shortcut" toggle on the guard's settings page; the app
+"Child Lock helper shortcut" toggle on the guard's settings page; the app
 detects it and offers to take you there to turn it off.
 
 **Knowing the state.** A large "Child Lock ON" or "OFF" banner appears on

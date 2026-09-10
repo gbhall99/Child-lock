@@ -34,6 +34,9 @@ class GuardAccessibilityServiceTest {
         val call = ComponentName("com.example.call", "com.example.call.Main")
         pm.addActivityIfNotPresent(call)
         pm.addIntentFilterForActivity(call, IntentFilter(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) })
+        val home = ComponentName("com.android.launcher", "com.android.launcher.Home")
+        pm.addActivityIfNotPresent(home)
+        pm.addIntentFilterForActivity(home, IntentFilter(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) })
         service = Robolectric.buildService(GuardAccessibilityService::class.java).create().get()
         service.onServiceConnected()
     }
@@ -260,6 +263,7 @@ class GuardAccessibilityServiceTest {
         SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.OPEN), autoLockDelaySec = 7) }
         TestSupport.idle()
         service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle()
         val intent = org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService
         org.junit.Assert.assertNotNull(intent)
         assertEquals(7000L, intent.getLongExtra(com.gbhall.childlock.lock.LockOverlayService.EXTRA_DELAY_MS, -1))
@@ -272,18 +276,25 @@ class GuardAccessibilityServiceTest {
         SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.OPEN)) }
         TestSupport.idle()
         service.onAccessibilityEvent(windowEvent("com.android.launcher"))
+        TestSupport.idle()
         assertEquals(null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
 
-        // Parent unlocks while the chosen app is in front: staying there must not re-arm.
+        // The chosen app comes to the front: it arms, and the lock engages.
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle()
+        org.junit.Assert.assertNotNull(org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
+        // Parent unlocks while still in the app: staying there must not re-arm.
         LockController.unlock()
-        TestSupport.idle()
+        TestSupport.idle(3000)
         service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle(2000)
         assertEquals(null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
         // After another app has been in front, the chosen app arms again.
         service.onAccessibilityEvent(windowEvent("com.android.launcher"))
         service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle()
         org.junit.Assert.assertNotNull(org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
     }
 
@@ -339,6 +350,7 @@ class GuardAccessibilityServiceTest {
         SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.OPEN)) }
         TestSupport.idle()
         service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle()
         LockController.set(LockState.Arming(9999, "com.example.call"))
         TestSupport.idle()
         service.onAccessibilityEvent(windowEvent("com.android.launcher"))
@@ -354,6 +366,20 @@ class GuardAccessibilityServiceTest {
         tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1300)
         TestSupport.idle()
         assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    @Test
+    fun `a permission prompt during the countdown does not cancel it`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.OPEN)) }
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle()
+        LockController.set(LockState.Arming(9999, "com.example.call"))
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.google.android.permissioncontroller"))
+        TestSupport.idle()
+        assertTrue(LockController.state is LockState.Arming)
     }
 
     @Test

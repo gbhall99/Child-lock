@@ -93,10 +93,12 @@ always works, unlimited, with no nagging. Charge only for things people are
 glad exist, never for things they hit a wall on.
 
 **Keep the volume pattern free.** It is the reason the app is good and the
-reason parents will recommend it. Pro is for extras beyond the core: swipe
-blocking, auto-lock when a chosen call app opens, scheduled "grandparent
-call" mode, badge customisation, and later a kiosk mode with a big hang-up
-button for the child.
+reason parents will recommend it. Pro (£2.99 one-time) is everything
+automatic: locking by itself when a call connects or a video goes full
+screen, locking again after an unlock, and skipping ads. This is now wired
+in code: `FeatureGate` gates those features, `Paywall` explains and will
+start the purchase, and debuggable builds are Pro so the owner can test.
+Only `FeatureGate.isPro()` needs Play Billing behind it.
 
 **Tip jar.** Three "support Child Lock" purchases (£1.99, £4.99, £9.99) that
 unlock nothing. Converts at roughly one to three percent of a passionate

@@ -43,10 +43,10 @@ class SetupActivityTest {
     fun `nothing granted, first step is overlay and finishing is blocked`() {
         ShadowSettings.setCanDrawOverlays(false)
         val a = Robolectric.buildActivity(SetupActivity::class.java).setup().get()
-        val done = button(a, a.getString(com.gbhall.childlock.R.string.setup_done_later))
+        val done = button(a, a.getString(com.gbhall.childlock.R.string.done))
         assertNotNull(done)
         assertFalse(done!!.isEnabled)
-        assertTrue(texts(a.window.decorView).any { it.contains("Display over other apps") })
+        assertTrue(texts(a.window.decorView).any { it.contains(a.getString(com.gbhall.childlock.R.string.perm_overlay)) })
     }
 
     @Test
@@ -80,7 +80,7 @@ class SetupActivityTest {
         val flat = android.content.ComponentName(TestSupport.app, com.gbhall.childlock.guard.GuardAccessibilityService::class.java).flattenToString()
         android.provider.Settings.Secure.putString(TestSupport.app.contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, flat)
         val a = Robolectric.buildActivity(SetupActivity::class.java).setup().get()
-        val done = button(a, a.getString(com.gbhall.childlock.R.string.setup_done))
+        val done = button(a, a.getString(com.gbhall.childlock.R.string.done))
         assertNotNull(done)
         assertTrue(done!!.isEnabled)
         done.performClick()
@@ -104,9 +104,8 @@ class SetupActivityTest {
         val row = list.adapter.getView(0, null, list)
         list.performItemClick(row, 0, 0)
         val rules = SettingsRepository.get(TestSupport.app).load().autoLockRules
-        assertEquals(com.gbhall.childlock.settings.AutoLockTrigger.VIDEO_CALL, rules["com.example.call"])
-        list.performItemClick(row, 0, 0)
-        assertTrue(SettingsRepository.get(TestSupport.app).load().autoLockRules.isEmpty())
+        assertEquals("unknown 'call' package gets the keyword default", com.gbhall.childlock.settings.AutoLockTrigger.OPEN, rules["com.example.call"])
+        assertNotNull("editor opens straight away", org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog())
     }
 
     @Test

@@ -53,6 +53,10 @@ data class LockSettings(
     val blockGestures: Boolean = true,
     /** Pin the screen to whatever orientation it has when the lock engages. */
     val keepOrientation: Boolean = true,
+    /** Tap "Skip ad" style buttons in the app you handed over while locked. Off by default; reads button labels. */
+    val skipAds: Boolean = false,
+    /** After an unlock, lock again when the same app's moment happens again (full screen again, another call). */
+    val relockSameApp: Boolean = true,
     /** Packages that arm the lock automatically, each with the moment that arms it (needs the guard). */
     val autoLockRules: Map<String, AutoLockTrigger> = emptyMap(),
     val autoLockDelaySec: Int = 15,
@@ -97,6 +101,8 @@ class SettingsRepository private constructor(context: Context) {
         relaunchApp = prefs.getBoolean(KEY_RELAUNCH, true),
         blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, true),
         keepOrientation = prefs.getBoolean(KEY_KEEP_ORIENTATION, true),
+        skipAds = prefs.getBoolean(KEY_SKIP_ADS, false),
+        relockSameApp = prefs.getBoolean(KEY_RELOCK, true),
         autoLockRules = (prefs.getStringSet(KEY_AUTO_LOCK_RULES, emptySet()) ?: emptySet()).mapNotNull { entry ->
             val i = entry.lastIndexOf('=')
             if (i <= 0) return@mapNotNull null
@@ -123,6 +129,8 @@ class SettingsRepository private constructor(context: Context) {
             .putBoolean(KEY_RELAUNCH, s.relaunchApp)
             .putBoolean(KEY_BLOCK_GESTURES, s.blockGestures)
             .putBoolean(KEY_KEEP_ORIENTATION, s.keepOrientation)
+            .putBoolean(KEY_SKIP_ADS, s.skipAds)
+            .putBoolean(KEY_RELOCK, s.relockSameApp)
             .putStringSet(KEY_AUTO_LOCK_RULES, s.autoLockRules.map { (pkg, t) -> "$pkg=${t.name}" }.toSet())
             .putInt(KEY_AUTO_LOCK_DELAY, s.autoLockDelaySec)
             .apply()
@@ -171,6 +179,8 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_RELAUNCH = "relaunch_app"
         private const val KEY_BLOCK_GESTURES = "block_gestures"
         private const val KEY_KEEP_ORIENTATION = "keep_orientation"
+        private const val KEY_SKIP_ADS = "skip_ads"
+        private const val KEY_RELOCK = "relock_same_app"
         private const val KEY_AUTO_LOCK_RULES = "auto_lock_rules"
         private const val KEY_AUTO_LOCK_DELAY = "auto_lock_delay_sec"
         private const val KEY_TILE_ADDED = "tile_added"
