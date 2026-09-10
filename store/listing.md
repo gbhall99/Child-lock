@@ -53,8 +53,9 @@ block system gestures via touch-exploration mode, dismiss the notification
 shade, and return to the foreground app the parent chose; while unlocked,
 observe the foreground package for the auto-lock feature. The service reads no
 window content, with one opt-in exception: the "Skip ads for them" option
-(off by default, Pro) reads on-screen button labels inside the single app
-the parent chose, while locked, to tap a "Skip ad" button. An in-app
+(off by default, Pro) reads on-screen button labels inside the app the
+parent handed over, while locked, to tap a "Skip ad" button using that
+app's own wording. An in-app
 prominent disclosure with explicit consent is shown before the user is sent
 to enable the service (see `Disclosures.kt`). The app's core touch lock also
 works with the service disabled.
@@ -62,8 +63,8 @@ works with the service disabled.
 Risk note: tapping "Skip ad" in another app may be read by Google as
 interfering with that app (Device and Network Abuse policy) and conflicts
 with YouTube's terms. Consider shipping the Play build with
-`SkipAdMatcher.supportedPackages` empty (which hides the option) and keeping
-the feature for the GitHub build only.
+the feature disabled (`FeatureGate` can hide the switch) and keeping it for
+the GitHub build only.
 
 ### Foreground service, type "specialUse"
 

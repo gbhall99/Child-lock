@@ -254,7 +254,8 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
 
     private fun skipAdsActive(): Boolean {
         val locked = LockController.state as? LockState.Locked ?: return false
-        return settings.skipAds && locked.protectedPackage in SkipAdMatcher.supportedPackages && scanFailures < 3
+        val pkg = locked.protectedPackage ?: return false
+        return settings.skipAds && SkipAdMatcher.isSupported(pkg) && scanFailures < 3
     }
 
     private fun onContentChanged(pkg: String) {
@@ -276,7 +277,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
                 node.getBoundsInScreen(bounds)
                 val parentText = node.parent?.let { p -> (p.text ?: p.contentDescription) }
                 val ok = SkipAdMatcher.isCandidate(
-                    node.text, node.contentDescription, parentText,
+                    pkg, node.text, node.contentDescription, parentText,
                     node.isClickable, node.isEnabled, node.isVisibleToUser, node.isEditable,
                     bounds.width(), bounds.height(), dm.widthPixels, dm.heightPixels,
                 )

@@ -5,16 +5,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SkipAdMatcherTest {
+    private val yt = "com.google.android.youtube"
+    private val netflix = "com.netflix.mediaclient"
+
     @Test
-    fun `labels match exactly after normalisation`() {
-        assertTrue(SkipAdMatcher.isSkipLabel("Skip ad"))
-        assertTrue(SkipAdMatcher.isSkipLabel("SKIP ADS ›"))
-        assertTrue(SkipAdMatcher.isSkipLabel("  skip  "))
-        assertTrue(SkipAdMatcher.isSkipLabel("Skip advert"))
-        assertFalse(SkipAdMatcher.isSkipLabel("Skip in 5"))
-        assertFalse(SkipAdMatcher.isSkipLabel("Skip trailer"))
-        assertFalse(SkipAdMatcher.isSkipLabel("Skip intro"))
-        assertFalse(SkipAdMatcher.isSkipLabel(null))
+    fun `labels match exactly after normalisation, per app`() {
+        assertTrue(SkipAdMatcher.isSkipLabel("Skip ad", yt))
+        assertTrue(SkipAdMatcher.isSkipLabel("SKIP ADS ›", yt))
+        assertTrue("YouTube's bare Skip", SkipAdMatcher.isSkipLabel("  skip  ", yt))
+        assertTrue(SkipAdMatcher.isSkipLabel("Skip advert", netflix))
+        assertFalse("bare Skip elsewhere means intro or recap", SkipAdMatcher.isSkipLabel("Skip", netflix))
+        assertFalse(SkipAdMatcher.isSkipLabel("Skip intro", netflix))
+        assertFalse(SkipAdMatcher.isSkipLabel("Skip recap", "com.disney.disneyplus"))
+        assertFalse(SkipAdMatcher.isSkipLabel("Skip in 5", yt))
+        assertFalse(SkipAdMatcher.isSkipLabel("Skip trial", yt))
+        assertFalse(SkipAdMatcher.isSkipLabel("Skip trailer", yt))
+        assertFalse(SkipAdMatcher.isSkipLabel(null, yt))
+    }
+
+    @Test
+    fun `music apps are excluded because skip means next track`() {
+        assertFalse(SkipAdMatcher.isSupported("com.spotify.music"))
+        assertTrue(SkipAdMatcher.isSupported(netflix))
     }
 
     @Test
@@ -28,7 +40,7 @@ class SkipAdMatcherTest {
         text: String? = "Skip ad", desc: String? = null, parent: String? = null,
         clickable: Boolean = true, enabled: Boolean = true, visible: Boolean = true, editable: Boolean = false,
         w: Int = 300, h: Int = 120,
-    ) = SkipAdMatcher.isCandidate(text, desc, parent, clickable, enabled, visible, editable, w, h, 1080, 2400)
+    ) = SkipAdMatcher.isCandidate("com.google.android.youtube", text, desc, parent, clickable, enabled, visible, editable, w, h, 1080, 2400)
 
     @Test
     fun `only small clickable enabled visible non-editable skip buttons qualify`() {

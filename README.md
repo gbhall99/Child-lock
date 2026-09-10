@@ -104,7 +104,10 @@ the status bar is hidden; never screen content. Two more automatic options:
 "Lock again by itself" re-locks if the same moment happens again after you
 unlock (the video goes full screen again, another call connects), and "Skip
 ads for them" taps a "Skip ad" button when one appears in the app you handed
-over. Skip ads is off by default and is the one feature that reads anything
+over, using each app's own wording (YouTube's bare "Skip" counts there and
+nowhere else; "Skip intro" and "Skip recap" are never tapped). Most streaming
+services make their ads unskippable, so in practice this helps on YouTube,
+YouTube Kids, Dailymotion and a few others. Skip ads is off by default and is the one feature that reads anything
 on screen: button labels, in that one app, while locked. The automatic
 features are Child Lock Pro; the lock, the volume buttons and every safety
 feature are free. A countdown (15 s by default) follows;

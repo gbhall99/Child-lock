@@ -115,10 +115,10 @@
     <string name="corner_bl">Bottom left</string>
     <string name="corner_br">Bottom right</string>
 
-    <string name="pattern_up_down">up then down</string>
-    <string name="pattern_down_up">down then up</string>
+    <string name="pattern_up_down">up, then down</string>
+    <string name="pattern_down_up">down, then up</string>
     <string name="pattern_twice">%1$s, twice</string>
-    <string name="lock_hint_volume_sequence">With the video, call or game on screen, press volume %1$s. You’ll see “Child Lock on”.</string>
+    <string name="lock_hint_volume_sequence">Press volume %1$s. You’ll see “Child Lock on”. Do it while your video, call or game is on screen.</string>
     <string name="lock_hint_other">Tap Child Lock in Quick Settings, or use the button above.</string>
     <string name="hint_volume_sequence">Press volume %1$s again. You’ll see “Child Lock off”.</string>
     <string name="hint_corner_hold">Hold one finger in each corner until the phone buzzes.</string>
@@ -149,7 +149,7 @@
     <string name="relock_title">Lock again by itself</string>
     <string name="relock_desc">If you unlock and the same thing happens again, like the video going full screen again, Child Lock locks again.</string>
     <string name="skip_ads_title">Skip ads for them</string>
-    <string name="skip_ads_desc">While locked, if a “Skip ad” button appears, Child Lock taps it. Never the ad itself. To do this it reads button labels in that one app; nothing is stored or sent.</string>
+    <string name="skip_ads_desc">While locked, if a “Skip ad” button appears in the app you handed over, Child Lock taps it. Never the ad itself, and never “Skip intro”. To do this it reads button labels in that one app; nothing is stored or sent.</string>
     <string name="pro_title">Child Lock Pro</string>
     <string name="pro_body">Everything automatic: locking by itself when a call connects or a video goes full screen, locking again after you unlock, and skipping ads.\n\nThe lock itself, the volume buttons and every safety feature stay free, always.</string>
     <string name="pro_upgrade">Upgrade for %1$s</string>
