@@ -164,6 +164,17 @@ class TouchShieldView(
         }
     }
 
+    /**
+     * Explore-by-touch turns finger input into hover before any window sees a
+     * touch, so [onTouchEvent] never fires and the shield would swallow nothing.
+     * Consume hover too, so a child exploring the screen cannot walk onto the
+     * app underneath and double-tap it into life.
+     */
+    override fun onHoverEvent(event: MotionEvent): Boolean {
+        if (disposed) return true
+        return true // same job as onTouchEvent, for the mode that replaces it
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (disposed) return true
         val masked = event.actionMasked

@@ -11,6 +11,7 @@
     <string name="notif_arming">Getting ready to lock…</string>
     <string name="notif_locking_in">Locking in %1$d s. Get the screen ready.</string>
     <string name="notif_unlock_action">Unlock</string>
+    <string name="notif_unlock_confirm">Tap again to unlock</string>
     <string name="notif_locked">Touches do nothing. %1$s</string>
 
     <string name="banner_on">Child Lock on</string>
@@ -103,7 +104,6 @@
     
     <string name="fallback_corners">If that ever fails, hold two opposite corners of the screen.</string>
     <string name="fallback_three_finger">If that ever fails, tap the screen three times with three fingers.</string>
-    <string name="fallback_notification">If that ever fails, pull down the notifications panel and tap Unlock.</string>
     <string name="hold_duration">Hold for</string>
     <string name="corner_pair">Which corners</string>
     <string name="pair_tl_br">Top-left and bottom-right</string>
@@ -178,10 +178,10 @@
     <string name="keep_orientation">Don’t rotate the screen</string>
     <string name="keep_orientation_desc">The video stays put when the phone is tilted.</string>
     <string name="keep_inside_title">Keep my child inside the app</string>
-    <string name="keep_inside_desc">Home and back swipes, the back button and the notifications panel do nothing while locked, and the app comes straight back if they get out. Needs the Child Lock helper.</string>
+    <string name="keep_inside_desc">The back button and the notifications panel do nothing while locked, and the app comes straight back if they swipe out. Needs the Child Lock helper.</string>
     <string name="keep_inside_more">Fine-tune</string>
     <string name="block_gestures">Block home and back swipes</string>
-    <string name="block_gestures_desc">The swipes do nothing at all. This uses the same mode a screen reader uses, so while it is on the corner hold cannot work and a three-finger triple tap is the backup unlock instead. Your volume unlock is unaffected.</string>
+    <string name="block_gestures_desc">Not recommended. It stops home and back swipes, but only by turning on the screen-reader touch mode, and in that mode taps can reach the app underneath and a three-finger tap unlocks. Without it, a swipe shows the home screen for a moment and the app comes straight back.</string>
     <string name="block_keys">Block the back button</string>
     <string name="block_keys_desc">Volume buttons still unlock.</string>
     <string name="block_shade">Keep the notifications panel closed</string>
