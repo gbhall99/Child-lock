@@ -78,12 +78,9 @@ class GuardPolicyTest {
     }
 
     @Test
-    fun `older phones still get the swipes blocked, without the three-finger tap`() {
-        // Touch exploration is what stops the swipes and long predates minSdk;
-        // only the multi-finger fallback gesture needs API 30.
-        assertEquals(GuardPolicy.FLAG_TOUCH_EXPLORATION, GuardPolicy.gestureBlockFlags(true, true, true, 29))
-        assertEquals(GuardPolicy.FLAG_TOUCH_EXPLORATION, GuardPolicy.gestureBlockFlags(true, true, true, 26))
-        assertEquals(0, GuardPolicy.gestureBlockFlags(false, true, true, 26))
+    fun `explore-by-touch is never requested below api 30`() {
+        // Without multi-finger gestures there is no touch way out at all.
+        assertEquals(0, GuardPolicy.gestureBlockFlags(true, true, true, 29))
     }
 
     private fun auto(fg: String, locked: Boolean = false, arming: Boolean = false, armed: String? = null, suppressed: String? = null) =
@@ -152,39 +149,5 @@ class GuardPolicyTest {
         assertFalse(GuardPolicy.consumeKey(HardwareKey.BACK, blockKeys = false, chordActive = true))
         assertTrue(GuardPolicy.consumeKey(HardwareKey.VOLUME_UP, blockKeys = false, chordActive = true))
         assertFalse(GuardPolicy.consumeKey(HardwareKey.VOLUME_DOWN, blockKeys = false, chordActive = false))
-    }
-
-    @Test
-    fun `the shade is closed a few times and then the parent is let through`() {
-        var st = GuardPolicy.ShadeFights()
-        var now = 10_000L
-        repeat(GuardPolicy.MAX_SHADE_FIGHTS) { i ->
-            val (dismiss, next) = GuardPolicy.shadeDecision(now, st)
-            assertTrue("open ${i + 1} should be closed", dismiss)
-            st = next
-            now += 1_000L
-        }
-        val (fourth, afterFourth) = GuardPolicy.shadeDecision(now, st)
-        assertFalse("a parent pulling it down again is looking for Unlock", fourth)
-        st = afterFourth
-        now += 1_000L
-        assertFalse("and it stays open", GuardPolicy.shadeDecision(now, st).first)
-    }
-
-    @Test
-    fun `the shade tally starts over after a quiet spell`() {
-        var st = GuardPolicy.ShadeFights()
-        repeat(GuardPolicy.MAX_SHADE_FIGHTS + 1) { st = GuardPolicy.shadeDecision(10_000L + it * 1_000L, st).second }
-        val later = 10_000L + GuardPolicy.SHADE_FIGHT_WINDOW_MS + 30_000L
-        assertTrue("a fresh burst is a child again", GuardPolicy.shadeDecision(later, st).first)
-    }
-
-    @Test
-    fun `repeat shade events inside the debounce are ignored`() {
-        val (first, st) = GuardPolicy.shadeDecision(10_000L, GuardPolicy.ShadeFights())
-        assertTrue(first)
-        val (again, after) = GuardPolicy.shadeDecision(10_000L + GuardPolicy.SHADE_DISMISS_DEBOUNCE_MS - 1, st)
-        assertFalse("one pull-down fires several events", again)
-        assertEquals("and must not count against the parent", 1, after.opens)
     }
 }

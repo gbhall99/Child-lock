@@ -12,8 +12,6 @@ object GuardPolicy {
 
     const val RELAUNCH_DEBOUNCE_MS = 1500L
     const val SHADE_DISMISS_DEBOUNCE_MS = 300L
-    const val SHADE_FIGHT_WINDOW_MS = 20_000L
-    const val MAX_SHADE_FIGHTS = 3
 
     /** A tall SystemUI system-type window is the notification shade (or quick settings). */
     fun isShadeWindow(isSystemType: Boolean, windowHeight: Int, screenHeight: Int, packageName: String?): Boolean =
@@ -58,26 +56,6 @@ object GuardPolicy {
         return RelaunchDecision.Relaunch
     }
 
-    /** Running tally of how often the notifications panel has been pulled down during one lock. */
-    data class ShadeFights(val opens: Int = 0, val windowStartMs: Long = 0L, val lastDismissMs: Long = 0L)
-
-    /**
-     * Whether to close the notifications panel, and the tally to carry forward.
-     *
-     * The panel is closed for a child batting at the screen, but someone who
-     * keeps pulling it down is the parent reaching for the Unlock button in
-     * our own notification. After [MAX_SHADE_FIGHTS] tries in
-     * [SHADE_FIGHT_WINDOW_MS] we stop fighting and let them through.
-     */
-    fun shadeDecision(nowMs: Long, state: ShadeFights): Pair<Boolean, ShadeFights> {
-        if (nowMs - state.lastDismissMs < SHADE_DISMISS_DEBOUNCE_MS) return false to state
-        val fresh = nowMs - state.windowStartMs > SHADE_FIGHT_WINDOW_MS
-        val start = if (fresh) nowMs else state.windowStartMs
-        val opens = (if (fresh) 0 else state.opens) + 1
-        if (opens > MAX_SHADE_FIGHTS) return false to state.copy(opens = opens, windowStartMs = start)
-        return true to ShadeFights(opens = opens, windowStartMs = start, lastDismissMs = nowMs)
-    }
-
     /**
      * Accessibility-service flags to add while locked. Touch-exploration mode
      * plus multi-finger gestures is what stops one-finger home/back swipes at
@@ -85,13 +63,8 @@ object GuardPolicy {
      * safe with a volume gesture, because touch exploration turns the
      * overlay's touches into hover events, so the touch-based unlocks stop.
      */
-    fun gestureBlockFlags(locked: Boolean, blockGestures: Boolean, gestureNeedsGuard: Boolean, sdkInt: Int): Int = when {
-        !(locked && blockGestures && gestureNeedsGuard) -> 0
-        // Multi-finger gestures need API 30; touch exploration, which is what
-        // actually stops the swipes, has been there since long before minSdk.
-        sdkInt >= 30 -> FLAG_TOUCH_EXPLORATION or FLAG_MULTI_FINGER
-        else -> FLAG_TOUCH_EXPLORATION
-    }
+    fun gestureBlockFlags(locked: Boolean, blockGestures: Boolean, gestureNeedsGuard: Boolean, sdkInt: Int): Int =
+        if (locked && blockGestures && gestureNeedsGuard && sdkInt >= 30) FLAG_TOUCH_EXPLORATION or FLAG_MULTI_FINGER else 0
 
     /** AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE. */
     /** AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS; without it no volume press reaches us. */

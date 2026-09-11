@@ -47,7 +47,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     private var settings = LockSettings()
     private var keyGesture: UnlockGesture? = null
     private var lastRelaunchMs = 0L
-    private var shadeFights = GuardPolicy.ShadeFights()
+    private var lastShadeDismissMs = 0L
     private val launchable = HashMap<String, Boolean>()
     private val consumedKeys = HashSet<Int>()
     private var lastState: LockState = LockState.Unlocked
@@ -104,7 +104,6 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         lastState = state
         when (state) {
             is LockState.Locked -> {
-                shadeFights = GuardPolicy.ShadeFights()
                 engine.onLocked()
             }
             is LockState.Unlocked -> if (previous !is LockState.Unlocked) engine.onUnlocked(byParent = previous is LockState.Locked)
@@ -518,10 +517,17 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         return false
     }
 
+    /**
+     * Every time, for as long as the lock lasts. An earlier version gave up
+     * after a few pull-downs so a parent could reach the notification's Unlock
+     * button, and that gave a child a panel that stayed open. The button is
+     * reachable exactly when this service is not running to close the panel,
+     * which is the one case a parent needs it.
+     */
     private fun dismissShade() {
-        val (dismiss, next) = GuardPolicy.shadeDecision(SystemClock.uptimeMillis(), shadeFights)
-        shadeFights = next
-        if (!dismiss) return
+        val now = SystemClock.uptimeMillis()
+        if (now - lastShadeDismissMs < GuardPolicy.SHADE_DISMISS_DEBOUNCE_MS) return
+        lastShadeDismissMs = now
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             performGlobalAction(GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)
         } else {
