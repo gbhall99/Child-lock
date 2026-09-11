@@ -33,6 +33,42 @@ class LockOverlayService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var overlay: OverlayRoot? = null
     private var pendingAttach: Runnable? = null
+    private val banner by lazy { BannerWindow(this) }
+    private var latestStartId = 0
+
+    /** Only stop if nothing has locked again in the meantime. */
+    private val stopAfterBanner = Runnable {
+        if (LockController.state is LockState.Unlocked) stopSelfResult(latestStartId)
+    }
+
+    /** Safety net: a lock never outlives this, so a parent can never be stranded. */
+    private val maxDurationStop = Runnable {
+        if (LockController.isLocked) {
+            Log.i(TAG, "Session over; unlocking")
+            LockController.unlock()
+        }
+    }
+
+    /**
+     * A ringing or connected phone call must never be blocked. The audio mode
+     * is the signal every dialer sets, and needs no telephony permission.
+     */
+    private val callWatch = object : Runnable {
+        override fun run() {
+            if (!LockController.isLocked) return
+            val mode = try {
+                getSystemService(android.media.AudioManager::class.java)?.mode ?: 0
+            } catch (e: Exception) {
+                0
+            }
+            if (mode == android.media.AudioManager.MODE_RINGTONE || mode == android.media.AudioManager.MODE_IN_CALL) {
+                Log.i(TAG, "Phone call in progress; unlocking so it can be answered")
+                LockController.unlock()
+                return
+            }
+            handler.postDelayed(this, CALL_WATCH_MS)
+        }
+    }
 
     private var wasLocked = false
 
@@ -40,9 +76,17 @@ class LockOverlayService : Service() {
         if (state is LockState.Locked) wasLocked = true
         if (state is LockState.Unlocked) {
             teardown()
-            if (wasLocked) toast(R.string.toast_unlocked)
+            handler.removeCallbacks(maxDurationStop)
+            handler.removeCallbacks(callWatch)
+            if (wasLocked) {
+                // Touch is already free (overlay gone); keep the process alive just
+                // long enough for the OFF banner to be seen.
+                banner.show(BannerWindow.Kind.OFF, getString(R.string.banner_off_detail))
+                handler.postDelayed(stopAfterBanner, BannerWindow.DURATION_MS + 100)
+            } else {
+                stopSelfResult(latestStartId)
+            }
             wasLocked = false
-            stopSelf()
         }
     }
 
@@ -54,10 +98,12 @@ class LockOverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        latestStartId = startId
         when (intent?.action) {
             ACTION_LOCK -> handleLock(
                 intent.getStringExtra(EXTRA_PACKAGE),
                 intent.getLongExtra(EXTRA_DELAY_MS, 0L).coerceAtLeast(0L),
+                intent.getBooleanExtra(EXTRA_REHEARSAL, false),
             )
             ACTION_UNLOCK -> LockController.unlock()
             else -> if (LockController.state is LockState.Unlocked) stopSelf()
@@ -67,7 +113,12 @@ class LockOverlayService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun handleLock(protectedPackage: String?, delayMs: Long) {
+    private var rehearsal = false
+
+    private fun handleLock(protectedPackage: String?, delayMs: Long, isRehearsal: Boolean = false) {
+        rehearsal = isRehearsal
+        // A lock arriving during the OFF banner must cancel the pending stop.
+        handler.removeCallbacks(stopAfterBanner)
         if (!Settings.canDrawOverlays(this)) {
             toast(R.string.toast_no_overlay_permission)
             abort()
@@ -80,7 +131,7 @@ class LockOverlayService : Service() {
         LockController.set(LockState.Arming(lockAt, protectedPackage))
         if (delayMs > 0) {
             val seconds = ((delayMs + 999) / 1000).toInt()
-            toast(getString(R.string.toast_locking_in, seconds))
+            banner.show(BannerWindow.Kind.ARMING, getString(R.string.banner_arming_detail, seconds))
             updateNotification(getString(R.string.notif_locking_in, seconds))
             val r = Runnable { attach(protectedPackage) }
             pendingAttach = r
@@ -107,6 +158,11 @@ class LockOverlayService : Service() {
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             title = "ChildLock"
+            // The topmost window's requested orientation wins: freezing it here keeps a
+            // full-screen video in the orientation it had when the lock engaged.
+            if (settings.keepOrientation) {
+                screenOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -120,8 +176,21 @@ class LockOverlayService : Service() {
             windowManager.addView(root, params)
             overlay = root
             LockController.set(LockState.Locked(protectedPackage, SystemClock.uptimeMillis()))
-            updateNotification(getString(R.string.notif_locked, GestureText.unlockHint(this, settings)))
-            toast(R.string.toast_locked)
+            updateNotification(
+                getString(
+                    R.string.notif_locked,
+                    GestureText.unlockHint(this, settings) + " " + GestureText.fallbackHint(this, settings),
+                ),
+            )
+            banner.show(BannerWindow.Kind.ON, GestureText.unlockShort(this, settings))
+            handler.removeCallbacks(maxDurationStop)
+            // The parent's own timer if they set one, and the hard cap regardless.
+            val sessionMs = settings.sessionMinutes.takeIf { it > 0 }?.times(60_000L) ?: MAX_LOCK_MS
+            // A practice run always ends by itself, so trying it out can never strand anyone.
+            val cap = if (rehearsal) REHEARSAL_MS else minOf(sessionMs, MAX_LOCK_MS)
+            handler.postDelayed(maxDurationStop, cap)
+            handler.removeCallbacks(callWatch)
+            handler.postDelayed(callWatch, CALL_WATCH_MS)
         } catch (e: Exception) {
             // Half-locking is worse than not locking: fail loudly and stay unlocked.
             Log.e(TAG, "Could not attach overlay", e)
@@ -153,6 +222,10 @@ class LockOverlayService : Service() {
 
     override fun onDestroy() {
         LockController.removeListener(stateListener)
+        handler.removeCallbacks(stopAfterBanner)
+        handler.removeCallbacks(maxDurationStop)
+        handler.removeCallbacks(callWatch)
+        banner.dismiss()
         teardown()
         if (LockController.state !is LockState.Unlocked) LockController.set(LockState.Unlocked)
         super.onDestroy()
@@ -179,7 +252,19 @@ class LockOverlayService : Service() {
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        val unlock = PendingIntent.getService(
+            this, 1,
+            Intent(this, LockOverlayService::class.java).setAction(ACTION_UNLOCK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         return Notification.Builder(this, ChildLockApp.CHANNEL_LOCK)
+            .addAction(
+                Notification.Action.Builder(
+                    android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_lock_open),
+                    getString(R.string.notif_unlock_action),
+                    unlock,
+                ).build(),
+            )
             .setSmallIcon(R.drawable.ic_lock)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
@@ -202,11 +287,19 @@ class LockOverlayService : Service() {
 
     companion object {
         private const val TAG = "LockOverlayService"
+
+        /** No lock outlives this. The parent is never stranded, whatever else fails. */
+        const val MAX_LOCK_MS = 90 * 60 * 1000L
+        private const val CALL_WATCH_MS = 1000L
+
+        /** A practice lock releases itself after this long, whatever happens. */
+        const val REHEARSAL_MS = 60_000L
         private const val NOTIFICATION_ID = 1
         const val ACTION_LOCK = "com.gbhall.childlock.action.LOCK"
         const val ACTION_UNLOCK = "com.gbhall.childlock.action.UNLOCK"
         const val EXTRA_PACKAGE = "package"
         const val EXTRA_DELAY_MS = "delay_ms"
+        const val EXTRA_REHEARSAL = "rehearsal"
 
         /** Type-safe insets helper shared with the views. */
         fun systemInsets(insets: WindowInsets?): IntArray {

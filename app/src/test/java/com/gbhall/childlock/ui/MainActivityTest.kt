@@ -25,12 +25,17 @@ import org.robolectric.shadows.ShadowSettings
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [26, 35])
 class MainActivityTest {
-    @Before fun setUp() { TestSupport.clearSettings(); TestSupport.resetLock() }
+    @Before fun setUp() {
+        TestSupport.clearSettings()
+        TestSupport.resetLock()
+        SettingsRepository.get(TestSupport.app).setupDismissed = true
+    }
     @After fun tearDown() = TestSupport.resetLock()
 
     private fun armButton(activity: MainActivity): Button {
         fun find(v: View): Button? {
-            if (v is Button && v.text == activity.getString(com.gbhall.childlock.R.string.arm_button)) return v
+            val delay = SettingsRepository.get(activity).load().armDelaySec
+            if (v is Button && v.text == activity.getString(com.gbhall.childlock.R.string.arm_button, delay)) return v
             if (v is ViewGroup) for (i in 0 until v.childCount) find(v.getChildAt(i))?.let { return it }
             return null
         }
@@ -45,9 +50,19 @@ class MainActivityTest {
     }
 
     @Test
+    fun `arm refuses a volume gesture when the helper is not running`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.VOLUME_SEQUENCE) }
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        armButton(activity).performClick()
+        assertNull("locking with no way to unlock must be refused", shadowOf(TestSupport.app).nextStartedService)
+    }
+
+    @Test
     fun `arm starts the lock service with the configured delay and backgrounds the app`() {
         ShadowSettings.setCanDrawOverlays(true)
-        SettingsRepository.get(TestSupport.app).update { it.copy(armDelaySec = 7) }
+        // A touch gesture needs no helper, so this exercises the normal path.
+        SettingsRepository.get(TestSupport.app).update { it.copy(armDelaySec = 7, gesture = GestureType.CORNER_HOLD) }
         val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
         val button = armButton(activity)
         assertTrue(button.isEnabled)

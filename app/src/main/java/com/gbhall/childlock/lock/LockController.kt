@@ -45,11 +45,17 @@ object LockController {
      * system refused to start the service (Android 12+ background-start rules),
      * in which case nothing is locked and the caller should tell the user.
      */
-    fun requestLock(context: Context, protectedPackage: String?, delayMs: Long): Boolean {
+    fun requestLock(
+        context: Context,
+        protectedPackage: String?,
+        delayMs: Long,
+        rehearsal: Boolean = false,
+    ): Boolean {
         val intent = Intent(context, LockOverlayService::class.java)
             .setAction(LockOverlayService.ACTION_LOCK)
             .putExtra(LockOverlayService.EXTRA_PACKAGE, protectedPackage)
             .putExtra(LockOverlayService.EXTRA_DELAY_MS, delayMs)
+            .putExtra(LockOverlayService.EXTRA_REHEARSAL, rehearsal)
         return try {
             context.startForegroundService(intent)
             true
@@ -62,10 +68,15 @@ object LockController {
     /** Releases the lock or cancels a pending arm. The service observes this and tears down. */
     fun unlock() = set(LockState.Unlocked)
 
+    /**
+     * State changes synchronously; listeners always hear about it on a later
+     * main-loop turn. Callers such as the accessibility key filter must return
+     * quickly, and listeners do heavy work (window add/remove, binder calls).
+     */
     internal fun set(newState: LockState) {
         if (newState == state) return
         state = newState
-        if (Looper.myLooper() == Looper.getMainLooper()) notify(newState) else mainHandler.post { notify(newState) }
+        mainHandler.post { notify(newState) }
     }
 
     private fun notify(s: LockState) {

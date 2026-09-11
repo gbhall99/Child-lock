@@ -1,6 +1,7 @@
 package com.gbhall.childlock.guard
 
 import com.gbhall.childlock.gesture.HardwareKey
+import com.gbhall.childlock.settings.AutoLockTrigger as T
 import com.gbhall.childlock.guard.GuardPolicy.RelaunchDecision
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -57,6 +58,8 @@ class GuardPolicyTest {
         assertTrue(decide(keyguard = true) is RelaunchDecision.Skip)
         assertTrue(decide(foreground = GuardPolicy.SYSTEM_UI) is RelaunchDecision.Skip)
         assertTrue(decide(foreground = "com.gbhall.childlock") is RelaunchDecision.Skip)
+        assertTrue("permission prompt", decide(foreground = "com.google.android.permissioncontroller") is RelaunchDecision.Skip)
+        assertTrue("system dialog", decide(foreground = "android") is RelaunchDecision.Skip)
     }
 
     @Test
@@ -66,10 +69,122 @@ class GuardPolicyTest {
     }
 
     @Test
+    fun `gesture block flags need lock, setting and a volume gesture`() {
+        val both = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
+        assertEquals(both, GuardPolicy.gestureBlockFlags(true, true, true, 35))
+        assertEquals(0, GuardPolicy.gestureBlockFlags(false, true, true, 35))
+        assertEquals(0, GuardPolicy.gestureBlockFlags(true, false, true, 35))
+        assertEquals("touch gestures need real touches", 0, GuardPolicy.gestureBlockFlags(true, true, false, 35))
+    }
+
+    @Test
+    fun `older phones still get the swipes blocked, without the three-finger tap`() {
+        // Touch exploration is what stops the swipes and long predates minSdk;
+        // only the multi-finger fallback gesture needs API 30.
+        assertEquals(GuardPolicy.FLAG_TOUCH_EXPLORATION, GuardPolicy.gestureBlockFlags(true, true, true, 29))
+        assertEquals(GuardPolicy.FLAG_TOUCH_EXPLORATION, GuardPolicy.gestureBlockFlags(true, true, true, 26))
+        assertEquals(0, GuardPolicy.gestureBlockFlags(false, true, true, 26))
+    }
+
+    private fun auto(fg: String, locked: Boolean = false, arming: Boolean = false, armed: String? = null, suppressed: String? = null) =
+        GuardPolicy.autoLockDecision(fg, setOf("com.video", "com.game"), locked, arming, armed, suppressed)
+
+    @Test
+    fun `auto-lock arms for chosen apps only, while unlocked`() {
+        assertEquals(GuardPolicy.AutoLockDecision.Arm, auto("com.video"))
+        assertEquals(GuardPolicy.AutoLockDecision.None, auto("com.other"))
+        assertEquals(GuardPolicy.AutoLockDecision.None, auto("com.video", locked = true))
+    }
+
+    @Test
+    fun `auto-lock does not re-arm for the app just unlocked from`() {
+        assertEquals(GuardPolicy.AutoLockDecision.None, auto("com.video", suppressed = "com.video"))
+        assertEquals(GuardPolicy.AutoLockDecision.Arm, auto("com.game", suppressed = "com.video"))
+    }
+
+    @Test
+    fun `leaving the app during the countdown cancels it, other arming is left alone`() {
+        assertEquals(GuardPolicy.AutoLockDecision.CancelArm, auto("com.launcher", arming = true, armed = "com.video"))
+        assertEquals(GuardPolicy.AutoLockDecision.None, auto("com.video", arming = true, armed = "com.video"))
+        assertEquals("tile-armed countdown is not ours to cancel", GuardPolicy.AutoLockDecision.None, auto("com.launcher", arming = true, armed = null))
+    }
+
+    @Test
+    fun `smart defaults pick call for messengers, full screen for video apps, open otherwise`() {
+        assertEquals(T.VIDEO_CALL, GuardPolicy.smartTrigger("com.whatsapp"))
+        assertEquals(T.VIDEO_CALL, GuardPolicy.smartTrigger("com.google.android.apps.tachyon"))  // Google Meet / Duo
+        assertEquals(T.FULLSCREEN_PLAYBACK, GuardPolicy.smartTrigger("com.google.android.youtube"))
+        assertEquals(T.FULLSCREEN_PLAYBACK, GuardPolicy.smartTrigger("bbc.iplayer.android"))
+        assertEquals(T.FULLSCREEN_PLAYBACK, GuardPolicy.smartTrigger("com.netflix.mediaclient"))
+        assertEquals(T.OPEN, GuardPolicy.smartTrigger("com.rovio.angrybirds"))
+        assertEquals("duolingo is not a video-call app", T.OPEN, GuardPolicy.smartTrigger("com.duolingo"))
+    }
+
+    @Test
+    fun `triggers fire on the right signals`() {
+        assertTrue(GuardPolicy.triggerSatisfied(T.OPEN, 0, false, true))
+        assertFalse(GuardPolicy.triggerSatisfied(T.CALL, 0, true, false))
+        assertTrue(GuardPolicy.triggerSatisfied(T.CALL, 3, false, true))
+        assertTrue(GuardPolicy.triggerSatisfied(T.CALL, 2, false, true))
+        assertTrue("video call: call audio plus camera", GuardPolicy.triggerSatisfied(T.VIDEO_CALL, 3, false, true, cameraInUse = true))
+        assertFalse("voice call is not a video call", GuardPolicy.triggerSatisfied(T.VIDEO_CALL, 3, false, true, cameraInUse = false))
+        assertFalse("camera alone is not a call", GuardPolicy.triggerSatisfied(T.VIDEO_CALL, 0, false, true, cameraInUse = true))
+        assertTrue(GuardPolicy.triggerSatisfied(T.VOICE_CALL, 3, false, true, cameraInUse = false))
+        assertFalse(GuardPolicy.triggerSatisfied(T.VOICE_CALL, 3, false, true, cameraInUse = true))
+        assertFalse(GuardPolicy.triggerSatisfied(T.FULLSCREEN_PLAYBACK, 0, true, true))
+        assertTrue(GuardPolicy.triggerSatisfied(T.FULLSCREEN_PLAYBACK, 0, true, false))
+        assertFalse(GuardPolicy.triggerSatisfied(T.PLAYBACK, 0, false, false))
+        assertTrue(GuardPolicy.triggerSatisfied(T.PLAYBACK, 0, true, true))
+    }
+
+    @Test
+    fun `status bar is a thin system window at the top`() {
+        assertTrue(GuardPolicy.isStatusBarWindow(true, 0, 120, 2400))
+        assertFalse("heads-up notification is taller", GuardPolicy.isStatusBarWindow(true, 0, 300, 2400))
+        assertFalse("shade is tall", GuardPolicy.isStatusBarWindow(true, 0, 2400, 2400))
+        assertFalse("nav bar is at the bottom", GuardPolicy.isStatusBarWindow(true, 2280, 120, 2400))
+        assertFalse("app window", GuardPolicy.isStatusBarWindow(false, 0, 120, 2400))
+    }
+
+    @Test
     fun `key consumption follows settings and chord state`() {
         assertTrue(GuardPolicy.consumeKey(HardwareKey.BACK, blockKeys = true, chordActive = false))
         assertFalse(GuardPolicy.consumeKey(HardwareKey.BACK, blockKeys = false, chordActive = true))
         assertTrue(GuardPolicy.consumeKey(HardwareKey.VOLUME_UP, blockKeys = false, chordActive = true))
         assertFalse(GuardPolicy.consumeKey(HardwareKey.VOLUME_DOWN, blockKeys = false, chordActive = false))
+    }
+
+    @Test
+    fun `the shade is closed a few times and then the parent is let through`() {
+        var st = GuardPolicy.ShadeFights()
+        var now = 10_000L
+        repeat(GuardPolicy.MAX_SHADE_FIGHTS) { i ->
+            val (dismiss, next) = GuardPolicy.shadeDecision(now, st)
+            assertTrue("open ${i + 1} should be closed", dismiss)
+            st = next
+            now += 1_000L
+        }
+        val (fourth, afterFourth) = GuardPolicy.shadeDecision(now, st)
+        assertFalse("a parent pulling it down again is looking for Unlock", fourth)
+        st = afterFourth
+        now += 1_000L
+        assertFalse("and it stays open", GuardPolicy.shadeDecision(now, st).first)
+    }
+
+    @Test
+    fun `the shade tally starts over after a quiet spell`() {
+        var st = GuardPolicy.ShadeFights()
+        repeat(GuardPolicy.MAX_SHADE_FIGHTS + 1) { st = GuardPolicy.shadeDecision(10_000L + it * 1_000L, st).second }
+        val later = 10_000L + GuardPolicy.SHADE_FIGHT_WINDOW_MS + 30_000L
+        assertTrue("a fresh burst is a child again", GuardPolicy.shadeDecision(later, st).first)
+    }
+
+    @Test
+    fun `repeat shade events inside the debounce are ignored`() {
+        val (first, st) = GuardPolicy.shadeDecision(10_000L, GuardPolicy.ShadeFights())
+        assertTrue(first)
+        val (again, after) = GuardPolicy.shadeDecision(10_000L + GuardPolicy.SHADE_DISMISS_DEBOUNCE_MS - 1, st)
+        assertFalse("one pull-down fires several events", again)
+        assertEquals("and must not count against the parent", 1, after.opens)
     }
 }

@@ -10,6 +10,7 @@ import com.gbhall.childlock.R
 import com.gbhall.childlock.guard.ForegroundTracker
 import com.gbhall.childlock.lock.LockController
 import com.gbhall.childlock.lock.LockState
+import com.gbhall.childlock.settings.SettingsRepository
 import com.gbhall.childlock.ui.MainActivity
 
 /**
@@ -19,6 +20,16 @@ import com.gbhall.childlock.ui.MainActivity
  */
 class LockTileService : TileService() {
     private val listener: (LockState) -> Unit = { render(it) }
+
+    override fun onTileAdded() {
+        super.onTileAdded()
+        SettingsRepository.get(this).tileAdded = true
+    }
+
+    override fun onTileRemoved() {
+        SettingsRepository.get(this).tileAdded = false
+        super.onTileRemoved()
+    }
 
     override fun onStartListening() {
         super.onStartListening()
@@ -45,6 +56,10 @@ class LockTileService : TileService() {
         }
     }
 
+    // Lint flags the call below without following the version check around it. The
+    // deprecated overload only ever runs under Android 14, where it is the correct one;
+    // on 14 and up the PendingIntent branch is taken.
+    @Suppress("DEPRECATION", "StartActivityAndCollapseDeprecated")
     private fun openSettingsScreen() {
         val intent = Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -52,7 +67,6 @@ class LockTileService : TileService() {
                 PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT),
             )
         } else {
-            @Suppress("DEPRECATION")
             startActivityAndCollapse(intent)
         }
     }

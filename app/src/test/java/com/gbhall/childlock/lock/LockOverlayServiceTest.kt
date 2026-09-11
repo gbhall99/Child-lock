@@ -54,9 +54,25 @@ class LockOverlayServiceTest {
         return c.get()
     }
 
-    private fun overlayViews(): List<android.view.View> {
+    private fun allWindows(): List<android.view.View> {
         val wm = TestSupport.app.getSystemService(WindowManager::class.java)
         return Shadow.extract<ShadowWindowManagerImpl>(wm).views
+    }
+
+    private fun overlayViews(): List<android.view.View> = allWindows().filter { it is OverlayRoot }
+
+    private fun banners(): List<android.view.View> = allWindows().filter {
+        (it.layoutParams as? WindowManager.LayoutParams)?.title == "ChildLockBanner"
+    }
+
+    private fun bannerText(v: android.view.View): String {
+        val out = StringBuilder()
+        fun walk(x: android.view.View) {
+            if (x is android.widget.TextView) out.append(x.text).append(' ')
+            if (x is android.view.ViewGroup) for (i in 0 until x.childCount) walk(x.getChildAt(i))
+        }
+        walk(v)
+        return out.toString()
     }
 
     @Test
@@ -83,13 +99,21 @@ class LockOverlayServiceTest {
     }
 
     @Test
-    fun `unlock removes the overlay and stops the service`() {
+    fun `unlock removes the overlay at once, shows an OFF banner, then stops the service`() {
         val service = start(lockIntent())
         idle()
         assertEquals(1, overlayViews().size)
+        assertEquals("ON banner while locking", 1, banners().size)
+        idle(2000)
+        assertEquals("ON banner gone", 0, banners().size)
         LockController.unlock()
         idle()
-        assertEquals(0, overlayViews().size)
+        assertEquals("touch freed immediately", 0, overlayViews().size)
+        assertEquals(1, banners().size)
+        assertTrue(bannerText(banners().single()).contains("Child Lock off"))
+        assertFalse(shadowOf(service).isStoppedBySelf)
+        idle(2000)
+        assertEquals(0, banners().size)
         assertTrue(shadowOf(service).isStoppedBySelf)
         assertEquals(LockState.Unlocked, LockController.state)
     }
@@ -126,6 +150,61 @@ class LockOverlayServiceTest {
         assertEquals(LockState.Unlocked, LockController.state)
         assertEquals(0, overlayViews().size)
         assertTrue(shadowOf(service).isStoppedBySelf)
+    }
+
+    @Test
+    fun `orientation is pinned while locked unless switched off`() {
+        start(lockIntent())
+        idle()
+        var lp = overlayViews().single().layoutParams as WindowManager.LayoutParams
+        assertEquals(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED, lp.screenOrientation)
+        LockController.unlock()
+        idle(3000)
+        SettingsRepository.get(TestSupport.app).update { it.copy(keepOrientation = false) }
+        controller?.destroy(); controller = null
+        start(lockIntent())
+        idle()
+        lp = overlayViews().single().layoutParams as WindowManager.LayoutParams
+        assertEquals(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED, lp.screenOrientation)
+    }
+
+    @Test
+    fun `locking again during the OFF banner stays locked`() {
+        val service = start(lockIntent())
+        idle()
+        assertEquals(1, overlayViews().size)
+        LockController.unlock()
+        idle()
+        // The parent immediately locks again, well inside the OFF banner.
+        service.onStartCommand(lockIntent(), 0, 2)
+        idle()
+        assertTrue("re-lock must not be undone by the pending stop", LockController.isLocked)
+        idle(4000)
+        assertTrue(LockController.isLocked)
+        assertEquals(1, overlayViews().size)
+        assertFalse(shadowOf(service).isStoppedBySelf)
+    }
+
+    @Test
+    fun `a phone call unlocks so it can be answered`() {
+        start(lockIntent())
+        idle()
+        assertTrue(LockController.isLocked)
+        TestSupport.app.getSystemService(android.media.AudioManager::class.java).mode =
+            android.media.AudioManager.MODE_RINGTONE
+        idle(1500)
+        assertEquals("an incoming call must never be blocked", LockState.Unlocked, LockController.state)
+        TestSupport.app.getSystemService(android.media.AudioManager::class.java).mode =
+            android.media.AudioManager.MODE_NORMAL
+    }
+
+    @Test
+    fun `a lock never outlives the maximum duration`() {
+        start(lockIntent())
+        idle()
+        assertTrue(LockController.isLocked)
+        idle(LockOverlayService.MAX_LOCK_MS + 1000)
+        assertEquals(LockState.Unlocked, LockController.state)
     }
 
     @Test
@@ -177,5 +256,24 @@ class LockOverlayServiceTest {
         assertTrue(n.flags and android.app.Notification.FLAG_ONGOING_EVENT != 0)
         val text = n.extras.getCharSequence(android.app.Notification.EXTRA_TEXT).toString()
         assertTrue(text, text.contains("volume", ignoreCase = true))
+    }
+
+    @Test
+    fun `the locked notification carries an unlock button that works`() {
+        start(lockIntent())
+        idle()
+        val nm = TestSupport.app.getSystemService(NotificationManager::class.java)
+        val n = shadowOf(nm).allNotifications.single()
+        val action = n.actions?.singleOrNull()
+        assertNotNull("a parent whose gesture is not recognised needs a way out", action)
+        val shadowPi = shadowOf(action!!.actionIntent)
+        assertTrue("it must reach the service directly", shadowPi.isServiceIntent)
+        assertEquals(LockOverlayService.ACTION_UNLOCK, shadowPi.savedIntent.action)
+
+        // And firing it really does unlock, not just look like a button.
+        assertTrue(LockController.isLocked)
+        controller!!.withIntent(shadowPi.savedIntent).startCommand(0, 2)
+        idle()
+        assertEquals(LockState.Unlocked, LockController.state)
     }
 }

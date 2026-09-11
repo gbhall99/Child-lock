@@ -34,6 +34,9 @@ class GuardAccessibilityServiceTest {
         val call = ComponentName("com.example.call", "com.example.call.Main")
         pm.addActivityIfNotPresent(call)
         pm.addIntentFilterForActivity(call, IntentFilter(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) })
+        val home = ComponentName("com.android.launcher", "com.android.launcher.Home")
+        pm.addActivityIfNotPresent(home)
+        pm.addIntentFilterForActivity(home, IntentFilter(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) })
         service = Robolectric.buildService(GuardAccessibilityService::class.java).create().get()
         service.onServiceConnected()
     }
@@ -120,10 +123,13 @@ class GuardAccessibilityServiceTest {
         assertTrue(LockController.isLocked)
     }
 
-    private fun tap(code: Int, t: Long) {
+    private fun tap(code: Int, t: Long, holdMs: Long = 120) {
         service.onKeyEvent(KeyEvent(t, t, KeyEvent.ACTION_DOWN, code, 0))
-        service.onKeyEvent(KeyEvent(t, t + 60, KeyEvent.ACTION_UP, code, 0))
+        service.onKeyEvent(KeyEvent(t, t + holdMs, KeyEvent.ACTION_UP, code, 0))
     }
+
+    /** Nothing has to be held any more; an ordinary press length. */
+    private val HOLD = 120L
 
     @Test
     fun `volume pattern while unlocked arms the lock immediately and is not consumed`() {
@@ -132,6 +138,8 @@ class GuardAccessibilityServiceTest {
         assertFalse(service.onKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 0)))
         assertFalse(service.onKeyEvent(KeyEvent(0, 50, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0)))
         assertFalse(service.onKeyEvent(KeyEvent(300, 300, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
+        assertFalse(service.onKeyEvent(KeyEvent(300, 300 + HOLD, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
+        TestSupport.idle()
         val intent = org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService
         org.junit.Assert.assertNotNull("lock service should start", intent)
         assertEquals(com.gbhall.childlock.lock.LockOverlayService.ACTION_LOCK, intent.action)
@@ -145,7 +153,7 @@ class GuardAccessibilityServiceTest {
         TestSupport.idle()
         tap(KeyEvent.KEYCODE_VOLUME_UP, 1000)
         assertTrue(LockController.isLocked)
-        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1300)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1300, HOLD)
         TestSupport.idle()
         assertEquals(LockState.Unlocked, LockController.state)
     }
@@ -155,7 +163,7 @@ class GuardAccessibilityServiceTest {
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
         tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1000)
-        tap(KeyEvent.KEYCODE_VOLUME_UP, 1300)
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 1300, HOLD)
         TestSupport.idle()
         assertTrue(LockController.isLocked)
         tap(KeyEvent.KEYCODE_VOLUME_UP, 5000)
@@ -172,7 +180,7 @@ class GuardAccessibilityServiceTest {
         service.onKeyEvent(KeyEvent(0, 200, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 1))
         service.onKeyEvent(KeyEvent(0, 400, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 2))
         service.onKeyEvent(KeyEvent(0, 500, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0))
-        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 700)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 700, HOLD)
         TestSupport.idle()
         assertEquals("up (held), down should still complete", LockState.Unlocked, LockController.state)
     }
@@ -184,9 +192,229 @@ class GuardAccessibilityServiceTest {
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
         tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1000)
-        tap(KeyEvent.KEYCODE_VOLUME_UP, 1300)
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 1300, HOLD)
         TestSupport.idle()
         assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    @Test
+    fun `presses may be swallowed but releases always pass through`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        // Unlocked: everything passes.
+        assertFalse(service.onKeyEvent(KeyEvent(0, 0, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 0)))
+        assertFalse(service.onKeyEvent(KeyEvent(0, 60, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0)))
+        assertFalse(service.onKeyEvent(KeyEvent(300, 300, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
+        TestSupport.idle() // the posted lock request runs (and starts the service)
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertFalse("release after locking still passes", service.onKeyEvent(KeyEvent(300, 360, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_DOWN, 0)))
+        // Locked: the press is swallowed, its repeats too, but never the release.
+        assertTrue(service.onKeyEvent(KeyEvent(1000, 1000, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 0)))
+        assertTrue(service.onKeyEvent(KeyEvent(1000, 1200, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_UP, 1)))
+        assertFalse(service.onKeyEvent(KeyEvent(1000, 1300, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_VOLUME_UP, 0)))
+    }
+
+    @Test
+    fun `key callback returns before the lock state listeners run`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        var heard = false
+        val l: (LockState) -> Unit = { if (it == LockState.Unlocked) heard = true }
+        LockController.addListener(l)
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 2000)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 2300, HOLD)
+        assertFalse("listeners must not run inside onKeyEvent", heard)
+        TestSupport.idle()
+        assertTrue(heard)
+        LockController.removeListener(l)
+    }
+
+    @Test
+    fun `gesture blocking flags are requested only while locked with a volume gesture`() {
+        val block = com.gbhall.childlock.guard.GuardPolicy.FLAG_TOUCH_EXPLORATION or com.gbhall.childlock.guard.GuardPolicy.FLAG_MULTI_FINGER
+        // Off by default now, so a parent has to have opted in for any of this to apply.
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = true) }
+        TestSupport.idle()
+        assertEquals(0, service.requestedFlags and block)
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertEquals(block, service.requestedFlags and block)
+        LockController.unlock()
+        TestSupport.idle()
+        assertEquals(0, service.requestedFlags and block)
+
+        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.CORNER_HOLD) }
+        TestSupport.idle()
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertEquals("touch gestures need real touches", 0, service.requestedFlags and block)
+    }
+
+    @Test
+    fun `three-finger triple tap unlocks as the touch fallback`() {
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        val e = android.accessibilityservice.AccessibilityGestureEvent(
+            android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_TRIPLE_TAP, 0, emptyList(),
+        )
+        assertTrue(service.onGesture(e))
+        TestSupport.idle()
+        assertEquals(LockState.Unlocked, LockController.state)
+        assertFalse("nothing to unlock", service.onGesture(e))
+    }
+
+    @Test
+    fun `chosen app coming to the front arms the lock with the auto-lock delay`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.OPEN), autoLockDelaySec = 7) }
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle()
+        val intent = org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService
+        org.junit.Assert.assertNotNull(intent)
+        assertEquals(7000L, intent.getLongExtra(com.gbhall.childlock.lock.LockOverlayService.EXTRA_DELAY_MS, -1))
+        assertEquals("com.example.call", intent.getStringExtra(com.gbhall.childlock.lock.LockOverlayService.EXTRA_PACKAGE))
+    }
+
+    @Test
+    fun `other apps and unlocking then returning do not arm`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.OPEN)) }
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.android.launcher"))
+        TestSupport.idle()
+        assertEquals(null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+
+        // The chosen app comes to the front: it arms, and the lock engages.
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle()
+        org.junit.Assert.assertNotNull(org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        // Parent unlocks while still in the app: staying there must not re-arm.
+        LockController.unlock()
+        TestSupport.idle(3000)
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle(2000)
+        assertEquals(null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        // After another app has been in front, the chosen app arms again.
+        service.onAccessibilityEvent(windowEvent("com.android.launcher"))
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle()
+        org.junit.Assert.assertNotNull(org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+    }
+
+    @Test
+    fun `call trigger waits for call mode, then arms`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.CALL)) }
+        TestSupport.idle()
+        val audio = TestSupport.app.getSystemService(android.media.AudioManager::class.java)
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle(3000)
+        assertEquals("not in a call yet", null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        audio.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+        TestSupport.idle(1500)
+        org.junit.Assert.assertNotNull("call connected: arm", org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        audio.mode = android.media.AudioManager.MODE_NORMAL
+    }
+
+    @Test
+    fun `video call trigger needs the camera as well as call audio`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.VIDEO_CALL)) }
+        TestSupport.idle()
+        val audio = TestSupport.app.getSystemService(android.media.AudioManager::class.java)
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        audio.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+        TestSupport.idle(2500)
+        assertEquals("voice call: no arm", null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        service.camerasInUse.add("1")
+        TestSupport.idle(1500)
+        org.junit.Assert.assertNotNull("camera on: video call, arm", org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        audio.mode = android.media.AudioManager.MODE_NORMAL
+        service.camerasInUse.clear()
+    }
+
+    @Test
+    fun `leaving the app stops waiting for its trigger`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.CALL)) }
+        TestSupport.idle()
+        val audio = TestSupport.app.getSystemService(android.media.AudioManager::class.java)
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        service.onAccessibilityEvent(windowEvent("com.android.launcher"))
+        audio.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+        TestSupport.idle(3000)
+        assertEquals(null, org.robolectric.Shadows.shadowOf(TestSupport.app).nextStartedService)
+        audio.mode = android.media.AudioManager.MODE_NORMAL
+    }
+
+    @Test
+    fun `switching away during the auto-lock countdown cancels it`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.OPEN)) }
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle()
+        LockController.set(LockState.Arming(9999, "com.example.call"))
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.android.launcher"))
+        TestSupport.idle()
+        assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    @Test
+    fun `volume pattern during a countdown cancels it`() {
+        LockController.set(LockState.Arming(9999, "com.example.call"))
+        TestSupport.idle()
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 1000)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 1300, HOLD)
+        TestSupport.idle()
+        assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    @Test
+    fun `a permission prompt during the countdown does not cancel it`() {
+        org.robolectric.shadows.ShadowSettings.setCanDrawOverlays(true)
+        SettingsRepository.get(TestSupport.app).update { it.copy(autoLockRules = mapOf("com.example.call" to com.gbhall.childlock.settings.AutoLockTrigger.OPEN)) }
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        TestSupport.idle()
+        LockController.set(LockState.Arming(9999, "com.example.call"))
+        TestSupport.idle()
+        service.onAccessibilityEvent(windowEvent("com.google.android.permissioncontroller"))
+        TestSupport.idle()
+        assertTrue(LockController.state is LockState.Arming)
+    }
+
+    @Test
+    fun `touch-exploration flags are cleared when the helper is unbound`() {
+        val block = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = true) }
+        TestSupport.idle()
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertEquals(block, service.requestedFlags and block)
+        service.onUnbind(null)
+        assertEquals("the phone must not be left exploring by touch", 0, service.requestedFlags and block)
+    }
+
+    @Test
+    fun `the device lock screen keeps its own keys`() {
+        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.CORNER_HOLD) }
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertTrue(service.onKeyEvent(key(KeyEvent.KEYCODE_BACK)))
+        org.robolectric.Shadows.shadowOf(
+            TestSupport.app.getSystemService(android.app.KeyguardManager::class.java),
+        ).setKeyguardLocked(true)
+        assertFalse("back belongs to the lock screen", service.onKeyEvent(key(KeyEvent.KEYCODE_BACK)))
+        assertFalse(service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP)))
+        org.robolectric.Shadows.shadowOf(
+            TestSupport.app.getSystemService(android.app.KeyguardManager::class.java),
+        ).setKeyguardLocked(false)
     }
 
     @Test
@@ -206,5 +434,47 @@ class GuardAccessibilityServiceTest {
             "com.other/.Svc:$flat",
         )
         assertTrue(GuardAccessibilityService.isEnabled(TestSupport.app))
+    }
+
+    @Test
+    fun `key filtering stays requested through a whole lock and unlock`() {
+        val filter = GuardPolicy.FLAG_REQUEST_FILTER_KEY_EVENTS
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = true) }
+        TestSupport.idle()
+        assertEquals(filter, service.requestedFlags and filter)
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertEquals(filter, service.requestedFlags and filter)
+        // Asking for touch exploration turns it on device-wide, exactly as the real
+        // system does. We must not then read that back as somebody else's screen
+        // reader and stand our own request down, flag on, flag off, for the whole lock.
+        val block = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
+        val held = service.requestedFlags
+        assertEquals(block, held and block)
+        val am = TestSupport.app.getSystemService(android.view.accessibility.AccessibilityManager::class.java)
+        shadowOf(am).setTouchExplorationEnabled(true)
+        assertFalse("our own touch exploration is not another tool's", service.otherScreenReaderActive())
+        repeat(3) {
+            service.onAccessibilityEvent(windowEvent("com.example.call"))
+            TestSupport.idle()
+            assertEquals("the flags must not flip-flop while locked", held, service.requestedFlags)
+        }
+        LockController.unlock()
+        TestSupport.idle()
+        assertEquals(filter, service.requestedFlags and filter)
+        assertEquals("and it is handed back on unlock", 0, service.requestedFlags and block)
+    }
+
+    @Test
+    fun `a real screen reader keeps explore-by-touch to itself`() {
+        val am = TestSupport.app.getSystemService(android.view.accessibility.AccessibilityManager::class.java)
+        shadowOf(am).setTouchExplorationEnabled(true) // TalkBack, before we ask for anything
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = true) }
+        TestSupport.idle()
+        assertTrue(service.otherScreenReaderActive())
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        val block = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
+        assertEquals("competing with TalkBack breaks both", 0, service.requestedFlags and block)
     }
 }

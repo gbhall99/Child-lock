@@ -30,7 +30,14 @@ class OverlayRootTest {
         return r
     }
 
-    private fun pinSettings() = LockSettings(gesture = GestureType.BADGE_PIN, pinHash = PinHasher.hash("2468"), pinLength = 4)
+    private val salt = PinHasher.newSalt()
+
+    private fun pinSettings() = LockSettings(
+        gesture = GestureType.BADGE_PIN,
+        pinHash = PinHasher.hash("2468", salt),
+        pinSalt = salt,
+        pinLength = 4,
+    )
 
     private fun pad(root: OverlayRoot): PinPadView? =
         (0 until root.childCount).map(root::getChildAt).filterIsInstance<PinPadView>().firstOrNull()

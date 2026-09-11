@@ -41,9 +41,10 @@ class SettingsRepositoryTest {
     fun `settings round-trip`() {
         val wanted = LockSettings(
             gesture = GestureType.BADGE_PIN, holdMs = 2200, cornerPair = CornerPair.TOP_RIGHT_BOTTOM_LEFT,
-            badgeCorner = Corner.BOTTOM_RIGHT, pinHash = "abc", pinLength = 6, keepScreenOn = false,
+            badgeCorner = Corner.BOTTOM_RIGHT, pinHash = "abc", pinSalt = "beef", pinLength = 6, keepScreenOn = false,
             volumePattern = VolumePattern.DOWN_THEN_UP, volumeRepeats = 2,
-            armDelaySec = 8, blockKeys = false, blockShade = false, relaunchApp = false,
+            armDelaySec = 8, blockKeys = false, blockShade = false, relaunchApp = false, blockGestures = false,
+            autoLockRules = mapOf("com.a" to AutoLockTrigger.CALL, "com.b" to AutoLockTrigger.FULLSCREEN_PLAYBACK), autoLockDelaySec = 30,
         )
         repo.save(wanted)
         assertEquals(wanted, repo.load())
@@ -68,5 +69,41 @@ class SettingsRepositoryTest {
     fun `update applies a transform`() {
         repo.update { it.copy(armDelaySec = 3) }
         assertEquals(3, repo.load().armDelaySec)
+    }
+
+    @Test
+    fun `system gesture blocking is on by default`() {
+        // A lock a child can swipe out of is not a lock. The mode it switches on
+        // only costs the touch unlocks, and it is only ever requested when the
+        // unlock is a volume pattern.
+        assertTrue(repo.load().blockGestures)
+    }
+
+    @Test
+    fun `the version 2 migration that forced gesture blocking off is undone`() {
+        val prefs = TestSupport.app.getSharedPreferences("childlock", 0)
+        prefs.edit().putBoolean("block_gestures", false).putInt("settings_version", 2).commit()
+        SettingsRepository.resetForTests()
+        assertTrue("v2 clobbered everyone; clearing it restores the default", SettingsRepository.get(TestSupport.app).load().blockGestures)
+
+        // And once undone, a parent who turns it off keeps it off.
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = false) }
+        SettingsRepository.resetForTests()
+        assertFalse(SettingsRepository.get(TestSupport.app).load().blockGestures)
+    }
+
+    @Test
+    fun `the migration does not fire twice`() {
+        val prefs = TestSupport.app.getSharedPreferences("childlock", 0)
+        repo.update { it.copy(blockGestures = false) }
+        assertEquals(3, prefs.getInt("settings_version", 0))
+        SettingsRepository.resetForTests()
+        assertFalse("a settled choice must survive every later start", SettingsRepository.get(TestSupport.app).load().blockGestures)
+    }
+
+    @Test
+    fun `three repeats survive a round trip`() {
+        repo.update { it.copy(volumeRepeats = 3) }
+        assertEquals(3, repo.load().volumeRepeats)
     }
 }

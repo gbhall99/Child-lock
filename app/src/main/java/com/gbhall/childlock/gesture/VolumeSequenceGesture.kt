@@ -1,6 +1,6 @@
 package com.gbhall.childlock.gesture
 
-/** Order of the two volume presses that make up the pattern. */
+/** Order of the volume presses that make up the pattern. */
 enum class VolumePattern(val steps: List<HardwareKey>) {
     UP_THEN_DOWN(listOf(HardwareKey.VOLUME_UP, HardwareKey.VOLUME_DOWN)),
     DOWN_THEN_UP(listOf(HardwareKey.VOLUME_DOWN, HardwareKey.VOLUME_UP)),
@@ -8,8 +8,16 @@ enum class VolumePattern(val steps: List<HardwareKey>) {
 
 /**
  * Short volume-press pattern, e.g. up then down, optionally repeated. Each press
- * must follow the previous within [stepWindowMs]. Fires [GestureEvent.Unlocked]
- * when the pattern completes; the host decides whether that means lock or unlock.
+ * must follow the previous one within [stepWindowMs], and the pattern completes
+ * on the key-down of its last press: press, press, unlocked.
+ *
+ * Nothing has to be held and a fumble costs nothing. An earlier version added a
+ * held final press and a quiet period after any wrong key, to stop a child
+ * mashing the rocker from stumbling in. It worked, but it made the parent's own
+ * unlock slow and unpredictable, which is worse: a parent who cannot get out
+ * reliably has no product. Length is the lever instead - a parent who wants more
+ * resistance sets the pattern to repeat, which stays instant per press.
+ *
  * Only key-down transitions count, so a held key (auto-repeat) is one press.
  */
 class VolumeSequenceGesture(
@@ -45,7 +53,8 @@ class VolumeSequenceGesture(
                 listener.onGestureEvent(GestureEvent.Progress(index.toFloat() / expected.size))
             }
         } else {
-            // Wrong key: it may still be the first press of a fresh attempt.
+            // Wrong key: it may still be the first press of a fresh attempt, so a
+            // parent who fumbles once can carry straight on rather than wait.
             val restart = key == expected[0]
             index = if (restart) 1 else 0
             lastMs = timeMs
@@ -62,6 +71,7 @@ class VolumeSequenceGesture(
     }
 
     companion object {
-        const val DEFAULT_STEP_WINDOW_MS = 900L
+        /** Generous: a deliberate second press lands well inside this. */
+        const val DEFAULT_STEP_WINDOW_MS = 1200L
     }
 }

@@ -53,17 +53,17 @@ class TouchShieldView(
     private val badgeCenterY get() = badgeRect.centerY()
     val badgeRect = RectF()
 
-    private val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(150, 0, 0, 0) }
+    private val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = BADGE_BLUE }
     private val ringTrackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = ringStroke
-        color = Color.argb(70, 255, 255, 255)
+        color = Color.argb(200, 255, 255, 255)
     }
     private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = ringStroke
         strokeCap = Paint.Cap.ROUND
-        color = Color.WHITE
+        color = ORANGE
     }
     private val lockIcon: Drawable? = context.getDrawable(R.drawable.ic_lock)?.mutate()?.apply {
         setTint(Color.WHITE)
@@ -92,8 +92,37 @@ class TouchShieldView(
         isClickable = true
         isHapticFeedbackEnabled = true
         setWillNotDraw(false)
-        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
-        contentDescription = context.getString(R.string.shield_content_description)
+        // Announce the lock and how to leave it. A screen reader would
+        // otherwise find nothing here at all.
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
+        isFocusable = true
+        contentDescription = context.getString(
+            R.string.shield_content_description,
+            com.gbhall.childlock.settings.GestureText.unlockShort(context, settings),
+        )
+    }
+
+    /**
+     * Unlocking is offered as a custom action rather than a click: a child
+     * cannot stumble into it, but a parent using a screen reader, Voice
+     * Access or a Braille display can always find it.
+     */
+    override fun onInitializeAccessibilityNodeInfo(info: android.view.accessibility.AccessibilityNodeInfo) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        info.addAction(
+            android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction(
+                ACTION_UNLOCK_ID,
+                context.getString(R.string.a11y_unlock_action),
+            ),
+        )
+    }
+
+    override fun performAccessibilityAction(action: Int, arguments: android.os.Bundle?): Boolean {
+        if (action == ACTION_UNLOCK_ID) {
+            host.onUnlock()
+            return true
+        }
+        return super.performAccessibilityAction(action, arguments)
     }
 
     override fun onApplyWindowInsets(windowInsets: WindowInsets): WindowInsets {
@@ -193,8 +222,15 @@ class TouchShieldView(
     }
 
     override fun onDraw(canvas: Canvas) {
-        if (badgeRect.isEmpty) return
+        // The badge is the only sign the lock is on, so it is never skipped:
+        // if layout has not produced a position yet, fall back to a default.
+        if (badgeRect.isEmpty) {
+            val d = badgeRadius * 2
+            val m = badgeMargin + badgeRadius
+            badgeRect.set(m, m, m + d, m + d)
+        }
         canvas.drawCircle(badgeCenterX, badgeCenterY, badgeRadius, badgePaint)
+        canvas.drawCircle(badgeCenterX, badgeCenterY, badgeRadius - ringStroke / 2, ringTrackPaint)
         lockIcon?.let {
             val half = (BADGE_ICON_DP / 2 * density).toInt()
             it.setBounds(
@@ -204,12 +240,11 @@ class TouchShieldView(
             it.draw(canvas)
         }
         if (progress > 0f) {
-            val inset = ringStroke / 2
+            val inset = ringStroke * 1.5f
             val arc = RectF(
                 badgeRect.left - inset, badgeRect.top - inset,
                 badgeRect.right + inset, badgeRect.bottom + inset,
             )
-            canvas.drawOval(arc, ringTrackPaint)
             canvas.drawArc(arc, -90f, 360f * progress, false, ringPaint)
         }
     }
@@ -221,11 +256,16 @@ class TouchShieldView(
     }
 
     companion object {
-        const val BADGE_DIAMETER_DP = 30f
-        const val BADGE_ICON_DP = 16f
+        const val BADGE_DIAMETER_DP = 34f
+        const val BADGE_ICON_DP = 18f
+        private const val BADGE_BLUE = 0xFF0072B2.toInt()
+        private const val ORANGE = 0xFFE69F00.toInt()
         const val BADGE_MARGIN_DP = 10f
         const val BADGE_SLOP_DP = 16f
         const val EDGE_EXCLUSION_DP = 48f
         private const val TICK_MS = 33L
+
+        /** Custom accessibility action id for "unlock". */
+        val ACTION_UNLOCK_ID = R.id.action_unlock
     }
 }
