@@ -105,7 +105,7 @@ class LockOverlayService : Service() {
                 intent.getLongExtra(EXTRA_DELAY_MS, 0L).coerceAtLeast(0L),
                 intent.getBooleanExtra(EXTRA_REHEARSAL, false),
             )
-            ACTION_UNLOCK -> LockController.unlock()
+            ACTION_UNLOCK -> onUnlockAction()
             else -> if (LockController.state is LockState.Unlocked) stopSelf()
         }
         // Never restart on our own after being killed: a restarted service
@@ -176,12 +176,7 @@ class LockOverlayService : Service() {
             windowManager.addView(root, params)
             overlay = root
             LockController.set(LockState.Locked(protectedPackage, SystemClock.uptimeMillis()))
-            updateNotification(
-                getString(
-                    R.string.notif_locked,
-                    GestureText.unlockHint(this, settings) + " " + GestureText.fallbackHint(this, settings),
-                ),
-            )
+            updateNotification(notificationText())
             banner.show(BannerWindow.Kind.ON, GestureText.unlockShort(this, settings))
             handler.removeCallbacks(maxDurationStop)
             // The parent's own timer if they set one, and the hard cap regardless.
@@ -242,9 +237,56 @@ class LockOverlayService : Service() {
         }
     }
 
+    /** The locked notification's body: how to get out, from current settings. */
+    private fun notificationText(): String {
+        val s = SettingsRepository.get(this).load()
+        return getString(
+            R.string.notif_locked,
+            GestureText.unlockHint(this, s) + " " + GestureText.fallbackHint(this, s),
+        )
+    }
+
     private fun updateNotification(text: String) {
         getSystemService(android.app.NotificationManager::class.java)
             .notify(NOTIFICATION_ID, buildNotification(text))
+    }
+
+    /**
+     * The notification's Unlock button needs two taps, and the second one must
+     * come at least [UNLOCK_ARM_MS] after the first.
+     *
+     * The button exists so a parent whose gesture is not being recognised is
+     * never trapped. But the notifications panel is reachable by anyone: the
+     * guard stops fighting it after a few pull-downs, so a child who keeps
+     * swiping down gets a panel that stays open. One tap there would have been
+     * the whole lock. Mashing produces taps milliseconds apart, which the arming
+     * delay rejects; a parent reading "Tap again to unlock" takes longer than
+     * that without trying.
+     */
+    private var unlockArmedAt = -1L
+
+    private fun onUnlockAction() {
+        val now = SystemClock.uptimeMillis()
+        val armed = unlockArmedAt
+        val elapsed = now - armed
+        if (armed >= 0 && elapsed in UNLOCK_ARM_MS..UNLOCK_CONFIRM_WINDOW_MS) {
+            unlockArmedAt = -1
+            LockController.unlock()
+            return
+        }
+        // Too fast counts as a fresh first tap rather than progress, so a child
+        // drumming on the button never accumulates a confirmation.
+        unlockArmedAt = now
+        updateNotification(notificationText())
+        handler.removeCallbacks(disarmUnlock)
+        handler.postDelayed(disarmUnlock, UNLOCK_CONFIRM_WINDOW_MS)
+    }
+
+    private val disarmUnlock = Runnable {
+        if (unlockArmedAt >= 0) {
+            unlockArmedAt = -1
+            if (LockController.isLocked) updateNotification(notificationText())
+        }
     }
 
     private fun buildNotification(text: String): Notification {
@@ -261,7 +303,9 @@ class LockOverlayService : Service() {
             .addAction(
                 Notification.Action.Builder(
                     android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_lock_open),
-                    getString(R.string.notif_unlock_action),
+                    getString(
+                        if (unlockArmedAt >= 0) R.string.notif_unlock_confirm else R.string.notif_unlock_action,
+                    ),
                     unlock,
                 ).build(),
             )
@@ -273,7 +317,8 @@ class LockOverlayService : Service() {
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
             .setCategory(Notification.CATEGORY_SERVICE)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            // Not on the lock screen: the unlock button must need the phone unlocked first.
+            .setVisibility(Notification.VISIBILITY_SECRET)
             .apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
@@ -297,6 +342,12 @@ class LockOverlayService : Service() {
         private const val NOTIFICATION_ID = 1
         const val ACTION_LOCK = "com.gbhall.childlock.action.LOCK"
         const val ACTION_UNLOCK = "com.gbhall.childlock.action.UNLOCK"
+
+        /** A second tap sooner than this is drumming, not a decision. */
+        const val UNLOCK_ARM_MS = 900L
+
+        /** ...and later than this is a new thought, so it starts over. */
+        const val UNLOCK_CONFIRM_WINDOW_MS = 10_000L
         const val EXTRA_PACKAGE = "package"
         const val EXTRA_DELAY_MS = "delay_ms"
         const val EXTRA_REHEARSAL = "rehearsal"

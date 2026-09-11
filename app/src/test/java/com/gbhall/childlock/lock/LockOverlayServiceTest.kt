@@ -258,6 +258,54 @@ class LockOverlayServiceTest {
         assertTrue(text, text.contains("volume", ignoreCase = true))
     }
 
+    private fun tapUnlock(at: Long) {
+        TestSupport.idle(at)
+        controller!!.withIntent(
+            Intent(TestSupport.app, LockOverlayService::class.java).setAction(LockOverlayService.ACTION_UNLOCK),
+        ).startCommand(0, 2)
+        idle()
+    }
+
+    @Test
+    fun `drumming on the notification unlock button never unlocks`() {
+        // A child who keeps swiping the panel down gets one that stays open, so
+        // the button behind it must not be a one-tap lock defeat.
+        start(lockIntent())
+        idle()
+        repeat(15) { tapUnlock(40) }
+        assertTrue("taps milliseconds apart are drumming, not a decision", LockController.isLocked)
+    }
+
+    @Test
+    fun `two deliberate taps on the notification unlock button do unlock`() {
+        start(lockIntent())
+        idle()
+        tapUnlock(0)
+        assertTrue("one tap only arms it", LockController.isLocked)
+        tapUnlock(LockOverlayService.UNLOCK_ARM_MS + 200)
+        assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    @Test
+    fun `a confirmation left too long goes stale`() {
+        start(lockIntent())
+        idle()
+        tapUnlock(0)
+        tapUnlock(LockOverlayService.UNLOCK_CONFIRM_WINDOW_MS + 1000)
+        assertTrue("that second tap starts over rather than unlocking", LockController.isLocked)
+        tapUnlock(LockOverlayService.UNLOCK_ARM_MS + 200)
+        assertEquals("and the pair after it works", LockState.Unlocked, LockController.state)
+    }
+
+    @Test
+    fun `the locked notification is kept off the lock screen`() {
+        start(lockIntent())
+        idle()
+        val nm = TestSupport.app.getSystemService(NotificationManager::class.java)
+        val n = shadowOf(nm).allNotifications.single()
+        assertEquals(android.app.Notification.VISIBILITY_SECRET, n.visibility)
+    }
+
     @Test
     fun `the locked notification carries an unlock button that works`() {
         start(lockIntent())
@@ -274,6 +322,8 @@ class LockOverlayServiceTest {
         assertTrue(LockController.isLocked)
         controller!!.withIntent(shadowPi.savedIntent).startCommand(0, 2)
         idle()
+        assertTrue("the first tap only arms it", LockController.isLocked)
+        tapUnlock(LockOverlayService.UNLOCK_ARM_MS + 200)
         assertEquals(LockState.Unlocked, LockController.state)
     }
 }

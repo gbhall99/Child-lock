@@ -11,6 +11,7 @@
     <string name="notif_arming">Getting ready to lock…</string>
     <string name="notif_locking_in">Locking in %1$d s. Get the screen ready.</string>
     <string name="notif_unlock_action">Unlock</string>
+    <string name="notif_unlock_confirm">Tap again to unlock</string>
     <string name="notif_locked">Touches do nothing. %1$s</string>
 
     <string name="banner_on">Child Lock on</string>
