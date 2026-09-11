@@ -381,19 +381,26 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         camerasInUse.clear()
     }
 
-    /** The window's own bounds. A Service's displayMetrics is wrong in split screen and on foldables. */
-    private fun windowBounds(): android.graphics.Rect =
-        try {
+    /**
+     * The window's own bounds. A Service's displayMetrics is wrong in split
+     * screen and on foldables, so the window metrics come first; an empty
+     * answer would make the shade and the status bar undetectable, so it is
+     * never trusted.
+     */
+    private fun windowBounds(): android.graphics.Rect {
+        val fromMetrics = try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 android.graphics.Rect(getSystemService(android.view.WindowManager::class.java).maximumWindowMetrics.bounds)
             } else {
-                val dm = resources.displayMetrics
-                android.graphics.Rect(0, 0, dm.widthPixels, dm.heightPixels)
+                null
             }
         } catch (e: Exception) {
-            val dm = resources.displayMetrics
-            android.graphics.Rect(0, 0, dm.widthPixels, dm.heightPixels)
+            null
         }
+        if (fromMetrics != null && !fromMetrics.isEmpty) return fromMetrics
+        val dm = resources.displayMetrics
+        return android.graphics.Rect(0, 0, dm.widthPixels, dm.heightPixels)
+    }
 
     private fun keyguardLocked(): Boolean =
         try {
