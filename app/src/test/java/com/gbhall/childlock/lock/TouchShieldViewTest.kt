@@ -50,6 +50,19 @@ class TouchShieldViewTest {
     }
 
     @Test
+    fun `hover is consumed too, so explore-by-touch cannot reach the app underneath`() {
+        // Explore-by-touch delivers hover instead of touch. A shield that only
+        // handles onTouchEvent swallows nothing at all in that mode, which is
+        // how a child reached the YouTube controls through a locked screen.
+        val (v, host) = shield()
+        assertTrue(v.onHoverEvent(motion(MotionEvent.ACTION_HOVER_ENTER, 500f to 900f)))
+        assertTrue(v.onHoverEvent(motion(MotionEvent.ACTION_HOVER_MOVE, 520f to 950f)))
+        assertTrue(v.onHoverEvent(motion(MotionEvent.ACTION_HOVER_EXIT, 520f to 950f)))
+        idle(5000)
+        assertEquals(0, host.unlocks)
+    }
+
+    @Test
     fun `corner hold through real MotionEvents unlocks after the hold time`() {
         val (v, host) = shield(LockSettings(holdMs = 1000))
         v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, 40f to 60f))

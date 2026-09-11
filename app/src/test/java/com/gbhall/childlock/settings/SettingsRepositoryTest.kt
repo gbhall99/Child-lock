@@ -72,33 +72,33 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun `system gesture blocking is on by default`() {
-        // A lock a child can swipe out of is not a lock. The mode it switches on
-        // only costs the touch unlocks, and it is only ever requested when the
-        // unlock is a volume pattern.
-        assertTrue(repo.load().blockGestures)
+    fun `explore-by-touch swipe blocking is off by default`() {
+        // It stops the swipes only by handing the screen to explore-by-touch,
+        // where the shield receives hover instead of touches and a child can
+        // reach the app underneath. Reported from real use.
+        assertFalse(repo.load().blockGestures)
     }
 
     @Test
-    fun `the version 2 migration that forced gesture blocking off is undone`() {
+    fun `the version 3 migration that forced gesture blocking on is undone`() {
         val prefs = TestSupport.app.getSharedPreferences("childlock", 0)
-        prefs.edit().putBoolean("block_gestures", false).putInt("settings_version", 2).commit()
+        prefs.edit().putBoolean("block_gestures", true).putInt("settings_version", 3).commit()
         SettingsRepository.resetForTests()
-        assertTrue("v2 clobbered everyone; clearing it restores the default", SettingsRepository.get(TestSupport.app).load().blockGestures)
+        assertFalse("v3 turned it on for everyone and was wrong", SettingsRepository.get(TestSupport.app).load().blockGestures)
 
-        // And once undone, a parent who turns it off keeps it off.
-        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = false) }
+        // And once undone, a parent who deliberately turns it on keeps it.
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = true) }
         SettingsRepository.resetForTests()
-        assertFalse(SettingsRepository.get(TestSupport.app).load().blockGestures)
+        assertTrue(SettingsRepository.get(TestSupport.app).load().blockGestures)
     }
 
     @Test
     fun `the migration does not fire twice`() {
         val prefs = TestSupport.app.getSharedPreferences("childlock", 0)
-        repo.update { it.copy(blockGestures = false) }
-        assertEquals(3, prefs.getInt("settings_version", 0))
+        repo.update { it.copy(blockGestures = true) }
+        assertEquals(4, prefs.getInt("settings_version", 0))
         SettingsRepository.resetForTests()
-        assertFalse("a settled choice must survive every later start", SettingsRepository.get(TestSupport.app).load().blockGestures)
+        assertTrue("a settled choice must survive every later start", SettingsRepository.get(TestSupport.app).load().blockGestures)
     }
 
     @Test

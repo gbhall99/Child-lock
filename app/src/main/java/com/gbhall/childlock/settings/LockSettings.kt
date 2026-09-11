@@ -51,15 +51,21 @@ data class LockSettings(
     val blockShade: Boolean = true,
     val relaunchApp: Boolean = true,
     /**
-     * Stop home/back swipes outright while locked. On, because a lock a child
-     * can swipe out of is not a lock.
+     * Stop home/back swipes outright while locked. OFF, and it should stay off
+     * until the mechanism changes.
      *
-     * It works by switching on the same mode a screen reader uses, and in that
-     * mode the screen sends hover rather than touches. That only costs the
-     * touch-based unlocks, and [GuardPolicy.gestureBlockFlags] asks for it only
-     * when the unlock is a volume pattern, which the keys deliver regardless.
+     * It works by switching on explore-by-touch, and that mode does far more
+     * than block swipes: the system turns finger input into hover before any
+     * window sees a touch, so the shield stops swallowing anything, the child
+     * can explore the app underneath, and a double tap activates whatever they
+     * land on. It also enables multi-finger gestures, which is what makes the
+     * three-finger triple tap unlock reachable by a small hand.
+     *
+     * Reported from real use: a child reached the YouTube player controls
+     * through a locked screen, and the lock came off without the volume keys
+     * being touched. Blocking the swipes is not worth handing over the screen.
      */
-    val blockGestures: Boolean = true,
+    val blockGestures: Boolean = false,
     /** Pin the screen to whatever orientation it has when the lock engages. */
     val keepOrientation: Boolean = true,
     /** Tap "Skip ad" style buttons in the app you handed over while locked. Off by default; reads button labels. */
@@ -98,15 +104,14 @@ class SettingsRepository private constructor(context: Context) {
         context.applicationContext.getSharedPreferences("childlock", Context.MODE_PRIVATE)
 
     init {
-        // Version 2 wrote block_gestures=false over everybody, on the belief that
-        // it was what stranded two parents. It was not - the unlock it can break
-        // is the touch kind, and the flags are only ever requested for the volume
-        // kind. Clear that write so the default applies again. Anyone who turned
-        // it off on purpose in the few hours v2 existed will need to do so again;
-        // save() writes the key on every settings change, so there is no way to
-        // tell a deliberate false from the one v2 forced.
-        if (prefs.getInt(KEY_VERSION, 0) < 3) {
-            prefs.edit().remove(KEY_BLOCK_GESTURES).putInt(KEY_VERSION, 3).apply()
+        // v2 forced this off, v3 forced it back on, and v3 was wrong: with
+        // explore-by-touch on, the shield stops receiving touches at all and a
+        // child can reach the app underneath. v4 clears the key again so the
+        // default - off - applies. save() writes the key on every settings
+        // change, so a deliberate choice cannot be told from a forced one;
+        // anyone who wants this on will have to turn it on again.
+        if (prefs.getInt(KEY_VERSION, 0) < 4) {
+            prefs.edit().remove(KEY_BLOCK_GESTURES).putInt(KEY_VERSION, 4).apply()
         }
     }
 
@@ -125,7 +130,7 @@ class SettingsRepository private constructor(context: Context) {
         blockKeys = prefs.getBoolean(KEY_BLOCK_KEYS, true),
         blockShade = prefs.getBoolean(KEY_BLOCK_SHADE, true),
         relaunchApp = prefs.getBoolean(KEY_RELAUNCH, true),
-        blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, true),
+        blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, false),
         keepOrientation = prefs.getBoolean(KEY_KEEP_ORIENTATION, true),
         skipAds = prefs.getBoolean(KEY_SKIP_ADS, false),
         relockSameApp = prefs.getBoolean(KEY_RELOCK, true),
