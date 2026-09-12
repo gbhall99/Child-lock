@@ -65,7 +65,7 @@ download "SDK Platform-Tools" from developer.android.com.
 
 ### By hand
 
-Open Child Lock and work down the Permissions card:
+Open Child Lock and work down the "Needs attention" card:
 
 1. **Display over other apps** (required). This is the whole mechanism.
    On Android 13 and newer a sideloaded app gets *"App was denied access"*
@@ -165,7 +165,7 @@ blocking uses Android's touch-exploration mode while locked, the same switch
 screen readers use, which is why it only combines with the volume gestures:
 in that mode the screen no longer receives real touches, so a three-finger
 triple tap, done twice within a few seconds, is the touch fallback to unlock.
-"Block home and back swipes" under Fine-tune switches it off.
+"Block home and back swipes", under the "Keep them inside" tile, switches it off.
 
 ## Compatibility
 

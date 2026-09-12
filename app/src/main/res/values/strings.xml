@@ -53,6 +53,23 @@
     <string name="section_autolock">Lock automatically</string>
     <string name="section_advanced">More settings</string>
     <string name="section_about">About</string>
+    <string name="section_inside">Keep them inside</string>
+
+    <!-- Home tiles -->
+    <string name="home_on">On</string>
+    <string name="home_off">Off</string>
+    <string name="home_partly">Partly</string>
+    <string name="home_needs_helper">Needs the helper</string>
+    <string name="home_more_sub">Countdown, screen, lock icon</string>
+    <string name="home_about_sub">Privacy, source, version</string>
+    <plurals name="home_autolock_apps">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+    <string name="gesture_name_sequence">Volume %1$s</string>
+    <string name="gesture_name_corners">Hold two corners</string>
+    <string name="gesture_name_pin">PIN</string>
+    <string name="gesture_name_chord">Hold both volume buttons</string>
 
     <string name="state_unlocked">Unlocked</string>
     <string name="state_unlocked_sub">The phone works as usual.</string>
@@ -178,7 +195,7 @@
     <string name="keep_orientation">Don’t rotate the screen</string>
     <string name="keep_orientation_desc">The video stays put when the phone is tilted.</string>
     <string name="keep_inside_title">Keep my child inside the app</string>
-    <string name="keep_inside_desc">The back button and the notifications panel do nothing while locked, and the app comes straight back if they swipe out. Needs the Child Lock helper.</string>
+    <string name="keep_inside_desc">The back button, the notifications panel and home, back and recents swipes do nothing while locked, and the app comes straight back if anything slips through. Needs the Child Lock helper.</string>
     <string name="keep_inside_more">Fine-tune</string>
     <string name="block_gestures">Block home and back swipes</string>
     <string name="block_gestures_desc">Stops home, back and recents swipes by putting the screen into the touch mode screen readers use while locked. Needs a volume gesture and Android 11 or newer. The touch backup to unlock is then a three-finger triple tap, done twice. Off, a swipe shows the home screen for a moment and the app comes straight back.</string>

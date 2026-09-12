@@ -39,29 +39,7 @@ class AppPickerActivity : Activity() {
         repo = SettingsRepository.get(this)
         adapter = Adapter(loadApps())
 
-        val toolbar = horizontal {
-            setPadding(0, dp(4), 0, dp(4))
-            addView(
-                ImageView(context).apply {
-                    setImageResource(R.drawable.ic_back)
-                    imageTintList = android.content.res.ColorStateList.valueOf(themeColor(android.R.attr.textColorPrimary))
-                    contentDescription = getString(R.string.back)
-                    setPadding(dp(10), dp(10), dp(10), dp(10))
-                    isClickable = true
-                    setOnClickListener { finish() }
-                },
-                LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(6) },
-            )
-            addView(
-                TextView(context).apply {
-                    text = getString(R.string.picker_title)
-                    textSize = 22f
-                    typeface = Typeface.DEFAULT_BOLD
-                    setTextColor(themeColor(android.R.attr.textColorPrimary))
-                },
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
-            )
-        }
+        val toolbar = toolbar(getString(R.string.picker_title)) { finish() }
         val search = EditText(this).apply {
             hint = getString(R.string.picker_search)
             textSize = 16f

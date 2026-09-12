@@ -36,6 +36,14 @@ object GestureText {
         return context.getString(if (exploring) R.string.fallback_three_finger else R.string.fallback_corners)
     }
 
+    /** The chosen unlock, as a short label for the home screen tile. */
+    fun gestureName(context: Context, s: LockSettings): String = when (s.gesture) {
+        GestureType.VOLUME_SEQUENCE -> context.getString(R.string.gesture_name_sequence, patternWords(context, s))
+        GestureType.CORNER_HOLD -> context.getString(R.string.gesture_name_corners)
+        GestureType.BADGE_PIN -> context.getString(R.string.gesture_name_pin)
+        GestureType.VOLUME_CHORD -> context.getString(R.string.gesture_name_chord)
+    }
+
     /** One short line for the ON banner: how to get out again. */
     fun unlockShort(context: Context, s: LockSettings): String = when (s.gesture) {
         GestureType.VOLUME_SEQUENCE -> context.getString(R.string.banner_on_detail_sequence, patternWords(context, s))

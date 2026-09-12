@@ -83,6 +83,57 @@ class MainActivityTest {
     }
 
     @Test
+    fun `every tile opens its own page`() {
+        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val expected = mapOf(
+            com.gbhall.childlock.R.string.section_gesture to SettingsActivity.Page.UNLOCK,
+            com.gbhall.childlock.R.string.section_autolock to SettingsActivity.Page.AUTO_LOCK,
+            com.gbhall.childlock.R.string.section_inside to SettingsActivity.Page.INSIDE,
+            com.gbhall.childlock.R.string.session_title to SettingsActivity.Page.TIMER,
+            com.gbhall.childlock.R.string.section_advanced to SettingsActivity.Page.MORE,
+            com.gbhall.childlock.R.string.section_about to SettingsActivity.Page.ABOUT,
+        )
+        for ((titleRes, page) in expected) {
+            val tile = UiTestSupport.tile(activity, activity.getString(titleRes))
+            assertNotNull(page.name, tile)
+            tile!!.performClick()
+            val intent = shadowOf(activity).nextStartedActivity
+            assertEquals(SettingsActivity::class.java.name, intent.component?.className)
+            assertEquals(page.name, intent.getStringExtra(SettingsActivity.EXTRA_PAGE))
+        }
+    }
+
+    @Test
+    fun `tiles show the current state and pick up changes made on their pages`() {
+        val repo = SettingsRepository.get(TestSupport.app)
+        val c = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = c.get()
+        fun sub(res: Int) = UiTestSupport.tileSubtitle(UiTestSupport.tile(activity, activity.getString(res))!!)
+        assertEquals(activity.getString(com.gbhall.childlock.R.string.home_off), sub(com.gbhall.childlock.R.string.section_autolock))
+        assertEquals(activity.getString(com.gbhall.childlock.R.string.home_on), sub(com.gbhall.childlock.R.string.section_inside))
+        assertEquals(activity.getString(com.gbhall.childlock.R.string.session_off), sub(com.gbhall.childlock.R.string.session_title))
+        assertTrue(sub(com.gbhall.childlock.R.string.section_gesture).startsWith("Volume"))
+
+        repo.update {
+            it.copy(
+                autoLockRules = mapOf("com.example.tv" to com.gbhall.childlock.settings.AutoLockTrigger.OPEN),
+                blockShade = false, sessionMinutes = 25, gesture = GestureType.BADGE_PIN, armDelaySec = 9,
+            )
+        }
+        c.pause().resume()
+        assertEquals("rules without the helper cannot fire", activity.getString(com.gbhall.childlock.R.string.home_needs_helper), sub(com.gbhall.childlock.R.string.section_autolock))
+        assertEquals(activity.getString(com.gbhall.childlock.R.string.home_partly), sub(com.gbhall.childlock.R.string.section_inside))
+        assertEquals(activity.getString(com.gbhall.childlock.R.string.session_minutes, 25), sub(com.gbhall.childlock.R.string.session_title))
+        assertEquals(activity.getString(com.gbhall.childlock.R.string.gesture_name_pin), sub(com.gbhall.childlock.R.string.section_gesture))
+        assertEquals("the lock button follows the countdown setting", activity.getString(com.gbhall.childlock.R.string.arm_button, 9), armButton(activity).text)
+
+        val flat = android.content.ComponentName(TestSupport.app, com.gbhall.childlock.guard.GuardAccessibilityService::class.java).flattenToString()
+        android.provider.Settings.Secure.putString(TestSupport.app.contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, flat)
+        c.pause().resume()
+        assertEquals(activity.resources.getQuantityString(com.gbhall.childlock.R.plurals.home_autolock_apps, 1, 1), sub(com.gbhall.childlock.R.string.section_autolock))
+    }
+
+    @Test
     fun `activity survives pause resume and destroy`() {
         val c = Robolectric.buildActivity(MainActivity::class.java).setup()
         c.pause().resume().pause().stop().destroy()

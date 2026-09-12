@@ -490,3 +490,120 @@ internal fun Context.expander(title: String, iconRes: Int?, content: View): Line
     )
     addView(content)
 }
+
+/** Back arrow and page title, for every page below the home screen. */
+internal fun Context.toolbar(title: String, onBack: () -> Unit): LinearLayout = horizontal {
+    setPadding(0, dp(4), 0, dp(4))
+    addView(
+        ImageView(context).apply {
+            setImageResource(com.gbhall.childlock.R.drawable.ic_back)
+            imageTintList = ColorStateList.valueOf(textPrimary)
+            contentDescription = getString(com.gbhall.childlock.R.string.back)
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onBack() }
+        },
+        LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(6) },
+    )
+    addView(
+        TextView(context).apply {
+            text = title
+            textSize = Type.TITLE
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(textPrimary)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) isAccessibilityHeading = true
+        },
+        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+    )
+}
+
+internal const val TILE_SUBTITLE_TAG = "tileSubtitle"
+
+/** Home-screen tile: icon in a disc, a title and one line of current state. Tapping opens a page. */
+internal fun Context.tile(title: String, subtitle: String, iconRes: Int, onClick: () -> Unit): LinearLayout = vertical {
+    setPadding(dp(16), dp(16), dp(16), dp(16))
+    minimumHeight = dp(132)
+    background = GradientDrawable().apply {
+        cornerRadius = dp(20).toFloat()
+        setColor(cardBackground)
+    }
+    isClickable = true
+    isFocusable = true
+    foreground = android.graphics.drawable.RippleDrawable(
+        ColorStateList.valueOf(tint(accent, 0x33)),
+        null,
+        GradientDrawable().apply { cornerRadius = dp(20).toFloat(); setColor(Color.WHITE) },
+    )
+    addView(iconDisc(iconRes, accent, 40, 20), LinearLayout.LayoutParams(dp(40), dp(40)).apply { bottomMargin = dp(12) })
+    addView(label(title))
+    addView(
+        caption(subtitle).apply {
+            tag = TILE_SUBTITLE_TAG
+            setPadding(0, dp(2), 0, 0)
+        },
+    )
+    fun describe() {
+        val state = findViewWithTag<TextView>(TILE_SUBTITLE_TAG).text
+        contentDescription = if (state.isNullOrBlank()) title else "$title. $state"
+    }
+    describe()
+    setOnClickListener { onClick() }
+    // Subtitles change on every resume; keep the spoken description in step.
+    findViewWithTag<TextView>(TILE_SUBTITLE_TAG).addTextChangedListener(object : android.text.TextWatcher {
+        override fun afterTextChanged(s: android.text.Editable?) = describe()
+        override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+        override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+    })
+}
+
+internal fun View.setTileSubtitle(text: String) {
+    findViewWithTag<TextView>(TILE_SUBTITLE_TAG)?.text = text
+}
+
+/** Two tiles per row, equal widths, the last row padded if the count is odd. */
+internal fun Context.tileGrid(tiles: List<View>): LinearLayout = vertical {
+    tiles.chunked(2).forEach { pair ->
+        addView(
+            horizontal {
+                gravity = Gravity.TOP
+                pair.forEachIndexed { i, t ->
+                    // MATCH_PARENT height: both tiles in a row take the taller one's height.
+                    addView(t, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply {
+                        marginEnd = if (i == 0) dp(6) else 0
+                        marginStart = if (i == 1) dp(6) else 0
+                    })
+                }
+                if (pair.size == 1) addView(View(context), LinearLayout.LayoutParams(0, 0, 1f).apply { marginStart = dp(6) })
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12) },
+        )
+    }
+}
+
+/**
+ * Whether a lock right now would leave the parent with no way back in.
+ * Shows the reason as a toast and returns it, or null when it is safe.
+ */
+internal fun android.app.Activity.lockPreflight(s: com.gbhall.childlock.settings.LockSettings): Int? {
+    val screenReader = try {
+        getSystemService(android.view.accessibility.AccessibilityManager::class.java)?.isTouchExplorationEnabled == true
+    } catch (e: Exception) {
+        false
+    }
+    val reason = when (
+        com.gbhall.childlock.lock.LockPreflight.check(
+            s.gesture,
+            com.gbhall.childlock.guard.GuardAccessibilityService.isConnected,
+            screenReader,
+            com.gbhall.childlock.guard.GuardAccessibilityService.keyToolActive,
+        )
+    ) {
+        com.gbhall.childlock.lock.LockPreflight.Result.HelperNeeded -> com.gbhall.childlock.R.string.toast_needs_helper
+        com.gbhall.childlock.lock.LockPreflight.Result.ScreenReaderNeedsVolume -> com.gbhall.childlock.R.string.toast_screen_reader
+        com.gbhall.childlock.lock.LockPreflight.Result.SwitchAccessNeedsTouch -> com.gbhall.childlock.R.string.toast_switch_access
+        com.gbhall.childlock.lock.LockPreflight.Result.Ok -> null
+    }
+    if (reason != null) android.widget.Toast.makeText(this, reason, android.widget.Toast.LENGTH_LONG).show()
+    return reason
+}
