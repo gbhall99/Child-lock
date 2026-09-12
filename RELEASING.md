@@ -10,6 +10,10 @@ keytool -genkeypair -v -keystore childlock-upload.jks -alias upload \
   -keyalg RSA -keysize 2048 -validity 10000
 ```
 
+Modern `keytool` writes a PKCS12 keystore, which has a single password: the
+key password is the store password, and a different `-keypass` is silently
+ignored. Use the same value for `keyPassword` / `CHILDLOCK_KEYPASSWORD`.
+
 Then create `keystore.properties` in the repository root (git-ignored):
 
 ```
@@ -35,10 +39,14 @@ workflow's release job produces a signed bundle.
    `CHILDLOCK_SHOTS=store/assets/src ./gradlew testPlayDebugUnitTest --tests '*ScreenshotTest*'`
    then `scripts/render-store-assets.sh`.
 4. Tag the commit on `main`: `git tag v1.0.0 && git push --tags`. The
-   `release` job signs `bundlePlayRelease` with the CI secrets and uploads the
-   bundle as the `childlock-play-release-bundle` artifact of that run.
-5. Download the artifact, upload the `.aab` to Play Console (Internal testing
-   first), fill in release notes.
+   `release` job signs `bundlePlayRelease` with the CI secrets, uploads the
+   bundle as the `childlock-play-release-bundle` artifact of that run and
+   attaches it to a GitHub Release for the tag. If you cannot push tags, open
+   Actions → Android → "Run workflow", pick the branch and enter the tag; the
+   job creates the tag and the Release itself.
+5. Download the `.aab` from the Release (or the artifact) and upload it to
+   Play Console (Internal testing first), or run
+   `scripts/play-upload.py --key <service-account.json> --aab <file>`.
 
 ## Hardware pass before a release
 
