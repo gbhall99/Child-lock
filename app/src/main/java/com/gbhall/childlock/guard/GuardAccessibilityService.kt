@@ -23,6 +23,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.Toast
 import com.gbhall.childlock.R
+import com.gbhall.childlock.billing.FeatureGate
 import com.gbhall.childlock.gesture.GestureEvent
 import com.gbhall.childlock.gesture.HardwareKey
 import com.gbhall.childlock.gesture.UnlockGesture
@@ -88,7 +89,9 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     }
 
     override fun requestArm(packageName: String) {
-        if (!Settings.canDrawOverlays(this) || !LockController.requestLock(this, packageName, settings.autoLockDelaySec * 1000L)) {
+        if (!FeatureGate.isUnlocked(this) || !Settings.canDrawOverlays(this) ||
+            !LockController.requestLock(this, packageName, settings.autoLockDelaySec * 1000L)
+        ) {
             engine.onUnlocked(byParent = false)
         }
     }
@@ -263,7 +266,9 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
             is LockState.Locked -> LockController.unlock()
             is LockState.Arming -> LockController.unlock() // the pattern during a countdown cancels it
             LockState.Unlocked -> {
-                if (!Settings.canDrawOverlays(this)) {
+                if (!FeatureGate.isUnlocked(this)) {
+                    Toast.makeText(this, R.string.toast_trial_over, Toast.LENGTH_SHORT).show()
+                } else if (!Settings.canDrawOverlays(this)) {
                     Toast.makeText(this, R.string.toast_no_overlay_permission, Toast.LENGTH_SHORT).show()
                 } else if (!LockController.requestLock(this, ForegroundTracker.lastApp, 0)) {
                     Toast.makeText(this, R.string.toast_lock_failed, Toast.LENGTH_SHORT).show()

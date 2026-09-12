@@ -22,6 +22,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.gbhall.childlock.R
+import com.gbhall.childlock.billing.Billing
+import com.gbhall.childlock.billing.FeatureGate
 import com.gbhall.childlock.guard.ForegroundTracker
 import com.gbhall.childlock.guard.GuardAccessibilityService
 import com.gbhall.childlock.lock.LockController
@@ -58,6 +60,8 @@ class MainActivity : Activity() {
     // How it works
     private lateinit var lockHow: TextView
     private lateinit var unlockHow: TextView
+    private lateinit var trialRow: View
+    private lateinit var trialText: TextView
 
     // Tiles whose one-line state changes
     private lateinit var unlockTile: View
@@ -69,12 +73,15 @@ class MainActivity : Activity() {
     private var setupShown = false
 
     private val stateListener: (LockState) -> Unit = { renderStatus(it) }
+    private val billingListener: () -> Unit = { renderAccess() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repo = SettingsRepository.get(this)
         setContentView(buildContent(repo.load()))
         LockController.addListener(stateListener)
+        Billing.backend.connect(this)
+        Billing.addListener(billingListener)
     }
 
     override fun onResume() {
@@ -86,11 +93,12 @@ class MainActivity : Activity() {
         }
         val s = repo.load()
         refreshPermissions()
-        renderStatus(LockController.state)
         renderSettings(s)
+        renderAccess()
     }
 
     override fun onDestroy() {
+        Billing.removeListener(billingListener)
         LockController.removeListener(stateListener)
         super.onDestroy()
     }
@@ -149,6 +157,13 @@ class MainActivity : Activity() {
         armButton = primaryButton(getString(R.string.arm_button, s.armDelaySec)) { arm() }
         addView(armButton, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)).apply { topMargin = dp(18) })
         addView(caption(getString(R.string.arm_hint)).apply { setPadding(dp(4), dp(8), dp(4), 0) })
+        trialRow = row(
+            getString(R.string.trial_title), " ", actionButton(getString(R.string.buy)) { Paywall.show(this@MainActivity) },
+            null, R.drawable.ic_timer, Palette.ORANGE, help = getString(R.string.help_trial),
+        ).also { it.tag = "trial" }
+        // row(): [icon disc][title line, subtitle][action]; the subtitle carries the days left.
+        trialText = ((trialRow as ViewGroup).getChildAt(1) as ViewGroup).getChildAt(1) as TextView
+        addView(trialRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
     }
 
     private fun attentionCard(): View {
@@ -229,7 +244,7 @@ class MainActivity : Activity() {
 
     /** Everything on this screen that mirrors a setting changed on another page. */
     private fun renderSettings(s: LockSettings) {
-        armButton.text = getString(R.string.arm_button, s.armDelaySec)
+        renderAccess(s)
         lockHow.text = GestureText.lockHint(this, s)
         unlockHow.text = (GestureText.unlockHint(this, s) + " " + GestureText.fallbackHint(this, s)).trim()
         unlockTile.setTileSubtitle(GestureText.gestureName(this, s))
@@ -254,9 +269,22 @@ class MainActivity : Activity() {
         )
     }
 
+    /** The trial line and the big button: a lock while the trial runs, the purchase once it is over. */
+    private fun renderAccess(s: LockSettings = repo.load()) {
+        val access = FeatureGate.access(this)
+        trialRow.visibility = if (access is FeatureGate.Access.Trial) View.VISIBLE else View.GONE
+        if (access is FeatureGate.Access.Trial) trialText.text = Paywall.daysLeft(this, access)
+        armButton.text = if (access is FeatureGate.Access.Expired) Paywall.buyLabel(this) else getString(R.string.arm_button, s.armDelaySec)
+        renderStatus(LockController.state)
+    }
+
     // ---- behaviour --------------------------------------------------------
 
     private fun arm() {
+        if (!FeatureGate.isUnlocked(this)) {
+            Paywall.show(this)
+            return
+        }
         val s = repo.load()
         if (!Settings.canDrawOverlays(this)) {
             toast(R.string.toast_no_overlay_permission)
@@ -293,7 +321,12 @@ class MainActivity : Activity() {
 
     private fun renderStatus(state: LockState) {
         val (title, subtitle, tone, iconRes) = when (state) {
-            LockState.Unlocked -> Quad(R.string.state_unlocked, R.string.state_unlocked_sub, Tone.NEUTRAL, R.drawable.ic_lock_open)
+            LockState.Unlocked ->
+                if (FeatureGate.isUnlocked(this)) {
+                    Quad(R.string.state_unlocked, R.string.state_unlocked_sub, Tone.NEUTRAL, R.drawable.ic_lock_open)
+                } else {
+                    Quad(R.string.trial_over, R.string.trial_over_body, Tone.PENDING, R.drawable.ic_lock_open)
+                }
             is LockState.Arming -> Quad(R.string.state_arming, R.string.state_arming_sub, Tone.PENDING, R.drawable.ic_lock)
             is LockState.Locked -> Quad(R.string.state_locked, R.string.state_locked_sub, Tone.ACTIVE, R.drawable.ic_lock)
         }

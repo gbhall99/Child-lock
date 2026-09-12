@@ -54,6 +54,25 @@ class LockOverlayServiceTest {
         return c.get()
     }
 
+    @Test
+    fun `no lock after the trial, except practising, which ends by itself`() {
+        com.gbhall.childlock.billing.FeatureGate.setPreviewExpired(TestSupport.app, true)
+        try {
+            start(lockIntent())
+            idle()
+            assertTrue("nothing attached", allWindows().none { it is OverlayRoot })
+            assertEquals(LockState.Unlocked, LockController.state)
+            controller?.destroy()
+            controller = null
+
+            start(lockIntent().putExtra(LockOverlayService.EXTRA_REHEARSAL, true))
+            idle()
+            assertTrue("practice still locks", LockController.state is LockState.Locked)
+        } finally {
+            com.gbhall.childlock.billing.FeatureGate.setPreviewExpired(TestSupport.app, false)
+        }
+    }
+
     private fun allWindows(): List<android.view.View> {
         val wm = TestSupport.app.getSystemService(WindowManager::class.java)
         return Shadow.extract<ShadowWindowManagerImpl>(wm).views

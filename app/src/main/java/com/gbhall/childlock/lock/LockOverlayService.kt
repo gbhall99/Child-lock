@@ -17,6 +17,7 @@ import android.view.Gravity
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.Toast
+import com.gbhall.childlock.billing.FeatureGate
 import com.gbhall.childlock.ChildLockApp
 import com.gbhall.childlock.R
 import com.gbhall.childlock.settings.GestureText
@@ -121,6 +122,13 @@ class LockOverlayService : Service() {
         handler.removeCallbacks(stopAfterBanner)
         if (!Settings.canDrawOverlays(this)) {
             toast(R.string.toast_no_overlay_permission)
+            abort()
+            return
+        }
+        // Every way of locking checks this first; this is the backstop. Practising
+        // is allowed: it ends by itself and shows what the purchase buys.
+        if (!isRehearsal && !FeatureGate.isUnlocked(this)) {
+            toast(R.string.toast_trial_over)
             abort()
             return
         }

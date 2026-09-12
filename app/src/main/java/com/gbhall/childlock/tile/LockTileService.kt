@@ -6,6 +6,7 @@ import android.os.Build
 import android.provider.Settings
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import com.gbhall.childlock.billing.FeatureGate
 import com.gbhall.childlock.R
 import com.gbhall.childlock.guard.ForegroundTracker
 import com.gbhall.childlock.lock.LockController
@@ -47,8 +48,8 @@ class LockTileService : TileService() {
             is LockState.Locked -> Unit
             is LockState.Arming -> LockController.unlock() // second tap cancels the countdown
             LockState.Unlocked -> {
-                if (!Settings.canDrawOverlays(this)) {
-                    openSettingsScreen()
+                if (!FeatureGate.isUnlocked(this) || !Settings.canDrawOverlays(this)) {
+                    openSettingsScreen() // the app screen explains what is missing
                 } else if (!LockController.requestLock(this, ForegroundTracker.lastApp, TILE_ARM_DELAY_MS)) {
                     openSettingsScreen() // the app screen can always start the service
                 }

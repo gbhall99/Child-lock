@@ -119,12 +119,17 @@ Play's Device and Network Abuse policy and with YouTube's terms, and it is
 the only thing that would make Child Lock read screen content. Build
 `assembleSideloadDebug` for your own phone and `bundlePlayRelease` for the
 store. Skip ads is off by default and is the one feature that reads anything
-on screen: button labels, in that one app, while locked. The automatic
-features are Child Lock Pro; the lock, the volume buttons and every safety
-feature are free. A countdown (5 s by default) follows;
+on screen: button labels, in that one app, while locked. A countdown (5 s by default) follows;
 switching away or pressing the volume pattern cancels it. After you unlock,
 it will not re-arm for that app until you have left it and come back. Needs
 the accessibility guard.
+
+**Free for 30 days, then bought once.** The Play build runs a 30-day trial
+from first launch; after that the lock will not start until the app is bought
+(one purchase, no subscription, restored by Google Play on any phone with the
+same account). Unlocking is never gated, so a trial that ends while the phone
+is locked still lets you out. The sideload build has no store and is simply
+unlocked. See MONETISATION.md.
 
 **Other ways to unlock,** selectable in the app:
 

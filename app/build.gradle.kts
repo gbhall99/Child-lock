@@ -94,8 +94,10 @@ kotlin {
 
 // The app deliberately uses only the Android framework and the Kotlin
 // standard library: no AndroidX. That keeps the APK tiny and the code easy
-// to audit for something that sits over every other app.
+// to audit for something that sits over every other app. The one exception
+// is Google Play Billing in the play flavour, which is how the app is sold.
 dependencies {
+    "playImplementation"(libs.billing)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
 }

@@ -8,8 +8,16 @@ the app does with information, which is: nothing that leaves your phone.
 ## Data collection
 
 Child Lock collects no personal data, no usage data and no analytics. It
-contains no advertising, no accounts and no third-party SDKs. The app does not
-request the internet permission, so it has no way to transmit anything.
+contains no advertising and no accounts. The app does not request the
+internet permission, so it has no way to transmit anything.
+
+The Google Play version is free for 30 days and then sold as a one-time
+purchase through Google Play's billing system, the one third-party library it
+contains. The payment is handled entirely by Google Play under Google's
+privacy policy; the app receives only whether the purchase exists and stores
+that as a yes/no flag on the device. The date of first launch is stored on the
+device for the trial. The version built from source contains no billing
+library and sells nothing.
 
 ## Permissions and what they are used for
 

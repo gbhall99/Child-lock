@@ -3,8 +3,11 @@ package com.gbhall.childlock
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import com.gbhall.childlock.billing.Billing
+import com.gbhall.childlock.billing.FeatureGate
 
-class ChildLockApp : Application() {
+// Open so tests can put a fake store in front of the real application.
+open class ChildLockApp : Application() {
     override fun onCreate() {
         super.onCreate()
         val manager = getSystemService(NotificationManager::class.java)
@@ -20,6 +23,10 @@ class ChildLockApp : Application() {
             setShowBadge(false)
         }
         manager.createNotificationChannel(channel)
+        // The trial runs from first launch, whichever screen or service asks first.
+        FeatureGate.trialStart(this)
+        // Restores a purchase from Play before any screen or service asks the gate.
+        Billing.backend.connect(this)
     }
 
     companion object {

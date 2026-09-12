@@ -9,24 +9,45 @@ model around that: a generous free tier that proves it works, and a one-time
 "Pro" unlock for the convenience features. Subscriptions for a utility this
 small cause refunds and one-star reviews.
 
-## Freemium split
+## The model: 30 days free, then bought once
 
-| Free (proves the value) | Pro, one-time purchase |
-|---|---|
-| Touch lock with the corner-hold unlock | Volume-button pattern (lock and unlock without touching) |
-| Quick Settings tile and in-app arming | Volume chord |
-| Badge in a fixed corner | Swipe blocking (home/back gestures stopped outright) |
-| Setup assistant | Badge-then-PIN unlock |
-| | Badge position, size and colour |
-| | Auto-lock when a chosen app opens (a natural next feature) |
+Everything works for 30 days from first launch. After that the lock will not
+start until the app is bought: one non-consumable product, `childlock_full`,
+restored from Google Play on every launch and on any phone with the same
+account. No subscription, no tiers, no feature matrix to explain.
 
-Price: £2.99, matching `FeatureGate` in the code. (An earlier draft suggested £3.99 with a £2.99 introduction; the single price is simpler and is what the code and copy now say.) Pro is a
-single non-consumable product in Play Billing, restored automatically on
-reinstall. Offer a "Family" variant later only if data shows shared devices.
+Why whole-app rather than a free tier plus Pro extras: the app's value is
+the lock itself, and a parent knows within a week whether it earns its place.
+A month proves it on real calls and real tantrums; the purchase is then the
+price of keeping something that already works. There is nothing to upsell
+and nothing to nag about.
 
-The gate already exists in code: `billing/FeatureGate.kt`. Every Pro feature
-asks it once; wiring Play Billing means replacing its `isPro()` body with the
-cached purchase state and adding one paywall screen. Nothing else changes.
+Price: base £2.99 in Play Console, Play converts the rest. The app shows the
+price Play reports, so it can be changed in the console without a release;
+a £2.99 vs £3.99 test after the first thousand installs is worth running.
+Above £4.99 refund requests and one-star reviews rise sharply for a utility.
+
+The mechanics, and their honest limits:
+
+- Play has no free trial for one-time products (only subscriptions), so the
+  trial clock is the app's own. First launch is stored on the device. Clearing
+  the app's data restarts the trial; accepted, because the alternative is an
+  account or a server, and the purchase itself can never be lost that way.
+- Unlocking is never gated. A trial that ends while the phone is locked still
+  lets the parent out; only starting a new lock needs the purchase. Practise
+  keeps working after the trial so the parent can still see what they would
+  be buying.
+- The sideload flavour has no store and is simply unlocked: "free if you
+  build it yourself, £3 on Play for the convenience".
+- Selling makes you a trader in the EEA (Digital Services Act): name,
+  address, phone and email go on the listing, and terms must cover the 14-day
+  right of withdrawal.
+
+The gate is one object, `billing/FeatureGate`, consulted by every way of
+starting a lock (the button, the volume pattern, the tile, auto-lock, and the
+overlay service as the backstop). `billing/PurchaseBackend` is the store
+behind it: Play Billing in the play flavour, nothing in sideload, a fake in
+tests.
 
 ## Why the Play Store, not sideloading
 
@@ -53,9 +74,10 @@ Two policy items need care before submission:
 
 1. Rename the package to something you own (`com.gbhall.childlock` is fine if
    you hold the domain or accept it as the identifier forever).
-2. Create the Play Console app, one non-consumable product `pro_lifetime`.
-3. Add Play Billing (AndroidX `billing-ktx`) behind `FeatureGate`; add a
-   paywall card in "More options" and a lock icon next to Pro rows.
+2. Create the Play Console app and the one non-consumable product
+   `childlock_full` (see RELEASING.md); add licence testers.
+3. Play Billing is wired behind `FeatureGate`; the purchase state and the
+   Restore button live in About.
 4. Store listing: 4 screenshots (locked call, volume gesture, setup assistant,
    settings), a 20-second video of the volume-button toggle. The hook is one
    sentence: "Hand your phone to your toddler on a video call. They can watch,
@@ -63,8 +85,8 @@ Two policy items need care before submission:
 5. Closed test with 20 parents (Play requires 12 testers for 14 days for new
    personal accounts anyway). Collect device/skin data: Samsung and Xiaomi
    handle overlays and accessibility differently and are most of the market.
-6. Price test after 30 days: £2.99 vs £4.99 on the same listing via Play
-   price experiments.
+6. Price test after the first thousand installs: £2.99 vs £3.99 via Play
+   price experiments; the app needs no release for it.
 
 ## Realistic numbers
 
@@ -92,13 +114,10 @@ one-star reviews, and is bypassed by clearing app data. Rule: the lock itself
 always works, unlimited, with no nagging. Charge only for things people are
 glad exist, never for things they hit a wall on.
 
-**Keep the volume pattern free.** It is the reason the app is good and the
-reason parents will recommend it. Pro (£2.99 one-time) is everything
-automatic: locking by itself when a call connects or a video goes full
-screen, locking again after an unlock, and skipping ads. This is now wired
-in code: `FeatureGate` gates those features, `Paywall` explains and will
-start the purchase, and debuggable builds are Pro so the owner can test.
-Only `FeatureGate.isPro()` needs Play Billing behind it.
+**A free tier plus Pro extras.** The earlier plan: the lock free forever,
+the automatic features paid. Rejected in favour of the trial because the
+lock is the product; a free lock leaves nothing most parents would pay for,
+and a feature matrix is one more thing to explain on a screen nobody reads.
 
 **Tip jar.** Three "support Child Lock" purchases (£1.99, £4.99, £9.99) that
 unlock nothing. Converts at roughly one to three percent of a passionate
