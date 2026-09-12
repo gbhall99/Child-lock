@@ -10,6 +10,10 @@ keytool -genkeypair -v -keystore childlock-upload.jks -alias upload \
   -keyalg RSA -keysize 2048 -validity 10000
 ```
 
+Modern `keytool` writes a PKCS12 keystore, which has a single password: the
+key password is the store password, and a different `-keypass` is silently
+ignored. Use the same value for `keyPassword` / `CHILDLOCK_KEYPASSWORD`.
+
 Then create `keystore.properties` in the repository root (git-ignored):
 
 ```
