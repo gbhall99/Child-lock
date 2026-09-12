@@ -26,10 +26,19 @@ class FeatureGateTest {
 
     @Test
     fun `nothing is withheld while nothing is for sale, even in a release-style build`() {
-        assertFalse("this test runs as a non-debuggable app", FeatureGate.isDebuggable(TestSupport.app))
-        assertFalse(FeatureGate.BILLING_READY)
-        assertTrue(FeatureGate.isPro(TestSupport.app))
-        for (f in FeatureGate.Feature.entries) assertTrue(f.name, FeatureGate.has(TestSupport.app, f))
+        // Gradle runs these tests as the debug build; strip the flag so this
+        // proves the release case, which is where the gate used to bite.
+        val info = TestSupport.app.applicationInfo
+        val original = info.flags
+        info.flags = original and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE.inv()
+        try {
+            assertFalse(FeatureGate.isDebuggable(TestSupport.app))
+            assertFalse(FeatureGate.BILLING_READY)
+            assertTrue(FeatureGate.isPro(TestSupport.app))
+            for (f in FeatureGate.Feature.entries) assertTrue(f.name, FeatureGate.has(TestSupport.app, f))
+        } finally {
+            info.flags = original
+        }
     }
 
     @Test
