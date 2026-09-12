@@ -73,8 +73,8 @@ H
 shot screenshot-2-volume.png 1080,1920
 
 # 5. Screenshot 3: settings; 6. Screenshot 4: setup
-for pair in "screenshot-3-settings.png|settings-light.png|Everything in one place.<br>Nothing hidden.|Colour-blind-safe. Open source. No ads, no accounts, no internet permission." \
-            "screenshot-4-setup.png|setup-light.png|Set up in two taps.|Each step opens the right screen and ticks itself off when you come back."; do
+for pair in "screenshot-3-settings.png|settings-light.png|One screen. Six tiles.|Colour-blind-safe. Open source. No ads, no accounts, no internet permission." \
+            "screenshot-4-setup.png|setup-light.png|Three quick steps.|Two permissions, then how to unlock and how to force a restart if nothing works."; do
   IFS='|' read -r name img cap sub <<< "$pair"
   cat > "$TMP/$name.html" <<H
 $CSS<body style="width:1080px;height:1920px"><div class="bg"></div>

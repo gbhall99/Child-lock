@@ -296,7 +296,20 @@ internal fun Context.segmented(labels: List<String>, selected: Int, onSelect: (I
     render(selected)
 }
 
-/** Leading icon, title (+ inline status chip) and subtitle, optional trailing action. */
+/** A small "?" that opens the full explanation, so rows can stay to one line. */
+internal fun Context.helpIcon(title: String, text: String): ImageView = icon(com.gbhall.childlock.R.drawable.ic_help, textSecondary, 20).apply {
+    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+    contentDescription = getString(com.gbhall.childlock.R.string.a11y_help, title)
+    isClickable = true
+    isFocusable = true
+    setPadding(dp(4), dp(4), dp(4), dp(4))
+    setOnClickListener {
+        android.app.AlertDialog.Builder(context).setTitle(title).setMessage(text)
+            .setPositiveButton(com.gbhall.childlock.R.string.done, null).show()
+    }
+}
+
+/** Leading icon, title (+ inline status chip, + "?" for [help]) and subtitle, optional trailing action. */
 internal fun Context.row(
     title: String,
     subtitle: CharSequence?,
@@ -304,6 +317,7 @@ internal fun Context.row(
     chip: View? = null,
     iconRes: Int? = null,
     iconTint: Int = accent,
+    help: String? = null,
 ): LinearLayout = horizontal {
     setPadding(0, dp(10), 0, dp(10))
     if (iconRes != null) {
@@ -313,7 +327,9 @@ internal fun Context.row(
         vertical {
             addView(
                 horizontal {
-                    addView(label(title), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(label(title), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0f).apply { weight = 0f })
+                    if (help != null) addView(helpIcon(title, help), LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginStart = dp(4) })
+                    addView(View(context), LinearLayout.LayoutParams(0, 0, 1f))
                     if (chip != null) addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8) })
                 },
             )
@@ -339,9 +355,9 @@ internal fun Context.styledSwitch(checked: Boolean, onChange: (Boolean) -> Unit)
     setOnCheckedChangeListener { _, value -> onChange(value) }
 }
 
-internal fun Context.switchRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit): LinearLayout {
-    val sw = styledSwitch(checked, onChange).apply { contentDescription = title }
-    val r = row(title, subtitle, sw)
+internal fun Context.switchRow(title: String, subtitle: String?, checked: Boolean, help: String? = null, onChange: (Boolean) -> Unit): LinearLayout {
+    val sw = styledSwitch(checked, onChange).apply { contentDescription = title; tag = SWITCH_TAG }
+    val r = row(title, subtitle, sw, help = help)
     // One focus stop that reads the title and toggles, instead of three.
     r.isClickable = true
     r.isFocusable = true
@@ -349,6 +365,11 @@ internal fun Context.switchRow(title: String, subtitle: String?, checked: Boolea
     r.setOnClickListener { sw.toggle() }
     return r
 }
+
+internal const val SWITCH_TAG = "switch"
+
+/** The switch inside a [switchRow]. */
+internal fun View.switchView(): Switch? = findViewWithTag(SWITCH_TAG)
 
 internal fun Context.divider(): View = View(this).apply {
     setBackgroundColor(hairline)
@@ -489,4 +510,121 @@ internal fun Context.expander(title: String, iconRes: Int?, content: View): Line
         },
     )
     addView(content)
+}
+
+/** Back arrow and page title, for every page below the home screen. */
+internal fun Context.toolbar(title: String, onBack: () -> Unit): LinearLayout = horizontal {
+    setPadding(0, dp(4), 0, dp(4))
+    addView(
+        ImageView(context).apply {
+            setImageResource(com.gbhall.childlock.R.drawable.ic_back)
+            imageTintList = ColorStateList.valueOf(textPrimary)
+            contentDescription = getString(com.gbhall.childlock.R.string.back)
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onBack() }
+        },
+        LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(6) },
+    )
+    addView(
+        TextView(context).apply {
+            text = title
+            textSize = Type.TITLE
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(textPrimary)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) isAccessibilityHeading = true
+        },
+        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+    )
+}
+
+internal const val TILE_SUBTITLE_TAG = "tileSubtitle"
+
+/** Home-screen tile: icon in a disc, a title and one line of current state. Tapping opens a page. */
+internal fun Context.tile(title: String, subtitle: String, iconRes: Int, onClick: () -> Unit): LinearLayout = vertical {
+    setPadding(dp(16), dp(16), dp(16), dp(16))
+    minimumHeight = dp(132)
+    background = GradientDrawable().apply {
+        cornerRadius = dp(20).toFloat()
+        setColor(cardBackground)
+    }
+    isClickable = true
+    isFocusable = true
+    foreground = android.graphics.drawable.RippleDrawable(
+        ColorStateList.valueOf(tint(accent, 0x33)),
+        null,
+        GradientDrawable().apply { cornerRadius = dp(20).toFloat(); setColor(Color.WHITE) },
+    )
+    addView(iconDisc(iconRes, accent, 40, 20), LinearLayout.LayoutParams(dp(40), dp(40)).apply { bottomMargin = dp(12) })
+    addView(label(title))
+    addView(
+        caption(subtitle).apply {
+            tag = TILE_SUBTITLE_TAG
+            setPadding(0, dp(2), 0, 0)
+        },
+    )
+    fun describe() {
+        val state = findViewWithTag<TextView>(TILE_SUBTITLE_TAG).text
+        contentDescription = if (state.isNullOrBlank()) title else "$title. $state"
+    }
+    describe()
+    setOnClickListener { onClick() }
+    // Subtitles change on every resume; keep the spoken description in step.
+    findViewWithTag<TextView>(TILE_SUBTITLE_TAG).addTextChangedListener(object : android.text.TextWatcher {
+        override fun afterTextChanged(s: android.text.Editable?) = describe()
+        override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+        override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+    })
+}
+
+internal fun View.setTileSubtitle(text: String) {
+    findViewWithTag<TextView>(TILE_SUBTITLE_TAG)?.text = text
+}
+
+/** Two tiles per row, equal widths, the last row padded if the count is odd. */
+internal fun Context.tileGrid(tiles: List<View>): LinearLayout = vertical {
+    tiles.chunked(2).forEach { pair ->
+        addView(
+            horizontal {
+                gravity = Gravity.TOP
+                pair.forEachIndexed { i, t ->
+                    // MATCH_PARENT height: both tiles in a row take the taller one's height.
+                    addView(t, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply {
+                        marginEnd = if (i == 0) dp(6) else 0
+                        marginStart = if (i == 1) dp(6) else 0
+                    })
+                }
+                if (pair.size == 1) addView(View(context), LinearLayout.LayoutParams(0, 0, 1f).apply { marginStart = dp(6) })
+            },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12) },
+        )
+    }
+}
+
+/**
+ * Whether a lock right now would leave the parent with no way back in.
+ * Shows the reason as a toast and returns it, or null when it is safe.
+ */
+internal fun android.app.Activity.lockPreflight(s: com.gbhall.childlock.settings.LockSettings): Int? {
+    val screenReader = try {
+        getSystemService(android.view.accessibility.AccessibilityManager::class.java)?.isTouchExplorationEnabled == true
+    } catch (e: Exception) {
+        false
+    }
+    val reason = when (
+        com.gbhall.childlock.lock.LockPreflight.check(
+            s.gestures,
+            com.gbhall.childlock.guard.GuardAccessibilityService.isConnected,
+            screenReader,
+            com.gbhall.childlock.guard.GuardAccessibilityService.keyToolActive,
+        )
+    ) {
+        com.gbhall.childlock.lock.LockPreflight.Result.HelperNeeded -> com.gbhall.childlock.R.string.toast_needs_helper
+        com.gbhall.childlock.lock.LockPreflight.Result.ScreenReaderNeedsVolume -> com.gbhall.childlock.R.string.toast_screen_reader
+        com.gbhall.childlock.lock.LockPreflight.Result.SwitchAccessNeedsTouch -> com.gbhall.childlock.R.string.toast_switch_access
+        com.gbhall.childlock.lock.LockPreflight.Result.Ok -> null
+    }
+    if (reason != null) android.widget.Toast.makeText(this, reason, android.widget.Toast.LENGTH_LONG).show()
+    return reason
 }

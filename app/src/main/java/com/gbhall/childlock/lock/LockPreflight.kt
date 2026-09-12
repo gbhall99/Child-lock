@@ -30,10 +30,22 @@ object LockPreflight {
         helperConnected: Boolean,
         touchExplorationOn: Boolean,
         keyFilteringToolActive: Boolean = false,
-    ): Result = when {
-        gesture.needsGuard && !helperConnected -> Result.HelperNeeded
-        gesture.needsGuard && keyFilteringToolActive && !touchExplorationOn -> Result.SwitchAccessNeedsTouch
-        !gesture.needsGuard && touchExplorationOn -> Result.ScreenReaderNeedsVolume
-        else -> Result.Ok
+    ): Result = check(setOf(gesture), helperConnected, touchExplorationOn, keyFilteringToolActive)
+
+    /** With several ways out allowed, the lock is safe as long as one of them will work. */
+    fun check(
+        gestures: Set<GestureType>,
+        helperConnected: Boolean,
+        touchExplorationOn: Boolean,
+        keyFilteringToolActive: Boolean = false,
+    ): Result {
+        val volume = gestures.any { it.needsGuard }
+        val touch = gestures.any { !it.needsGuard }
+        return when {
+            !touch && !helperConnected -> Result.HelperNeeded
+            !touch && keyFilteringToolActive && !touchExplorationOn -> Result.SwitchAccessNeedsTouch
+            !volume && touchExplorationOn -> Result.ScreenReaderNeedsVolume
+            else -> Result.Ok
+        }
     }
 }

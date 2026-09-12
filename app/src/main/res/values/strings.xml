@@ -48,31 +48,48 @@
     <!-- Main screen -->
     <string name="section_attention">Needs attention</string>
     <string name="section_how">How it works</string>
-    <string name="section_gesture">How you unlock</string>
-    <string name="section_other_unlock">Other ways to unlock</string>
-    <string name="section_autolock">Lock automatically</string>
-    <string name="section_advanced">More settings</string>
+    <string name="section_gesture">Unlock</string>
+    <string name="section_other_unlock">More ways to unlock</string>
+    <string name="section_autolock">Auto-lock</string>
+    <string name="section_advanced">Settings</string>
     <string name="section_about">About</string>
+    <string name="section_inside">Blocking</string>
+
+    <!-- Home tiles -->
+    <string name="home_on">On</string>
+    <string name="home_off">Off</string>
+    <string name="home_partly">Partly</string>
+    <string name="home_needs_helper">Needs the helper</string>
+    <string name="home_more_sub">Countdown, screen, lock icon</string>
+    <string name="home_about_sub">Version, privacy, source</string>
+    <plurals name="home_autolock_apps">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+    <string name="gesture_name_sequence">Volume %1$s</string>
+    <string name="gesture_name_corners">Hold two corners</string>
+    <string name="gesture_name_pin">PIN</string>
+    <string name="gesture_name_chord">Hold both volume buttons</string>
 
     <string name="state_unlocked">Unlocked</string>
-    <string name="state_unlocked_sub">The phone works as usual.</string>
+    <string name="state_unlocked_sub">Touch works as normal.</string>
     <string name="state_arming">Locking soon</string>
     <string name="state_arming_sub">Get the video or game on screen.</string>
     <string name="state_locked">Locked</string>
-    <string name="state_locked_sub">Touches do nothing. Safe to hand over.</string>
+    <string name="state_locked_sub">Touch is blocked.</string>
     <string name="how_to_lock">To lock</string>
     <string name="how_to_unlock">To unlock</string>
     <string name="turn_on">Turn on</string>
     <string name="arm_button">Lock in %1$d seconds</string>
-    <string name="arm_hint">Takes you back to the last app, then locks. The Child Lock button in Quick Settings does the same.</string>
+    <string name="arm_hint">Returns to the last app, then locks. The Quick Settings tile does the same.</string>
 
     <string name="perm_overlay">Show over other apps</string>
-    <string name="perm_overlay_desc">Lets Child Lock sit on top of the video or game so touches don’t get through.</string>
+    <string name="perm_overlay_desc">Lets Child Lock sit over the video or game.</string>
     <string name="perm_notifications">Notifications</string>
     <string name="perm_accessibility">Child Lock helper</string>
-    <string name="perm_accessibility_desc">Lets the volume buttons lock and unlock, and keeps your child inside the app. Found under Accessibility in Android settings.</string>
-    <string name="restricted_desc">Android said “Restricted setting”? Open App info, tap the ⋮ menu, choose “Allow restricted settings”, then try again.</string>
-    <string name="shortcut_button_desc">Android added a floating button you don’t need. Open the helper’s page and switch off “Child Lock helper shortcut”.</string>
+    <string name="perm_accessibility_desc">Volume-button unlock and blocking. Under Accessibility in Android settings.</string>
+    <string name="restricted_desc">Android said “Restricted setting”? App info → ⋮ → Allow restricted settings, then try again.</string>
+    <string name="shortcut_button_desc">Android added a floating button you don’t need. Switch off “Child Lock helper shortcut”.</string>
     <string name="app_info">App info</string>
     <string name="allow">Allow</string>
     <string name="open">Open</string>
@@ -82,28 +99,28 @@
     <string name="a11y_expand">%1$s, collapsed, double tap to expand</string>
     <string name="a11y_collapse">%1$s, expanded, double tap to collapse</string>
     <string name="a11y_unlock_action">Unlock Child Lock</string>
+    <string name="a11y_help">More about %1$s</string>
     <string name="a11y_pin_backspace">Delete last digit</string>
     <string name="a11y_pin_clear">Clear</string>
     <string name="status_optional">Optional</string>
     <string name="setup_assistant">Setup guide</string>
-    <string name="setup_assistant_desc">See the setup steps again.</string>
+    <string name="setup_assistant_desc">Run the setup steps again.</string>
 
-    <string name="gesture_volume_sequence">Volume buttons (recommended)</string>
-    <string name="gesture_volume_sequence_desc">Press up, then down. The same presses lock and unlock, no touching the screen.</string>
+    <string name="gesture_volume_sequence">Volume buttons</string>
+    <string name="gesture_volume_sequence_desc">Press up, then down. Locks and unlocks.</string>
     <string name="gesture_corner_hold">Hold two corners</string>
-    <string name="gesture_corner_hold_desc">One finger in each opposite corner, held still for a moment.</string>
+    <string name="gesture_corner_hold_desc">One finger in each opposite corner.</string>
     <string name="gesture_badge_pin">PIN</string>
-    <string name="gesture_badge_pin_desc">Hold the small lock icon, then type your PIN.</string>
+    <string name="gesture_badge_pin_desc">Hold the lock icon, then type a PIN.</string>
     <string name="gesture_volume_chord">Hold both volume buttons</string>
-    <string name="gesture_volume_chord_desc">Press and hold volume up and down together.</string>
+    <string name="gesture_volume_chord_desc">Press and hold up and down together.</string>
     <string name="volume_pattern">Order</string>
     <string name="pattern_option_up_down">Up, then down</string>
     <string name="pattern_option_down_up">Down, then up</string>
     <string name="pattern_twice_title">Press it twice</string>
     <string name="pattern_twice_desc">Up, down, up, down. Harder to hit by accident.</string>
     
-    <string name="fallback_corners">If that ever fails, hold two opposite corners of the screen.</string>
-    <string name="fallback_three_finger">If that ever fails, tap the screen three times with three fingers.</string>
+    <string name="fallback_three_finger">If that ever fails, tap the screen three times with three fingers, then straight away do it again.</string>
     <string name="hold_duration">Hold for</string>
     <string name="corner_pair">Which corners</string>
     <string name="pair_tl_br">Top-left and bottom-right</string>
@@ -114,7 +131,7 @@
     <string name="pin_hint">%1$d to %2$d digits</string>
     <string name="pin_status_set">Set (%1$d digits)</string>
     <string name="pin_status_unset">Not set</string>
-    <string name="badge_corner">Where the lock icon sits</string>
+    <string name="badge_corner">Lock icon corner</string>
     <string name="corner_tl">Top left</string>
     <string name="corner_tr">Top right</string>
     <string name="corner_bl">Bottom left</string>
@@ -123,15 +140,18 @@
     <string name="pattern_up_down">up, then down</string>
     <string name="pattern_down_up">down, then up</string>
     <string name="pattern_twice">%1$s, twice</string>
-    <string name="lock_hint_volume_sequence">Press volume %1$s. You’ll see “Child Lock on”. Do it while your video, call or game is on screen.</string>
-    <string name="lock_hint_other">Tap Child Lock in Quick Settings, or use the button above.</string>
-    <string name="hint_volume_sequence">Press volume %1$s again. You’ll see “Child Lock off”.</string>
+    <string name="lock_hint_volume_sequence">Press volume %1$s with the video, call or game on screen.</string>
+    <string name="lock_hint_other">Tap the Quick Settings tile, or the Lock button above.</string>
+    <string name="hint_volume_sequence">Press volume %1$s again.</string>
     <string name="hint_corner_hold">Hold one finger in each corner until the phone buzzes.</string>
-    <string name="hint_badge_pin">Hold the small lock icon until the keypad appears, then enter your PIN.</string>
-    <string name="hint_volume_chord">Hold both volume buttons together until the phone buzzes.</string>
+    <string name="hint_badge_pin">Hold the lock icon, then enter your PIN.</string>
+    <string name="hint_volume_chord">Hold both volume buttons until the phone buzzes.</string>
+    <string name="hint_or">Or %1$s</string>
+    <string name="toast_keep_one_unlock">Keep at least one way to unlock.</string>
 
     <!-- Lock automatically -->
-    <string name="autolock_desc">Child Lock can turn on by itself, for example when a video call connects or a video goes full screen. A short countdown gives you time to hand over.</string>
+    <string name="autolock_desc">Locks by itself when a chosen app reaches its moment.</string>
+    <string name="help_autolock">Add an app and choose its moment: a video call connecting, a video going full screen, anything playing, or simply opening. A short countdown gives you time to hand the phone over. Well-known apps get the right options by default.</string>
     <string name="autolock_add">Add an app</string>
     <string name="autolock_none">No apps yet.</string>
     <string name="autolock_delay">Countdown</string>
@@ -151,20 +171,22 @@
     <string name="trigger_fullscreen">a video plays full screen</string>
     <string name="trigger_playback">anything plays</string>
     <string name="trigger_open">it opens</string>
-    <string name="relock_title">Lock again by itself</string>
-    <string name="relock_desc">If you unlock and the same thing happens again, like the video going full screen again, Child Lock locks again.</string>
+    <string name="relock_title">Re-lock</string>
+    <string name="relock_desc">Locks again if the same moment happens after you unlock.</string>
+    <string name="help_relock">After you unlock, Child Lock waits for the moment to end and happen again, for example the video leaving full screen and going back. It never re-locks while the same moment continues, and gives up on an app after three unlocks in a row until you leave it.</string>
     <string name="skip_ads_title">Skip ads for them</string>
-    <string name="skip_ads_desc">While locked, if a “Skip ad” button appears in the app you handed over, Child Lock taps it. Never the ad itself, and never “Skip intro”. To do this it reads button labels in that one app; nothing is stored or sent.</string>
+    <string name="skip_ads_desc">Taps “Skip ad” in the app while locked.</string>
+    <string name="help_skip_ads">Only a “Skip ad” style button, never the ad itself and never “Skip intro”. To find the button it reads button labels in that one app while locked. Nothing is stored or sent. Most streaming services make their ads unskippable, so in practice this helps on YouTube and a few others.</string>
     <string name="pro_title">Child Lock Pro</string>
     <string name="pro_body">Everything automatic: locking by itself when a call connects or a video goes full screen, locking again after you unlock, and skipping ads.\n\nThe lock itself, the volume buttons and every safety feature stay free, always.</string>
     <string name="pro_body_soon">These automatic extras are still being finished, so they are unlocked for now and nothing is for sale yet.\n\nThe lock itself, the volume buttons and every safety feature will always be free.</string>
-    <string name="session_title">Hand back after</string>
+    <string name="session_title">Timer</string>
     <string name="session_off">No timer</string>
     <string name="session_minutes">%1$d minutes</string>
-    <string name="session_desc">Child Lock unlocks itself when the time is up, so the phone always comes back to you.</string>
-    <string name="rehearse_title">Try it now</string>
-    <string name="rehearse_desc">Lock this screen and practise unlocking. A practice lock always ends by itself after a minute, so you cannot get stuck.</string>
-    <string name="rehearse_go">Practise</string>
+    <string name="session_desc">Unlocks by itself when the time is up.</string>
+    <string name="rehearse_title">Practise</string>
+    <string name="rehearse_desc">Lock this screen and unlock it. Ends by itself after a minute.</string>
+    <string name="rehearse_go">Start</string>
     <string name="pro_upgrade">Upgrade for %1$s</string>
     <string name="pro_not_now">Not now</string>
     <string name="pro_coming">Purchases arrive with the Play Store release.</string>
@@ -172,43 +194,54 @@
     <string name="pro_preview_free">Preview as a free user (test builds only)</string>
 
     <!-- More settings -->
-    <string name="arm_delay">Countdown before locking</string>
+    <string name="arm_delay">Lock button countdown</string>
     <string name="keep_screen_on">Keep the screen on</string>
-    <string name="keep_screen_on_desc">The screen won’t dim or turn off while locked.</string>
+    <string name="keep_screen_on_desc">No dimming or sleep while locked.</string>
     <string name="keep_orientation">Don’t rotate the screen</string>
     <string name="keep_orientation_desc">The video stays put when the phone is tilted.</string>
-    <string name="keep_inside_title">Keep my child inside the app</string>
-    <string name="keep_inside_desc">The back button and the notifications panel do nothing while locked, and the app comes straight back if they swipe out. Needs the Child Lock helper.</string>
+    <string name="keep_inside_title">Block leaving the app</string>
+    <string name="keep_inside_desc">Back, the notifications panel and swipes do nothing while locked. Needs the Child Lock helper.</string>
     <string name="keep_inside_more">Fine-tune</string>
-    <string name="block_gestures">Block home and back swipes</string>
-    <string name="block_gestures_desc">Not recommended. It stops home and back swipes, but only by turning on the screen-reader touch mode, and in that mode taps can reach the app underneath and a three-finger tap unlocks. Without it, a swipe shows the home screen for a moment and the app comes straight back.</string>
+    <string name="block_gestures">Block swipes</string>
+    <string name="block_gestures_desc">Home, back and recents. Android 11+, needs a volume unlock.</string>
+    <string name="help_block_gestures">While locked the screen goes into the touch mode screen readers use, which is what stops Android acting on swipes from the edges. Touches still reach nothing. The touch backup to unlock in this mode is a three-finger triple tap, done twice within a few seconds. Off, a swipe shows the home screen for a moment and the app comes straight back.</string>
     <string name="block_keys">Block the back button</string>
     <string name="block_keys_desc">Volume buttons still unlock.</string>
-    <string name="block_shade">Keep the notifications panel closed</string>
-    <string name="block_shade_desc">If it gets pulled down, it closes straight away.</string>
+    <string name="block_shade">Close the notifications panel</string>
+    <string name="block_shade_desc">Closes as soon as it is pulled down.</string>
     <string name="relaunch_app">Bring the app back</string>
-    <string name="relaunch_app_desc">If your child reaches the home screen, the app comes straight back.</string>
-    <string name="safety_note">If anything goes wrong, restart the phone: it always starts unlocked, and the power button always works.</string>
+    <string name="relaunch_app_desc">If the home screen appears, the app returns.</string>
+    <string name="safety_note">Stuck? Hold the power button for 10 to 30 seconds (Samsung: power and volume down together) until the screen goes black. The phone restarts unlocked.</string>
 
     <!-- About -->
-    <string name="about_version">Child Lock %1$s</string>
+    <string name="about_version">Version</string>
+    <string name="about_stuck">If you get stuck</string>
+    <string name="about_stuck_body">Hold the power button for 10 to 30 seconds until the screen goes black. On Samsung phones hold power and volume down together. Every phone restarts this way, and Child Lock never survives a restart.</string>
     <string name="about_privacy_summary">Open source. No ads, no accounts, nothing leaves your phone.</string>
     <string name="about_privacy">Privacy policy</string>
     <string name="about_source">Source code</string>
     <string name="about_licence">Licence</string>
 
     <!-- Setup guide -->
-    <string name="setup_title">Two quick steps</string>
-    <string name="setup_progress">%1$d of %2$d done. Each step opens an Android setting: switch it on and come back.</string>
+    <string name="setup_title">Three quick steps</string>
+    <string name="setup_progress">%1$d of %2$d done. Each step opens an Android setting.</string>
     <string name="setup_all_done">All set. You’re ready to hand the phone over.</string>
     <string name="setup_nice">Nice to have</string>
-    <string name="setup_overlay_desc">Lets Child Lock sit on top of the video or game. Switch on “Allow display over other apps”.</string>
-    <string name="setup_guard_desc">Lets the volume buttons unlock, and keeps your child in the app. Choose “Child Lock helper”, switch it on, tap Allow.</string>
+    <string name="setup_overlay_desc">Switch on “Allow display over other apps”.</string>
+    <string name="setup_guard_desc">Choose “Child Lock helper”, switch it on, tap Allow.</string>
     <string name="setup_notifications_desc">A quiet reminder in the notifications panel while locked.</string>
     <string name="setup_tile">Lock button in Quick Settings</string>
-    <string name="setup_tile_desc">Lock with one tap from the swipe-down panel. Android will ask you to confirm.</string>
+    <string name="setup_tile_desc">Lock with one tap from the swipe-down panel.</string>
     <string name="setup_tile_manual">Swipe down twice, tap the pencil, and drag Child Lock into the panel.</string>
     <string name="setup_open">Open settings</string>
+    <string name="setup_escape_title">Know your way out</string>
+    <string name="setup_escape_ack">Got it</string>
+    <string name="setup_escape_unlock">To unlock: %1$s</string>
+    <string name="setup_escape_restart">If nothing works: %1$s</string>
+    <string name="force_restart">hold the power button for 10 to 30 seconds (Samsung: power and volume down together) until the screen goes black. The phone restarts unlocked.</string>
+    <string name="notif_unlock_setting">Notification button</string>
+    <string name="notif_unlock_setting_desc">Two taps on Unlock in the lock notification.</string>
+    <string name="help_notif_unlock">A way out for a parent whose gesture is not being recognised. The button needs two taps at least a second apart, so drumming on it does nothing, and the notification is hidden on the lock screen. While the helper keeps the notifications panel closed, nobody can reach it anyway.</string>
     <string name="setup_add">Add</string>
     <string name="setup_skip">Skip for now</string>
 </resources>

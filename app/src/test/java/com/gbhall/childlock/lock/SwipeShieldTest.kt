@@ -146,7 +146,7 @@ class SwipeShieldTest {
     fun `fingers that start in the unlock corners but swipe away never unlock`() {
         // The corner hold is the fallback in every gesture mode. Both fingers
         // begin in the right corners, then drag: leaving the zones resets it.
-        val root = root(LockSettings(holdMs = 1000))
+        val root = root(LockSettings(gesture = GestureType.CORNER_HOLD, holdMs = 1000))
         assertTrue(swipe(root, listOf(40f to 60f, 1040f to 2350f), listOf(40f to 1200f, 1040f to 1300f), steps = 30))
         assertNothingHappened(root)
     }

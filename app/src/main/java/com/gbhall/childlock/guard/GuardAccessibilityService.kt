@@ -180,12 +180,18 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         handler.removeCallbacks(tick)
         val locked = LockController.isLocked
         applyServiceFlags(locked)
-        keyGesture = when (settings.gesture) {
-            GestureType.VOLUME_SEQUENCE ->
-                VolumeSequenceGesture(settings.volumePattern, settings.volumeRepeats, ::onKeyGestureEvent)
-            GestureType.VOLUME_CHORD ->
-                if (locked) VolumeChordGesture(settings.holdMs, ::onKeyGestureEvent) else null
-            GestureType.CORNER_HOLD, GestureType.BADGE_PIN -> null
+        val parts = buildList<UnlockGesture> {
+            if (GestureType.VOLUME_SEQUENCE in settings.gestures) {
+                add(VolumeSequenceGesture(settings.volumePattern, settings.volumeRepeats, ::onKeyGestureEvent))
+            }
+            if (GestureType.VOLUME_CHORD in settings.gestures && locked) {
+                add(VolumeChordGesture(settings.holdMs, ::onKeyGestureEvent))
+            }
+        }
+        keyGesture = when (parts.size) {
+            0 -> null
+            1 -> parts[0]
+            else -> com.gbhall.childlock.gesture.CompositeGesture(parts)
         }
     }
 
@@ -198,7 +204,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         val extra = if (otherScreenReaderActive()) {
             0 // TalkBack and friends own explore-by-touch; competing breaks both.
         } else {
-            GuardPolicy.gestureBlockFlags(locked, settings.blockGestures, settings.gesture.needsGuard, Build.VERSION.SDK_INT)
+            GuardPolicy.gestureBlockFlags(locked, settings.blockGestures, settings.hasVolumeGesture, Build.VERSION.SDK_INT)
         }
         val wanted = BASE_FLAGS or extra or (if (skipAdsActive()) AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS else 0)
         val events = MANIFEST_EVENTS or (if (skipAdsActive()) AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED else 0)
@@ -217,14 +223,30 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         requestedEvents = events
     }
 
-    /** With multi-finger gestures on, a three-finger triple tap is the touch fallback to unlock. */
+    /** When the last three-finger triple tap landed, or null if none is waiting for its partner. */
+    private var lastTripleTapMs: Long? = null
+
+    /**
+     * With multi-finger gestures on, a three-finger triple tap is the touch
+     * fallback to unlock. It has to happen twice within [TRIPLE_TAP_REPEAT_MS]:
+     * one is within reach of a small hand mashing the screen, two in a row
+     * is not, and a parent who knows the trick does it without thinking.
+     */
     override fun onGesture(gestureEvent: AccessibilityGestureEvent): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
             gestureEvent.gestureId == GESTURE_3_FINGER_TRIPLE_TAP &&
             LockController.isLocked &&
+            settings.blockGestures && settings.hasVolumeGesture && // the one mode whose hint names it
             !otherScreenReaderActive()
         ) {
-            LockController.unlock()
+            val now = SystemClock.uptimeMillis()
+            val first = lastTripleTapMs
+            if (first != null && now - first <= TRIPLE_TAP_REPEAT_MS) {
+                lastTripleTapMs = null
+                LockController.unlock()
+            } else {
+                lastTripleTapMs = now
+            }
             return true
         }
         return false
@@ -572,6 +594,8 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         private const val TAG = "GuardService"
         private const val TICK_MS = 33L
         private const val WATCH_MS = 1000L
+        /** The second three-finger triple tap must land within this of the first. */
+        const val TRIPLE_TAP_REPEAT_MS = 3000L
         private const val CACHE_MS = 5 * 60 * 1000L
         private const val MAX_CACHED_PACKAGES = 200
         private const val SCAN_MS = 500L

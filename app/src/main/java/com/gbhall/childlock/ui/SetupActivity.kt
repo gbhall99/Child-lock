@@ -142,6 +142,14 @@ class SetupActivity : Activity() {
             },
             extra = if (overlay && !helper) restrictedHint else if (helper && GuardAccessibilityService.isShortcutButtonOn(this)) shortcutCallout() else null,
         )
+        list += Step(
+            getString(R.string.setup_escape_title), escapeText(), R.drawable.ic_lock_open,
+            required = true, done = repo.escapeAcknowledged, actionLabel = getString(R.string.setup_escape_ack),
+            action = {
+                repo.escapeAcknowledged = true
+                render()
+            },
+        )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
             list += Step(
@@ -156,6 +164,15 @@ class SetupActivity : Activity() {
             action = { requestTile() },
         )
         return list
+    }
+
+    /** How to unlock with the current settings, the touch backup if there is one, and the forced restart. */
+    private fun escapeText(): String {
+        val s = repo.load()
+        val unlock = (com.gbhall.childlock.settings.GestureText.unlockHint(this, s) + " " +
+            com.gbhall.childlock.settings.GestureText.fallbackHint(this, s)).trim()
+        return getString(R.string.setup_escape_unlock, unlock) + "\n\n" +
+            getString(R.string.setup_escape_restart, com.gbhall.childlock.settings.GestureText.forceRestart(this))
     }
 
     private fun shortcutCallout() = callout(getString(R.string.shortcut_button_desc), actionButton(getString(R.string.setup_open)) {
@@ -253,8 +270,9 @@ class SetupActivity : Activity() {
     companion object {
         private const val REQUEST_NOTIFICATIONS = 1
 
-        /** Required permissions still missing, so the guide should run. */
+        /** A required step is still open, so the guide should run. */
         fun isNeeded(activity: Activity): Boolean =
-            !Settings.canDrawOverlays(activity) || !GuardAccessibilityService.isEnabled(activity)
+            !Settings.canDrawOverlays(activity) || !GuardAccessibilityService.isEnabled(activity) ||
+                !SettingsRepository.get(activity).escapeAcknowledged
     }
 }

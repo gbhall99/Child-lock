@@ -266,6 +266,7 @@ class LockOverlayService : Service() {
     private var unlockArmedAt = -1L
 
     private fun onUnlockAction() {
+        if (!SettingsRepository.get(this).load().notificationUnlock) return // switched off: no way in from here
         val now = SystemClock.uptimeMillis()
         val armed = unlockArmedAt
         val elapsed = now - armed
@@ -299,8 +300,9 @@ class LockOverlayService : Service() {
             Intent(this, LockOverlayService::class.java).setAction(ACTION_UNLOCK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        return Notification.Builder(this, ChildLockApp.CHANNEL_LOCK)
-            .addAction(
+        val builder = Notification.Builder(this, ChildLockApp.CHANNEL_LOCK)
+        if (SettingsRepository.get(this).load().notificationUnlock) {
+            builder.addAction(
                 Notification.Action.Builder(
                     android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_lock_open),
                     getString(
@@ -309,6 +311,8 @@ class LockOverlayService : Service() {
                     unlock,
                 ).build(),
             )
+        }
+        return builder
             .setSmallIcon(R.drawable.ic_lock)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)

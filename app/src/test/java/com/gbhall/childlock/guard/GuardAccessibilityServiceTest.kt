@@ -252,7 +252,7 @@ class GuardAccessibilityServiceTest {
     }
 
     @Test
-    fun `three-finger triple tap unlocks as the touch fallback`() {
+    fun `three-finger triple tap done twice unlocks as the touch fallback`() {
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
         val e = android.accessibilityservice.AccessibilityGestureEvent(
@@ -260,8 +260,30 @@ class GuardAccessibilityServiceTest {
         )
         assertTrue(service.onGesture(e))
         TestSupport.idle()
-        assertEquals(LockState.Unlocked, LockController.state)
+        assertTrue("one is within a small hand's reach", LockController.isLocked)
+        TestSupport.idle(1000)
+        assertTrue(service.onGesture(e))
+        TestSupport.idle()
+        assertEquals("two in a row is the parent", LockState.Unlocked, LockController.state)
         assertFalse("nothing to unlock", service.onGesture(e))
+    }
+
+    @Test
+    fun `a three-finger triple tap left too long does not pair with the next`() {
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        val e = android.accessibilityservice.AccessibilityGestureEvent(
+            android.accessibilityservice.AccessibilityService.GESTURE_3_FINGER_TRIPLE_TAP, 0, emptyList(),
+        )
+        service.onGesture(e)
+        TestSupport.idle(GuardAccessibilityService.TRIPLE_TAP_REPEAT_MS + 500)
+        service.onGesture(e)
+        TestSupport.idle()
+        assertTrue("the first had gone stale", LockController.isLocked)
+        TestSupport.idle(500)
+        service.onGesture(e)
+        TestSupport.idle()
+        assertEquals(LockState.Unlocked, LockController.state)
     }
 
     @Test
@@ -476,5 +498,27 @@ class GuardAccessibilityServiceTest {
         TestSupport.idle()
         val block = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
         assertEquals("competing with TalkBack breaks both", 0, service.requestedFlags and block)
+    }
+
+    @Test
+    fun `volume pattern and volume chord can both be allowed`() {
+        SettingsRepository.get(TestSupport.app).update {
+            it.copy(holdMs = 1000).withGestures(setOf(GestureType.VOLUME_SEQUENCE, GestureType.VOLUME_CHORD))
+        }
+        TestSupport.idle()
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP))
+        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_DOWN))
+        TestSupport.idle(1100)
+        assertEquals("the chord unlocked", LockState.Unlocked, LockController.state)
+        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP, down = false))
+        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_DOWN, down = false))
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 5000)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 5300, HOLD)
+        TestSupport.idle()
+        assertEquals("and so does the pattern", LockState.Unlocked, LockController.state)
     }
 }

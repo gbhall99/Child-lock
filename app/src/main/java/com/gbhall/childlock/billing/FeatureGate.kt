@@ -27,9 +27,16 @@ object FeatureGate {
     private const val KEY_PRO = "pro_unlocked"
     private const val KEY_PREVIEW_FREE = "pro_preview_free"
 
+    /**
+     * Until billing exists nothing is for sale, so nothing is withheld: a
+     * paywall in front of features the app itself says are "unlocked for now"
+     * left release-style builds unable to add an auto-lock app at all. The
+     * debug-only "preview as a free user" switch is the one way to see the gate.
+     */
     fun isPro(context: Context): Boolean {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getBoolean(KEY_PREVIEW_FREE, false)) return false
+        if (!BILLING_READY) return true
         if (prefs.getBoolean(KEY_PRO, false)) return true
         return isDebuggable(context)
     }

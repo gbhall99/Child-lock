@@ -25,16 +25,16 @@ import java.io.FileOutputStream
 class ScreenshotTest {
     private val outDir: File? = System.getenv("CHILDLOCK_SHOTS")?.let(::File)?.takeIf { it.isDirectory }
 
-    private fun shoot(name: String, night: Boolean, overlay: Boolean, setup: Boolean = false) {
+    private fun shoot(name: String, night: Boolean, overlay: Boolean, setup: Boolean = false, page: SettingsActivity.Page? = null) {
         val dir = outDir ?: return
         ShadowSettings.setCanDrawOverlays(overlay)
         TestSupport.clearSettings()
         com.gbhall.childlock.settings.SettingsRepository.get(TestSupport.app).setupDismissed = true
         org.robolectric.RuntimeEnvironment.setQualifiers(if (night) "+night" else "+notnight")
-        val activity = if (setup) {
-            Robolectric.buildActivity(SetupActivity::class.java).setup().get()
-        } else {
-            Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val activity = when {
+            setup -> Robolectric.buildActivity(SetupActivity::class.java).setup().get()
+            page != null -> Robolectric.buildActivity(SettingsActivity::class.java, SettingsActivity.intent(TestSupport.app, page)).setup().get()
+            else -> Robolectric.buildActivity(MainActivity::class.java).setup().get()
         }
         val root = activity.window.decorView
         val w = 1080
@@ -77,4 +77,5 @@ class ScreenshotTest {
     @Test fun dark() = shoot("settings-dark", night = true, overlay = false)
     @Test fun setupLight() = shoot("setup-light", night = false, overlay = true, setup = true)
     @Test fun setupDark() = shoot("setup-dark", night = true, overlay = false, setup = true)
+    @Test fun pages() = SettingsActivity.Page.entries.forEach { shoot("page-${it.name.lowercase()}", night = false, overlay = true, page = it) }
 }

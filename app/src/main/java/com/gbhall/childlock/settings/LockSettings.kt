@@ -34,7 +34,12 @@ enum class GestureType {
 }
 
 data class LockSettings(
+    /** The main way to unlock: first in every hint, and the one the banner names. */
     val gesture: GestureType = GestureType.VOLUME_SEQUENCE,
+    /** Further ways to unlock allowed alongside [gesture]; any one of them works. */
+    val extraGestures: Set<GestureType> = emptySet(),
+    /** The Unlock button in the lock notification (two deliberate taps). */
+    val notificationUnlock: Boolean = true,
     /** Hold duration for corner hold and volume chord; long-press duration for the badge PIN. */
     val holdMs: Long = 1500,
     val cornerPair: CornerPair = CornerPair.TOP_LEFT_BOTTOM_RIGHT,
@@ -46,26 +51,25 @@ data class LockSettings(
     /** 1 = press the pattern once, 2 = twice in a row. */
     val volumeRepeats: Int = 1,
     val keepScreenOn: Boolean = true,
-    val armDelaySec: Int = 5,
+    val armDelaySec: Int = 10,
     val blockKeys: Boolean = true,
     val blockShade: Boolean = true,
     val relaunchApp: Boolean = true,
     /**
-     * Stop home/back swipes outright while locked. OFF, and it should stay off
-     * until the mechanism changes.
+     * Stop home, back and recents swipes outright while locked. ON: with it
+     * off, every system swipe lands and is merely undone a moment later, and
+     * on hardware that reads as a lock that does not lock.
      *
-     * It works by switching on explore-by-touch, and that mode does far more
-     * than block swipes: the system turns finger input into hover before any
-     * window sees a touch, so the shield stops swallowing anything, the child
-     * can explore the app underneath, and a double tap activates whatever they
-     * land on. It also enables multi-finger gestures, which is what makes the
-     * three-finger triple tap unlock reachable by a small hand.
-     *
-     * Reported from real use: a child reached the YouTube player controls
-     * through a locked screen, and the lock came off without the volume keys
-     * being touched. Blocking the swipes is not worth handing over the screen.
+     * It works by switching on explore-by-touch, which does more than block
+     * swipes: the system turns finger input into hover before any window sees
+     * a touch, and it enables multi-finger gestures. Two things make that
+     * safe enough to be the default. The shield consumes hover as well as
+     * touch, so nothing walks through it onto the app underneath. And the
+     * three-finger triple tap that this mode makes the touch fallback has to
+     * be done twice in quick succession, which a small hand mashing the
+     * screen does not produce by accident.
      */
-    val blockGestures: Boolean = false,
+    val blockGestures: Boolean = true,
     /** Pin the screen to whatever orientation it has when the lock engages. */
     val keepOrientation: Boolean = true,
     /** Tap "Skip ad" style buttons in the app you handed over while locked. Off by default; reads button labels. */
@@ -74,11 +78,27 @@ data class LockSettings(
     val relockSameApp: Boolean = true,
     /** Packages that arm the lock automatically, each with the moment that arms it (needs the guard). */
     val autoLockRules: Map<String, AutoLockTrigger> = emptyMap(),
-    val autoLockDelaySec: Int = 15,
+    val autoLockDelaySec: Int = 5,
     /** Hand the phone back after this many minutes. 0 means no timer. */
     val sessionMinutes: Int = 0,
 ) {
     val autoLockApps: Set<String> get() = autoLockRules.keys
+
+    /** Every allowed unlock, main one included. Never empty. */
+    val gestures: Set<GestureType> get() = extraGestures + gesture
+
+    /** A volume unlock exists, so the guard can see a way out even when touches become hover. */
+    val hasVolumeGesture: Boolean get() = gestures.any { it.needsGuard }
+
+    /** A touch unlock exists, so the lock can be left without the guard. */
+    val hasTouchGesture: Boolean get() = gestures.any { !it.needsGuard }
+
+    /** The same settings with exactly [set] allowed; the main one is the first in [GestureType] order. */
+    fun withGestures(set: Set<GestureType>): LockSettings {
+        require(set.isNotEmpty()) { "at least one way to unlock" }
+        val main = GestureType.entries.first { it in set }
+        return copy(gesture = main, extraGestures = set - main)
+    }
 
     val hasPin: Boolean get() = !pinHash.isNullOrEmpty() && !pinSalt.isNullOrEmpty() && pinLength >= MIN_PIN_LENGTH
 
@@ -104,19 +124,28 @@ class SettingsRepository private constructor(context: Context) {
         context.applicationContext.getSharedPreferences("childlock", Context.MODE_PRIVATE)
 
     init {
-        // v2 forced this off, v3 forced it back on, and v3 was wrong: with
-        // explore-by-touch on, the shield stops receiving touches at all and a
-        // child can reach the app underneath. v4 clears the key again so the
-        // default - off - applies. save() writes the key on every settings
-        // change, so a deliberate choice cannot be told from a forced one;
-        // anyone who wants this on will have to turn it on again.
-        if (prefs.getInt(KEY_VERSION, 0) < 4) {
-            prefs.edit().remove(KEY_BLOCK_GESTURES).putInt(KEY_VERSION, 4).apply()
+        // The swipe-blocking default has flipped more than once: v2 off, v3
+        // on, v4 off again after a child reached the app underneath, and now
+        // v5 on, once the shield consumed hover and the three-finger fallback
+        // needed repeating. save() writes the key on every settings change, so
+        // a deliberate choice cannot be told from a forced one; each flip
+        // clears the key so the new default applies, and anyone who wants the
+        // other setting turns it back by hand.
+        if (prefs.getInt(KEY_VERSION, 0) < 5) {
+            prefs.edit().remove(KEY_BLOCK_GESTURES).putInt(KEY_VERSION, 5).apply()
+        }
+        // v6: the lock button waits 10 s and auto-lock 5 s. save() had written the
+        // old defaults for everyone, so clear them and let the new ones apply.
+        if (prefs.getInt(KEY_VERSION, 0) < 6) {
+            prefs.edit().remove(KEY_ARM_DELAY).remove(KEY_AUTO_LOCK_DELAY).putInt(KEY_VERSION, 6).apply()
         }
     }
 
     fun load(): LockSettings = LockSettings(
         gesture = prefs.enum(KEY_GESTURE, GestureType.VOLUME_SEQUENCE),
+        extraGestures = (prefs.getStringSet(KEY_EXTRA_GESTURES, emptySet()) ?: emptySet())
+            .mapNotNull { name -> GestureType.entries.firstOrNull { it.name == name } }.toSet() -
+            prefs.enum(KEY_GESTURE, GestureType.VOLUME_SEQUENCE),
         holdMs = prefs.getLong(KEY_HOLD_MS, 1500).coerceIn(LockSettings.MIN_HOLD_MS, LockSettings.MAX_HOLD_MS),
         cornerPair = prefs.enum(KEY_CORNER_PAIR, CornerPair.TOP_LEFT_BOTTOM_RIGHT),
         badgeCorner = prefs.enum(KEY_BADGE_CORNER, Corner.TOP_LEFT),
@@ -125,12 +154,13 @@ class SettingsRepository private constructor(context: Context) {
         pinLength = prefs.getInt(KEY_PIN_LENGTH, 0),
         volumePattern = prefs.enum(KEY_VOLUME_PATTERN, VolumePattern.UP_THEN_DOWN),
         volumeRepeats = prefs.getInt(KEY_VOLUME_REPEATS, 1).coerceIn(1, 3),
+        notificationUnlock = prefs.getBoolean(KEY_NOTIFICATION_UNLOCK, true),
         keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
-        armDelaySec = prefs.getInt(KEY_ARM_DELAY, 5).coerceIn(LockSettings.MIN_ARM_DELAY_SEC, LockSettings.MAX_ARM_DELAY_SEC),
+        armDelaySec = prefs.getInt(KEY_ARM_DELAY, 10).coerceIn(LockSettings.MIN_ARM_DELAY_SEC, LockSettings.MAX_ARM_DELAY_SEC),
         blockKeys = prefs.getBoolean(KEY_BLOCK_KEYS, true),
         blockShade = prefs.getBoolean(KEY_BLOCK_SHADE, true),
         relaunchApp = prefs.getBoolean(KEY_RELAUNCH, true),
-        blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, false),
+        blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, true),
         keepOrientation = prefs.getBoolean(KEY_KEEP_ORIENTATION, true),
         skipAds = prefs.getBoolean(KEY_SKIP_ADS, false),
         relockSameApp = prefs.getBoolean(KEY_RELOCK, true),
@@ -140,13 +170,14 @@ class SettingsRepository private constructor(context: Context) {
             val trigger = AutoLockTrigger.entries.firstOrNull { it.name == entry.substring(i + 1) } ?: return@mapNotNull null
             entry.substring(0, i) to trigger
         }.toMap(),
-        autoLockDelaySec = prefs.getInt(KEY_AUTO_LOCK_DELAY, 15).coerceIn(LockSettings.MIN_AUTO_LOCK_DELAY_SEC, LockSettings.MAX_AUTO_LOCK_DELAY_SEC),
+        autoLockDelaySec = prefs.getInt(KEY_AUTO_LOCK_DELAY, 5).coerceIn(LockSettings.MIN_AUTO_LOCK_DELAY_SEC, LockSettings.MAX_AUTO_LOCK_DELAY_SEC),
         sessionMinutes = prefs.getInt(KEY_SESSION_MIN, 0).coerceIn(0, LockSettings.MAX_SESSION_MINUTES),
     )
 
     fun save(s: LockSettings) {
         prefs.edit()
             .putString(KEY_GESTURE, s.gesture.name)
+            .putStringSet(KEY_EXTRA_GESTURES, s.extraGestures.map { it.name }.toSet())
             .putLong(KEY_HOLD_MS, s.holdMs)
             .putString(KEY_CORNER_PAIR, s.cornerPair.name)
             .putString(KEY_BADGE_CORNER, s.badgeCorner.name)
@@ -155,6 +186,7 @@ class SettingsRepository private constructor(context: Context) {
             .putInt(KEY_PIN_LENGTH, s.pinLength)
             .putString(KEY_VOLUME_PATTERN, s.volumePattern.name)
             .putInt(KEY_VOLUME_REPEATS, s.volumeRepeats)
+            .putBoolean(KEY_NOTIFICATION_UNLOCK, s.notificationUnlock)
             .putBoolean(KEY_KEEP_SCREEN_ON, s.keepScreenOn)
             .putInt(KEY_ARM_DELAY, s.armDelaySec)
             .putBoolean(KEY_BLOCK_KEYS, s.blockKeys)
@@ -181,6 +213,11 @@ class SettingsRepository private constructor(context: Context) {
         get() = prefs.getBoolean(KEY_SETUP_DISMISSED, false)
         set(v) = prefs.edit().putBoolean(KEY_SETUP_DISMISSED, v).apply()
 
+    /** The parent has read how to unlock and how to force a restart. */
+    var escapeAcknowledged: Boolean
+        get() = prefs.getBoolean(KEY_ESCAPE_ACKNOWLEDGED, false)
+        set(v) = prefs.edit().putBoolean(KEY_ESCAPE_ACKNOWLEDGED, v).apply()
+
     var overlayAttempted: Boolean
         get() = prefs.getBoolean(KEY_OVERLAY_ATTEMPTED, false)
         set(v) = prefs.edit().putBoolean(KEY_OVERLAY_ATTEMPTED, v).apply()
@@ -199,6 +236,7 @@ class SettingsRepository private constructor(context: Context) {
 
     companion object {
         private const val KEY_GESTURE = "gesture"
+        private const val KEY_EXTRA_GESTURES = "extra_gestures"
         private const val KEY_HOLD_MS = "hold_ms"
         private const val KEY_CORNER_PAIR = "corner_pair"
         private const val KEY_BADGE_CORNER = "badge_corner"
@@ -207,6 +245,7 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_PIN_LENGTH = "pin_length"
         private const val KEY_VOLUME_PATTERN = "volume_pattern"
         private const val KEY_VOLUME_REPEATS = "volume_repeats"
+        private const val KEY_NOTIFICATION_UNLOCK = "notification_unlock"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_ARM_DELAY = "arm_delay_sec"
         private const val KEY_BLOCK_KEYS = "block_keys"
@@ -222,6 +261,7 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_SESSION_MIN = "session_minutes"
         private const val KEY_TILE_ADDED = "tile_added"
         private const val KEY_SETUP_DISMISSED = "setup_dismissed"
+        private const val KEY_ESCAPE_ACKNOWLEDGED = "escape_acknowledged"
         private const val KEY_OVERLAY_ATTEMPTED = "overlay_attempted"
 
         @Volatile private var instance: SettingsRepository? = null

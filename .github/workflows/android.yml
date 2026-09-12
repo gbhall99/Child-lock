@@ -46,6 +46,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -83,3 +85,10 @@ jobs:
         with:
           name: childlock-play-release-bundle
           path: app/build/outputs/bundle/playRelease/app-play-release.aab
+
+      # The same bundle on the Releases page, so it can be fetched without the
+      # Actions UI. The release body is filled in by hand in Play Console anyway.
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/bundle/playRelease/app-play-release.aab
+          generate_release_notes: true
