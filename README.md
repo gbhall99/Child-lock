@@ -95,7 +95,7 @@ rocker.
 **Other ways to lock:** pull down Quick Settings and tap *Child Lock* (locks
 about two seconds later, so you can close the shade), or open the app and tap
 the lock button, which returns you to the previous app and locks after the
-arm delay (5 s by default).
+arm delay (10 s by default).
 
 **Auto-lock.** Choose apps and the moment that should lock them: when a
 video call connects (WhatsApp, Meet, Teams and the like; a voice call is a
@@ -121,7 +121,7 @@ the only thing that would make Child Lock read screen content. Build
 store. Skip ads is off by default and is the one feature that reads anything
 on screen: button labels, in that one app, while locked. The automatic
 features are Child Lock Pro; the lock, the volume buttons and every safety
-feature are free. A countdown (15 s by default) follows;
+feature are free. A countdown (5 s by default) follows;
 switching away or pressing the volume pattern cancels it. After you unlock,
 it will not re-arm for that app until you have left it and come back. Needs
 the accessibility guard.
@@ -165,7 +165,7 @@ blocking uses Android's touch-exploration mode while locked, the same switch
 screen readers use, which is why it only combines with the volume gestures:
 in that mode the screen no longer receives real touches, so a three-finger
 triple tap, done twice within a few seconds, is the touch fallback to unlock.
-"Block home and back swipes", under the "Keep them inside" tile, switches it off.
+"Block swipes", under the Blocking tile, switches it off.
 
 ## Compatibility
 

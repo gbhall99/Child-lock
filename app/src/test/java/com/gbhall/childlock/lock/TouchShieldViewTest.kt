@@ -131,4 +131,27 @@ class TouchShieldViewTest {
         val bitmap = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
         v.draw(android.graphics.Canvas(bitmap))
     }
+
+    @Test
+    fun `with PIN and corners both allowed, either one works`() {
+        val settings = LockSettings(holdMs = 800, pinHash = "x", pinSalt = "y", pinLength = 4)
+            .withGestures(setOf(GestureType.BADGE_PIN, GestureType.CORNER_HOLD))
+        val (v, host) = shield(settings)
+        val r = v.badgeRect
+        v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, r.centerX() to r.centerY()))
+        idle(900)
+        assertEquals(1, host.pinPads)
+        v.onTouchEvent(motion(MotionEvent.ACTION_UP, r.centerX() to r.centerY()))
+        v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, 40f to 60f, 1040f to 2350f))
+        idle(900)
+        assertEquals(1, host.unlocks)
+    }
+
+    @Test
+    fun `PIN alone leaves no corner hold to stumble into`() {
+        val (v, host) = shield(LockSettings(gesture = GestureType.BADGE_PIN, holdMs = 800, pinHash = "x", pinSalt = "y", pinLength = 4))
+        v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, 40f to 60f, 1040f to 2350f))
+        idle(2000)
+        assertEquals(0, host.unlocks)
+    }
 }

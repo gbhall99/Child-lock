@@ -34,7 +34,10 @@ enum class GestureType {
 }
 
 data class LockSettings(
+    /** The main way to unlock: first in every hint, and the one the banner names. */
     val gesture: GestureType = GestureType.VOLUME_SEQUENCE,
+    /** Further ways to unlock allowed alongside [gesture]; any one of them works. */
+    val extraGestures: Set<GestureType> = emptySet(),
     /** Hold duration for corner hold and volume chord; long-press duration for the badge PIN. */
     val holdMs: Long = 1500,
     val cornerPair: CornerPair = CornerPair.TOP_LEFT_BOTTOM_RIGHT,
@@ -46,7 +49,7 @@ data class LockSettings(
     /** 1 = press the pattern once, 2 = twice in a row. */
     val volumeRepeats: Int = 1,
     val keepScreenOn: Boolean = true,
-    val armDelaySec: Int = 5,
+    val armDelaySec: Int = 10,
     val blockKeys: Boolean = true,
     val blockShade: Boolean = true,
     val relaunchApp: Boolean = true,
@@ -73,11 +76,27 @@ data class LockSettings(
     val relockSameApp: Boolean = true,
     /** Packages that arm the lock automatically, each with the moment that arms it (needs the guard). */
     val autoLockRules: Map<String, AutoLockTrigger> = emptyMap(),
-    val autoLockDelaySec: Int = 15,
+    val autoLockDelaySec: Int = 5,
     /** Hand the phone back after this many minutes. 0 means no timer. */
     val sessionMinutes: Int = 0,
 ) {
     val autoLockApps: Set<String> get() = autoLockRules.keys
+
+    /** Every allowed unlock, main one included. Never empty. */
+    val gestures: Set<GestureType> get() = extraGestures + gesture
+
+    /** A volume unlock exists, so the guard can see a way out even when touches become hover. */
+    val hasVolumeGesture: Boolean get() = gestures.any { it.needsGuard }
+
+    /** A touch unlock exists, so the lock can be left without the guard. */
+    val hasTouchGesture: Boolean get() = gestures.any { !it.needsGuard }
+
+    /** The same settings with exactly [set] allowed; the main one is the first in [GestureType] order. */
+    fun withGestures(set: Set<GestureType>): LockSettings {
+        require(set.isNotEmpty()) { "at least one way to unlock" }
+        val main = GestureType.entries.first { it in set }
+        return copy(gesture = main, extraGestures = set - main)
+    }
 
     val hasPin: Boolean get() = !pinHash.isNullOrEmpty() && !pinSalt.isNullOrEmpty() && pinLength >= MIN_PIN_LENGTH
 
@@ -113,10 +132,18 @@ class SettingsRepository private constructor(context: Context) {
         if (prefs.getInt(KEY_VERSION, 0) < 5) {
             prefs.edit().remove(KEY_BLOCK_GESTURES).putInt(KEY_VERSION, 5).apply()
         }
+        // v6: the lock button waits 10 s and auto-lock 5 s. save() had written the
+        // old defaults for everyone, so clear them and let the new ones apply.
+        if (prefs.getInt(KEY_VERSION, 0) < 6) {
+            prefs.edit().remove(KEY_ARM_DELAY).remove(KEY_AUTO_LOCK_DELAY).putInt(KEY_VERSION, 6).apply()
+        }
     }
 
     fun load(): LockSettings = LockSettings(
         gesture = prefs.enum(KEY_GESTURE, GestureType.VOLUME_SEQUENCE),
+        extraGestures = (prefs.getStringSet(KEY_EXTRA_GESTURES, emptySet()) ?: emptySet())
+            .mapNotNull { name -> GestureType.entries.firstOrNull { it.name == name } }.toSet() -
+            prefs.enum(KEY_GESTURE, GestureType.VOLUME_SEQUENCE),
         holdMs = prefs.getLong(KEY_HOLD_MS, 1500).coerceIn(LockSettings.MIN_HOLD_MS, LockSettings.MAX_HOLD_MS),
         cornerPair = prefs.enum(KEY_CORNER_PAIR, CornerPair.TOP_LEFT_BOTTOM_RIGHT),
         badgeCorner = prefs.enum(KEY_BADGE_CORNER, Corner.TOP_LEFT),
@@ -126,7 +153,7 @@ class SettingsRepository private constructor(context: Context) {
         volumePattern = prefs.enum(KEY_VOLUME_PATTERN, VolumePattern.UP_THEN_DOWN),
         volumeRepeats = prefs.getInt(KEY_VOLUME_REPEATS, 1).coerceIn(1, 3),
         keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
-        armDelaySec = prefs.getInt(KEY_ARM_DELAY, 5).coerceIn(LockSettings.MIN_ARM_DELAY_SEC, LockSettings.MAX_ARM_DELAY_SEC),
+        armDelaySec = prefs.getInt(KEY_ARM_DELAY, 10).coerceIn(LockSettings.MIN_ARM_DELAY_SEC, LockSettings.MAX_ARM_DELAY_SEC),
         blockKeys = prefs.getBoolean(KEY_BLOCK_KEYS, true),
         blockShade = prefs.getBoolean(KEY_BLOCK_SHADE, true),
         relaunchApp = prefs.getBoolean(KEY_RELAUNCH, true),
@@ -140,13 +167,14 @@ class SettingsRepository private constructor(context: Context) {
             val trigger = AutoLockTrigger.entries.firstOrNull { it.name == entry.substring(i + 1) } ?: return@mapNotNull null
             entry.substring(0, i) to trigger
         }.toMap(),
-        autoLockDelaySec = prefs.getInt(KEY_AUTO_LOCK_DELAY, 15).coerceIn(LockSettings.MIN_AUTO_LOCK_DELAY_SEC, LockSettings.MAX_AUTO_LOCK_DELAY_SEC),
+        autoLockDelaySec = prefs.getInt(KEY_AUTO_LOCK_DELAY, 5).coerceIn(LockSettings.MIN_AUTO_LOCK_DELAY_SEC, LockSettings.MAX_AUTO_LOCK_DELAY_SEC),
         sessionMinutes = prefs.getInt(KEY_SESSION_MIN, 0).coerceIn(0, LockSettings.MAX_SESSION_MINUTES),
     )
 
     fun save(s: LockSettings) {
         prefs.edit()
             .putString(KEY_GESTURE, s.gesture.name)
+            .putStringSet(KEY_EXTRA_GESTURES, s.extraGestures.map { it.name }.toSet())
             .putLong(KEY_HOLD_MS, s.holdMs)
             .putString(KEY_CORNER_PAIR, s.cornerPair.name)
             .putString(KEY_BADGE_CORNER, s.badgeCorner.name)
@@ -199,6 +227,7 @@ class SettingsRepository private constructor(context: Context) {
 
     companion object {
         private const val KEY_GESTURE = "gesture"
+        private const val KEY_EXTRA_GESTURES = "extra_gestures"
         private const val KEY_HOLD_MS = "hold_ms"
         private const val KEY_CORNER_PAIR = "corner_pair"
         private const val KEY_BADGE_CORNER = "badge_corner"

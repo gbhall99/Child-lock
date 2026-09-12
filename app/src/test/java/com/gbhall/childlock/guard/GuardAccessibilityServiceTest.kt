@@ -499,4 +499,26 @@ class GuardAccessibilityServiceTest {
         val block = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
         assertEquals("competing with TalkBack breaks both", 0, service.requestedFlags and block)
     }
+
+    @Test
+    fun `volume pattern and volume chord can both be allowed`() {
+        SettingsRepository.get(TestSupport.app).update {
+            it.copy(holdMs = 1000).withGestures(setOf(GestureType.VOLUME_SEQUENCE, GestureType.VOLUME_CHORD))
+        }
+        TestSupport.idle()
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP))
+        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_DOWN))
+        TestSupport.idle(1100)
+        assertEquals("the chord unlocked", LockState.Unlocked, LockController.state)
+        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP, down = false))
+        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_DOWN, down = false))
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        tap(KeyEvent.KEYCODE_VOLUME_UP, 5000)
+        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 5300, HOLD)
+        TestSupport.idle()
+        assertEquals("and so does the pattern", LockState.Unlocked, LockController.state)
+    }
 }

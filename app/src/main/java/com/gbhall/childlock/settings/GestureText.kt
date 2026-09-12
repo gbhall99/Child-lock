@@ -13,15 +13,26 @@ object GestureText {
         return if (s.volumeRepeats >= 2) context.getString(R.string.pattern_twice, base) else base
     }
 
-    fun unlockHint(context: Context, s: LockSettings): String = when (s.gesture) {
+    /** The allowed unlocks in a fixed, sensible order. */
+    fun ordered(s: LockSettings): List<GestureType> = GestureType.entries.filter { it in s.gestures }
+
+    private fun hint(context: Context, s: LockSettings, g: GestureType): String = when (g) {
         GestureType.VOLUME_SEQUENCE -> context.getString(R.string.hint_volume_sequence, patternWords(context, s))
         GestureType.CORNER_HOLD -> context.getString(R.string.hint_corner_hold)
         GestureType.BADGE_PIN -> context.getString(R.string.hint_badge_pin)
         GestureType.VOLUME_CHORD -> context.getString(R.string.hint_volume_chord)
     }
 
+    /** Every allowed unlock, the main one first, the rest each introduced with "Or". */
+    fun unlockHint(context: Context, s: LockSettings): String =
+        ordered(s).mapIndexed { i, g ->
+            val h = hint(context, s, g)
+            if (i == 0) h else context.getString(R.string.hint_or, h.replaceFirstChar { it.lowercase() })
+        }.joinToString(" ")
+
     /**
-     * The unlock that still works when the main one does not.
+     * The unlock that still works when the main one does not, or empty when
+     * the allowed unlocks already cover it.
      *
      * Blocking swipes uses the same mode a screen reader uses, and in that
      * mode the screen sends hover, not touches, so the corner hold cannot
@@ -31,18 +42,24 @@ object GestureText {
     fun fallbackHint(context: Context, s: LockSettings): String {
         // Mirrors GuardPolicy.gestureBlockFlags: explore-by-touch is only ever
         // requested on API 30+, so below that the corner hold still works.
-        val exploring = s.gesture.needsGuard && s.blockGestures &&
+        val exploring = s.hasVolumeGesture && s.blockGestures &&
             android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
-        return context.getString(if (exploring) R.string.fallback_three_finger else R.string.fallback_corners)
+        return when {
+            exploring -> context.getString(R.string.fallback_three_finger)
+            GestureType.CORNER_HOLD in s.gestures -> ""
+            else -> context.getString(R.string.fallback_corners)
+        }
     }
 
-    /** The chosen unlock, as a short label for the home screen tile. */
-    fun gestureName(context: Context, s: LockSettings): String = when (s.gesture) {
+    private fun name(context: Context, s: LockSettings, g: GestureType): String = when (g) {
         GestureType.VOLUME_SEQUENCE -> context.getString(R.string.gesture_name_sequence, patternWords(context, s))
         GestureType.CORNER_HOLD -> context.getString(R.string.gesture_name_corners)
         GestureType.BADGE_PIN -> context.getString(R.string.gesture_name_pin)
         GestureType.VOLUME_CHORD -> context.getString(R.string.gesture_name_chord)
     }
+
+    /** The allowed unlocks as a short label for the home screen tile. */
+    fun gestureName(context: Context, s: LockSettings): String = ordered(s).joinToString(" \u00b7 ") { name(context, s, it) }
 
     /** One short line for the ON banner: how to get out again. */
     fun unlockShort(context: Context, s: LockSettings): String = when (s.gesture) {
@@ -52,8 +69,10 @@ object GestureText {
         GestureType.VOLUME_CHORD -> context.getString(R.string.banner_on_detail_chord)
     }
 
-    fun lockHint(context: Context, s: LockSettings): String = when (s.gesture) {
-        GestureType.VOLUME_SEQUENCE -> context.getString(R.string.lock_hint_volume_sequence, patternWords(context, s))
-        else -> context.getString(R.string.lock_hint_other)
-    }
+    fun lockHint(context: Context, s: LockSettings): String =
+        if (GestureType.VOLUME_SEQUENCE in s.gestures) {
+            context.getString(R.string.lock_hint_volume_sequence, patternWords(context, s))
+        } else {
+            context.getString(R.string.lock_hint_other)
+        }
 }

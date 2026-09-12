@@ -33,7 +33,9 @@ class SettingsRepositoryTest {
         assertEquals(Corner.TOP_LEFT, s.badgeCorner)
         assertFalse(s.hasPin)
         assertTrue(s.keepScreenOn)
-        assertEquals(5, s.armDelaySec)
+        assertEquals(10, s.armDelaySec)
+        assertEquals(5, s.autoLockDelaySec)
+        assertEquals(setOf(GestureType.VOLUME_SEQUENCE), s.gestures)
         assertTrue(s.blockKeys && s.blockShade && s.relaunchApp)
     }
 
@@ -95,7 +97,7 @@ class SettingsRepositoryTest {
     fun `the migration does not fire twice`() {
         val prefs = TestSupport.app.getSharedPreferences("childlock", 0)
         repo.update { it.copy(blockGestures = false) }
-        assertEquals(5, prefs.getInt("settings_version", 0))
+        assertEquals(6, prefs.getInt("settings_version", 0))
         SettingsRepository.resetForTests()
         assertFalse("a settled choice must survive every later start", SettingsRepository.get(TestSupport.app).load().blockGestures)
     }
@@ -104,5 +106,35 @@ class SettingsRepositoryTest {
     fun `three repeats survive a round trip`() {
         repo.update { it.copy(volumeRepeats = 3) }
         assertEquals(3, repo.load().volumeRepeats)
+    }
+
+    @Test
+    fun `the version 6 migration hands everyone the new countdowns, then keeps their choice`() {
+        val prefs = TestSupport.app.getSharedPreferences("childlock", 0)
+        prefs.edit().putInt("arm_delay_sec", 5).putInt("auto_lock_delay_sec", 15).putInt("settings_version", 5).commit()
+        SettingsRepository.resetForTests()
+        val s = SettingsRepository.get(TestSupport.app).load()
+        assertEquals(10, s.armDelaySec)
+        assertEquals(5, s.autoLockDelaySec)
+        SettingsRepository.get(TestSupport.app).update { it.copy(armDelaySec = 4, autoLockDelaySec = 20) }
+        SettingsRepository.resetForTests()
+        assertEquals(4, SettingsRepository.get(TestSupport.app).load().armDelaySec)
+        assertEquals(20, SettingsRepository.get(TestSupport.app).load().autoLockDelaySec)
+    }
+
+    @Test
+    fun `several ways to unlock survive a round trip, with the main one first`() {
+        repo.save(LockSettings().withGestures(setOf(GestureType.BADGE_PIN, GestureType.VOLUME_CHORD, GestureType.CORNER_HOLD)))
+        val s = repo.load()
+        assertEquals(setOf(GestureType.BADGE_PIN, GestureType.VOLUME_CHORD, GestureType.CORNER_HOLD), s.gestures)
+        assertEquals("first in the fixed order is the main one", GestureType.CORNER_HOLD, s.gesture)
+        assertEquals(setOf(GestureType.BADGE_PIN, GestureType.VOLUME_CHORD), s.extraGestures)
+        assertTrue(s.hasVolumeGesture)
+        assertTrue(s.hasTouchGesture)
+        // The main one is never also listed as an extra, even if the stored set says so.
+        val prefs = TestSupport.app.getSharedPreferences("childlock", 0)
+        prefs.edit().putString("gesture", "VOLUME_SEQUENCE").putStringSet("extra_gestures", setOf("VOLUME_SEQUENCE", "BADGE_PIN")).commit()
+        SettingsRepository.resetForTests()
+        assertEquals(setOf(GestureType.BADGE_PIN), SettingsRepository.get(TestSupport.app).load().extraGestures)
     }
 }

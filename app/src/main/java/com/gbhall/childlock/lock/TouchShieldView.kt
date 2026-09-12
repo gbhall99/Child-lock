@@ -73,12 +73,18 @@ class TouchShieldView(
     private var disposed = false
     private val handler = Handler(Looper.getMainLooper())
 
-    /** Corner hold is always available as a safety fallback, even in volume-chord mode. */
-    private val gesture: UnlockGesture = when (settings.gesture) {
-        GestureType.BADGE_PIN -> BadgePinGesture(settings.holdMs, this)
-        GestureType.CORNER_HOLD, GestureType.VOLUME_CHORD, GestureType.VOLUME_SEQUENCE ->
+    private val badgeGesture: BadgePinGesture? =
+        if (GestureType.BADGE_PIN in settings.gestures) BadgePinGesture(settings.holdMs, this) else null
+
+    /** Corner hold when chosen, and always as the safety fallback when only volume unlocks are allowed. */
+    private val cornerGesture: CornerHoldGesture? =
+        if (GestureType.CORNER_HOLD in settings.gestures || !settings.hasTouchGesture) {
             CornerHoldGesture(settings.holdMs, settings.cornerPair, this)
-    }
+        } else {
+            null
+        }
+
+    private val gesture: UnlockGesture = com.gbhall.childlock.gesture.CompositeGesture(listOfNotNull(badgeGesture, cornerGesture))
 
     private val tick = object : Runnable {
         override fun run() {
@@ -158,7 +164,7 @@ class TouchShieldView(
             Corner.BOTTOM_RIGHT -> right to bottom
         }
         badgeRect.set(x, y, x + d, y + d)
-        (gesture as? BadgePinGesture)?.let {
+        badgeGesture?.let {
             val slop = BADGE_SLOP_DP * density
             it.setBadgeBounds(badgeRect.left - slop, badgeRect.top - slop, badgeRect.right + slop, badgeRect.bottom + slop)
         }

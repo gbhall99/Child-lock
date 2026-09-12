@@ -100,34 +100,35 @@ class SettingsActivity : Activity() {
 
     // ---- Unlock -------------------------------------------------------------
 
+    private val gestureRows = LinkedHashMap<GestureType, LinearLayout>()
+
     private fun LinearLayout.unlockPage(s: LockSettings) {
         addView(
             card(null) {
-                val gestures = GestureType.entries
-                gestureGroup = radioGroup(
-                    listOf(
-                        getString(R.string.gesture_volume_sequence) to getString(R.string.gesture_volume_sequence_desc),
-                        getString(R.string.gesture_corner_hold) to getString(R.string.gesture_corner_hold_desc),
-                        getString(R.string.gesture_badge_pin) to getString(R.string.gesture_badge_pin_desc),
-                        getString(R.string.gesture_volume_chord) to getString(R.string.gesture_volume_chord_desc),
-                    ),
-                    gestures.indexOf(s.gesture),
-                ) { index ->
-                    repo.update { it.copy(gesture = gestures[index]) }
-                    renderGestureDependents(repo.load())
+                val titles = mapOf(
+                    GestureType.VOLUME_SEQUENCE to (R.string.gesture_volume_sequence to R.string.gesture_volume_sequence_desc),
+                    GestureType.CORNER_HOLD to (R.string.gesture_corner_hold to R.string.gesture_corner_hold_desc),
+                    GestureType.BADGE_PIN to (R.string.gesture_badge_pin to R.string.gesture_badge_pin_desc),
+                    GestureType.VOLUME_CHORD to (R.string.gesture_volume_chord to R.string.gesture_volume_chord_desc),
+                )
+                for (g in GestureType.entries) {
+                    val (title, desc) = titles.getValue(g)
+                    val r = switchRow(getString(title), getString(desc), g in s.gestures) { on -> setGesture(g, on) }
+                    gestureRows[g] = r
+                    addView(r)
                 }
-                addView(gestureGroup)
-                // Only the recommended option shows until "Other ways" is opened, unless another is already chosen.
-                val showAll = s.gesture != GestureType.VOLUME_SEQUENCE
-                for (i in 1 until gestureGroup.childCount) gestureGroup.getChildAt(i).visibility = if (showAll) View.VISIBLE else View.GONE
+                // Only the recommended way shows until "More ways" is opened, unless another is already allowed.
+                val showAll = s.gestures != setOf(GestureType.VOLUME_SEQUENCE)
+                val others = gestureRows.filterKeys { it != GestureType.VOLUME_SEQUENCE }.values
+                others.forEach { it.visibility = if (showAll) View.VISIBLE else View.GONE }
                 if (!showAll) {
-                    lateinit var otherWays: View
-                    otherWays = actionButton(getString(R.string.section_other_unlock)) {
-                        for (i in 1 until gestureGroup.childCount) gestureGroup.getChildAt(i).visibility = View.VISIBLE
+                    lateinit var moreWays: View
+                    moreWays = actionButton(getString(R.string.section_other_unlock)) {
+                        others.forEach { it.visibility = View.VISIBLE }
                         // The button, not the card it sits in: inside this lambda "this" is the card.
-                        (otherWays.parent as? ViewGroup)?.removeView(otherWays)
+                        (moreWays.parent as? ViewGroup)?.removeView(moreWays)
                     }
-                    addView(otherWays, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4); marginStart = dp(10) })
+                    addView(moreWays, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4); marginStart = dp(10) })
                 }
 
                 sequenceSection = vertical {
@@ -186,13 +187,25 @@ class SettingsActivity : Activity() {
         )
     }
 
+    /** Allows or disallows one way to unlock. The last one cannot be switched off. */
+    private fun setGesture(g: GestureType, on: Boolean) {
+        val current = repo.load()
+        val set = if (on) current.gestures + g else current.gestures - g
+        if (set.isEmpty()) {
+            toast(R.string.toast_keep_one_unlock)
+            gestureRows[g]?.switchView()?.isChecked = true
+            return
+        }
+        repo.save(current.withGestures(set))
+        renderGestureDependents(repo.load())
+    }
+
     private fun renderGestureDependents(s: LockSettings) {
-        val isSequence = s.gesture == GestureType.VOLUME_SEQUENCE
-        val isPin = s.gesture == GestureType.BADGE_PIN
-        sequenceSection.visibility = if (isSequence) View.VISIBLE else View.GONE
-        holdSection.visibility = if (isSequence) View.GONE else View.VISIBLE
-        cornerPairSection.visibility = if (isPin || isSequence) View.GONE else View.VISIBLE
-        pinSection.visibility = if (isPin) View.VISIBLE else View.GONE
+        val g = s.gestures
+        sequenceSection.visibility = if (GestureType.VOLUME_SEQUENCE in g) View.VISIBLE else View.GONE
+        holdSection.visibility = if (GestureType.CORNER_HOLD in g || GestureType.VOLUME_CHORD in g || GestureType.BADGE_PIN in g) View.VISIBLE else View.GONE
+        cornerPairSection.visibility = if (GestureType.CORNER_HOLD in g) View.VISIBLE else View.GONE
+        pinSection.visibility = if (GestureType.BADGE_PIN in g) View.VISIBLE else View.GONE
         pinChip.removeAllViews()
         pinChip.addView(
             chip(
@@ -213,7 +226,7 @@ class SettingsActivity : Activity() {
             toast(R.string.toast_no_overlay_permission)
             return
         }
-        if (s.gesture == GestureType.BADGE_PIN && !s.hasPin) {
+        if (s.gestures == setOf(GestureType.BADGE_PIN) && !s.hasPin) {
             toast(R.string.toast_need_pin)
             return
         }
@@ -250,7 +263,7 @@ class SettingsActivity : Activity() {
     private fun LinearLayout.autoLockPage(s: LockSettings) {
         addView(
             card(null) {
-                addView(body(getString(R.string.autolock_desc), secondary = true))
+                addView(row(getString(R.string.section_autolock), getString(R.string.autolock_desc), help = getString(R.string.help_autolock)))
                 autoLockList = vertical { setPadding(0, dp(6), 0, 0) }
                 addView(autoLockList)
                 addView(actionButton(getString(R.string.autolock_add)) {
@@ -272,11 +285,11 @@ class SettingsActivity : Activity() {
                         format = { "$it s" },
                     ) { sec -> repo.update { it.copy(autoLockDelaySec = sec) } },
                 )
-                addView(switchRow(getString(R.string.relock_title), getString(R.string.relock_desc), s.relockSameApp) { v ->
+                addView(switchRow(getString(R.string.relock_title), getString(R.string.relock_desc), s.relockSameApp, help = getString(R.string.help_relock)) { v ->
                     Paywall.require(this@SettingsActivity, FeatureGate.Feature.RELOCK) { repo.update { it.copy(relockSameApp = v) } }
                 })
                 if (com.gbhall.childlock.guard.SkipAdFeature.AVAILABLE) {
-                    addView(switchRow(getString(R.string.skip_ads_title), getString(R.string.skip_ads_desc), s.skipAds) { v ->
+                    addView(switchRow(getString(R.string.skip_ads_title), getString(R.string.skip_ads_desc), s.skipAds, help = getString(R.string.help_skip_ads)) { v ->
                         Paywall.require(this@SettingsActivity, FeatureGate.Feature.SKIP_ADS) { repo.update { it.copy(skipAds = v) } }
                     })
                 }
@@ -327,7 +340,7 @@ class SettingsActivity : Activity() {
         addView(
             card(null) {
                 addView(body(getString(R.string.keep_inside_desc), secondary = true).apply { setPadding(0, 0, 0, dp(6)) })
-                addView(switchRow(getString(R.string.block_gestures), getString(R.string.block_gestures_desc), s.blockGestures) { v -> repo.update { it.copy(blockGestures = v) } })
+                addView(switchRow(getString(R.string.block_gestures), getString(R.string.block_gestures_desc), s.blockGestures, help = getString(R.string.help_block_gestures)) { v -> repo.update { it.copy(blockGestures = v) } })
                 addView(switchRow(getString(R.string.block_keys), getString(R.string.block_keys_desc), s.blockKeys) { v -> repo.update { it.copy(blockKeys = v) } })
                 addView(switchRow(getString(R.string.block_shade), getString(R.string.block_shade_desc), s.blockShade) { v -> repo.update { it.copy(blockShade = v) } })
                 addView(switchRow(getString(R.string.relaunch_app), getString(R.string.relaunch_app_desc), s.relaunchApp) { v -> repo.update { it.copy(relaunchApp = v) } })
@@ -401,18 +414,29 @@ class SettingsActivity : Activity() {
     // ---- About -------------------------------------------------------------
 
     private fun LinearLayout.aboutPage() {
+        val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { null } ?: "?"
         addView(
             card(null) {
-                val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { null } ?: "?"
-                addView(body(getString(R.string.about_privacy_summary)))
-                addView(caption(getString(R.string.about_version, version)).apply { setPadding(0, dp(4), 0, dp(10)) })
+                addView(row(getString(R.string.about_version), version, chip = null, iconRes = R.drawable.ic_lock))
+                addView(divider())
+                addView(body(getString(R.string.about_privacy_summary), secondary = true).apply { setPadding(0, dp(8), 0, dp(4)) })
+            },
+        )
+        addView(
+            card(null) {
                 listOf(
                     R.string.about_privacy to URL_PRIVACY,
                     R.string.about_source to URL_SOURCE,
                     R.string.about_licence to URL_LICENCE,
-                ).forEach { (res, url) ->
-                    addView(actionButton(getString(res)) { open(url) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
+                ).forEachIndexed { i, (res, url) ->
+                    if (i > 0) addView(divider())
+                    addView(row(getString(res), null, actionButton(getString(R.string.open)) { open(url) }))
                 }
+            },
+        )
+        addView(
+            card(getString(R.string.about_stuck), R.drawable.ic_warning) {
+                addView(body(getString(R.string.about_stuck_body), secondary = true))
             },
         )
     }

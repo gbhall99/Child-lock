@@ -296,7 +296,20 @@ internal fun Context.segmented(labels: List<String>, selected: Int, onSelect: (I
     render(selected)
 }
 
-/** Leading icon, title (+ inline status chip) and subtitle, optional trailing action. */
+/** A small "?" that opens the full explanation, so rows can stay to one line. */
+internal fun Context.helpIcon(title: String, text: String): ImageView = icon(com.gbhall.childlock.R.drawable.ic_help, textSecondary, 20).apply {
+    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+    contentDescription = getString(com.gbhall.childlock.R.string.a11y_help, title)
+    isClickable = true
+    isFocusable = true
+    setPadding(dp(4), dp(4), dp(4), dp(4))
+    setOnClickListener {
+        android.app.AlertDialog.Builder(context).setTitle(title).setMessage(text)
+            .setPositiveButton(com.gbhall.childlock.R.string.done, null).show()
+    }
+}
+
+/** Leading icon, title (+ inline status chip, + "?" for [help]) and subtitle, optional trailing action. */
 internal fun Context.row(
     title: String,
     subtitle: CharSequence?,
@@ -304,6 +317,7 @@ internal fun Context.row(
     chip: View? = null,
     iconRes: Int? = null,
     iconTint: Int = accent,
+    help: String? = null,
 ): LinearLayout = horizontal {
     setPadding(0, dp(10), 0, dp(10))
     if (iconRes != null) {
@@ -313,7 +327,9 @@ internal fun Context.row(
         vertical {
             addView(
                 horizontal {
-                    addView(label(title), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(label(title), LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, 0f).apply { weight = 0f })
+                    if (help != null) addView(helpIcon(title, help), LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginStart = dp(4) })
+                    addView(View(context), LinearLayout.LayoutParams(0, 0, 1f))
                     if (chip != null) addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8) })
                 },
             )
@@ -339,9 +355,9 @@ internal fun Context.styledSwitch(checked: Boolean, onChange: (Boolean) -> Unit)
     setOnCheckedChangeListener { _, value -> onChange(value) }
 }
 
-internal fun Context.switchRow(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit): LinearLayout {
-    val sw = styledSwitch(checked, onChange).apply { contentDescription = title }
-    val r = row(title, subtitle, sw)
+internal fun Context.switchRow(title: String, subtitle: String?, checked: Boolean, help: String? = null, onChange: (Boolean) -> Unit): LinearLayout {
+    val sw = styledSwitch(checked, onChange).apply { contentDescription = title; tag = SWITCH_TAG }
+    val r = row(title, subtitle, sw, help = help)
     // One focus stop that reads the title and toggles, instead of three.
     r.isClickable = true
     r.isFocusable = true
@@ -349,6 +365,11 @@ internal fun Context.switchRow(title: String, subtitle: String?, checked: Boolea
     r.setOnClickListener { sw.toggle() }
     return r
 }
+
+internal const val SWITCH_TAG = "switch"
+
+/** The switch inside a [switchRow]. */
+internal fun View.switchView(): Switch? = findViewWithTag(SWITCH_TAG)
 
 internal fun Context.divider(): View = View(this).apply {
     setBackgroundColor(hairline)
@@ -593,7 +614,7 @@ internal fun android.app.Activity.lockPreflight(s: com.gbhall.childlock.settings
     }
     val reason = when (
         com.gbhall.childlock.lock.LockPreflight.check(
-            s.gesture,
+            s.gestures,
             com.gbhall.childlock.guard.GuardAccessibilityService.isConnected,
             screenReader,
             com.gbhall.childlock.guard.GuardAccessibilityService.keyToolActive,

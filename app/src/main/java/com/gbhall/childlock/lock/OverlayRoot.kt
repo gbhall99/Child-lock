@@ -26,7 +26,7 @@ class OverlayRoot(
 
     private val shield = TouchShieldView(context, settings, this)
     private val pinPad: PinPadView? =
-        if (settings.gesture == GestureType.BADGE_PIN && settings.hasPin) {
+        if (GestureType.BADGE_PIN in settings.gestures && settings.hasPin) {
             PinPadView(context, settings.pinLength, ::onPinEntered)
         } else {
             null

@@ -180,12 +180,18 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         handler.removeCallbacks(tick)
         val locked = LockController.isLocked
         applyServiceFlags(locked)
-        keyGesture = when (settings.gesture) {
-            GestureType.VOLUME_SEQUENCE ->
-                VolumeSequenceGesture(settings.volumePattern, settings.volumeRepeats, ::onKeyGestureEvent)
-            GestureType.VOLUME_CHORD ->
-                if (locked) VolumeChordGesture(settings.holdMs, ::onKeyGestureEvent) else null
-            GestureType.CORNER_HOLD, GestureType.BADGE_PIN -> null
+        val parts = buildList<UnlockGesture> {
+            if (GestureType.VOLUME_SEQUENCE in settings.gestures) {
+                add(VolumeSequenceGesture(settings.volumePattern, settings.volumeRepeats, ::onKeyGestureEvent))
+            }
+            if (GestureType.VOLUME_CHORD in settings.gestures && locked) {
+                add(VolumeChordGesture(settings.holdMs, ::onKeyGestureEvent))
+            }
+        }
+        keyGesture = when (parts.size) {
+            0 -> null
+            1 -> parts[0]
+            else -> com.gbhall.childlock.gesture.CompositeGesture(parts)
         }
     }
 
@@ -198,7 +204,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         val extra = if (otherScreenReaderActive()) {
             0 // TalkBack and friends own explore-by-touch; competing breaks both.
         } else {
-            GuardPolicy.gestureBlockFlags(locked, settings.blockGestures, settings.gesture.needsGuard, Build.VERSION.SDK_INT)
+            GuardPolicy.gestureBlockFlags(locked, settings.blockGestures, settings.hasVolumeGesture, Build.VERSION.SDK_INT)
         }
         val wanted = BASE_FLAGS or extra or (if (skipAdsActive()) AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS else 0)
         val events = MANIFEST_EVENTS or (if (skipAdsActive()) AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED else 0)

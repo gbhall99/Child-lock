@@ -231,7 +231,7 @@ class MainActivity : Activity() {
     private fun renderSettings(s: LockSettings) {
         armButton.text = getString(R.string.arm_button, s.armDelaySec)
         lockHow.text = GestureText.lockHint(this, s)
-        unlockHow.text = GestureText.unlockHint(this, s) + " " + GestureText.fallbackHint(this, s)
+        unlockHow.text = (GestureText.unlockHint(this, s) + " " + GestureText.fallbackHint(this, s)).trim()
         unlockTile.setTileSubtitle(GestureText.gestureName(this, s))
         val apps = s.autoLockRules.size
         autoLockTile.setTileSubtitle(
@@ -263,7 +263,7 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
             return
         }
-        if (s.gesture == GestureType.BADGE_PIN && !s.hasPin) {
+        if (s.gestures == setOf(GestureType.BADGE_PIN) && !s.hasPin) {
             toast(R.string.toast_need_pin)
             return
         }

@@ -54,15 +54,30 @@ class SettingsActivityTest {
     }
 
     @Test
-    fun `unlock page - choosing a gesture persists and shows only its own controls`() {
+    fun `unlock page - several ways can be allowed at once, each with its own controls`() {
         val a = page(SettingsActivity.Page.UNLOCK)
         assertNotNull("pattern order shows for the volume gesture", UiTestSupport.find(a.window.decorView, android.widget.TextView::class.java) { it.text == a.getString(R.string.pattern_option_up_down) })
         assertNull("hold time is not a volume-pattern setting", UiTestSupport.seek(a, a.getString(R.string.hold_duration))?.takeIf { it.isShown })
+        assertFalse("the other ways are behind a button", UiTestSupport.switch(a, a.getString(R.string.gesture_corner_hold))!!.isShown)
         UiTestSupport.button(a, a.getString(R.string.section_other_unlock))!!.performClick()
-        UiTestSupport.radio(a, a.getString(R.string.gesture_corner_hold))!!.performClick()
-        assertEquals(GestureType.CORNER_HOLD, repo.load().gesture)
+        UiTestSupport.switch(a, a.getString(R.string.gesture_corner_hold))!!.performClick()
+        assertEquals("both allowed now", setOf(GestureType.VOLUME_SEQUENCE, GestureType.CORNER_HOLD), repo.load().gestures)
+        assertEquals("volume stays the main one", GestureType.VOLUME_SEQUENCE, repo.load().gesture)
         assertTrue("hold time appears for a hold gesture", UiTestSupport.seek(a, a.getString(R.string.hold_duration))!!.isShown)
         assertTrue(texts(a).contains(a.getString(R.string.pair_tl_br)))
+        assertTrue("the volume pattern controls stay while volume is allowed", UiTestSupport.switch(a, a.getString(R.string.pattern_twice_title))!!.isShown)
+        UiTestSupport.switch(a, a.getString(R.string.gesture_volume_sequence))!!.performClick()
+        assertEquals(setOf(GestureType.CORNER_HOLD), repo.load().gestures)
+        assertFalse(UiTestSupport.switch(a, a.getString(R.string.pattern_twice_title))!!.isShown)
+    }
+
+    @Test
+    fun `unlock page - the last way to unlock cannot be switched off`() {
+        val a = page(SettingsActivity.Page.UNLOCK)
+        val volume = UiTestSupport.switch(a, a.getString(R.string.gesture_volume_sequence))!!
+        volume.performClick()
+        assertEquals(setOf(GestureType.VOLUME_SEQUENCE), repo.load().gestures)
+        assertTrue("the switch springs back on", volume.isChecked)
     }
 
     @Test
@@ -138,8 +153,11 @@ class SettingsActivityTest {
     @Test
     fun `about page - names the version and links out`() {
         val a = page(SettingsActivity.Page.ABOUT)
-        assertTrue(texts(a).any { it.startsWith("Child Lock ") })
-        UiTestSupport.button(a, a.getString(R.string.about_privacy))!!.performClick()
+        assertTrue(texts(a).contains(a.getString(R.string.about_version)))
+        assertTrue("the stuck advice lives here too", texts(a).contains(a.getString(R.string.about_stuck_body)))
+        assertTrue(texts(a).contains(a.getString(R.string.about_privacy)))
+        // The privacy policy is the first link row, so its Open button is the first.
+        UiTestSupport.button(a, a.getString(R.string.open))!!.performClick()
         assertEquals(SettingsActivity.URL_PRIVACY, shadowOf(a).nextStartedActivity.dataString)
     }
 }
