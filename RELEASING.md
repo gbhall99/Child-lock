@@ -27,9 +27,32 @@ workflow's release job produces a signed bundle.
 
 1. Bump `versionName` in `app/build.gradle.kts`. The version code is derived
    from the commit count in CI, so it always increases.
-2. `./gradlew testPlayDebugUnitTest lintPlayRelease bundlePlayRelease`
-3. Upload `app/build/outputs/bundle/playRelease/app-play-release.aab`.
-4. Fill in release notes. Tag the commit: `git tag v1.0.0 && git push --tags`.
+2. Green CI on the commit: `testSideloadDebugUnitTest testPlayDebugUnitTest`,
+   `lintPlayDebug lintPlayRelease`, `assembleSideloadDebug assemblePlayRelease`
+   all run on every push. Locally the same is
+   `./gradlew testPlayDebugUnitTest lintPlayRelease bundlePlayRelease`.
+3. Regenerate the store screenshots if a screen changed:
+   `CHILDLOCK_SHOTS=store/assets/src ./gradlew testPlayDebugUnitTest --tests '*ScreenshotTest*'`
+   then `scripts/render-store-assets.sh`.
+4. Tag the commit on `main`: `git tag v1.0.0 && git push --tags`. The
+   `release` job signs `bundlePlayRelease` with the CI secrets and uploads the
+   bundle as the `childlock-play-release-bundle` artifact of that run.
+5. Download the artifact, upload the `.aab` to Play Console (Internal testing
+   first), fill in release notes.
+
+## Hardware pass before a release
+
+Unit tests cannot see the system gesture layer, so on a real phone with
+gesture navigation, once per release:
+
+- Lock with the volume pattern; swipe from the top, bottom and both sides.
+  Nothing may land. Pull the shade: it closes at once.
+- Try every unlock the settings do NOT show (corners, PIN, notification
+  button when switched off). None may work. Then the ones that are shown.
+- Three-finger triple tap once (stays locked), twice (unlocks).
+- Add a video app under Auto-lock, play a video full screen, wait 5 s.
+- Force a restart while locked (power for 10 to 30 s; Samsung power + volume
+  down). The phone must come back unlocked.
 
 ## First submission checklist
 
@@ -39,6 +62,9 @@ workflow's release job produces a signed bundle.
 - Declarations completed: accessibility service, foreground service
   (special use, with a short screen recording), display over other apps,
   data safety (nothing collected), target audience (not for children), ads (none).
+  The screen recording should show: the setup guide's disclosure, arming from
+  the app, the badge while locked, a swipe achieving nothing, the volume
+  pattern unlocking. Under a minute is enough.
 - Closed testing: Play requires new personal developer accounts to run a
   closed test with at least 12 testers for 14 days before production. Use it
   to cover Samsung, Pixel and one Xiaomi.

@@ -31,7 +31,7 @@ WHAT STOPS WORKING FOR THE CHILD
 The power button still works, and an incoming call unlocks the phone so you can answer it.
 
 AUTO-LOCK
-Choose the apps you hand over and Child Lock switches itself on a few seconds after one of them opens. Switch away or press the pattern to cancel.
+Choose the apps you hand over and the moment that should lock them: a video call connecting, a video going full screen, anything playing, or simply opening. A five-second countdown gives you time to hand over; switch away or press the pattern to cancel. Unlock, and it locks again by itself only if the same moment ends and happens again.
 
 MADE TO BE TRUSTED
 • No ads, no accounts, no analytics, no internet permission
@@ -41,10 +41,10 @@ MADE TO BE TRUSTED
 • Colour-blind-safe design: every state has a shape and a word, never colour alone
 
 OTHER WAYS TO UNLOCK
-Prefer touch? Hold one finger in each of two opposite corners for a moment, or hold the badge and type a PIN. Choose what suits you.
+Prefer touch? Hold one finger in each of two opposite corners for a moment, hold the badge and type a PIN, or hold both volume buttons. Allow any combination; only what you switch on can unlock.
 
 SETUP
-A short assistant walks you through two permissions: "Display over other apps", which is how touches are blocked, and the Child Lock helper accessibility service, which handles the volume pattern, swipe blocking and auto-lock. Both are explained before you enable them.
+A short assistant walks you through three steps: "Display over other apps", which is how touches are blocked; the Child Lock helper accessibility service, which handles the volume pattern, swipe blocking and auto-lock; and a page that shows how to unlock and how to force a restart if nothing else works. Every permission is explained before you enable it.
 
 Child Lock uses Android's accessibility service as a parental control, not as an accessibility aid. It observes volume-button presses and which app is in front, and while locked it blocks navigation. It never reads screen content.
 
