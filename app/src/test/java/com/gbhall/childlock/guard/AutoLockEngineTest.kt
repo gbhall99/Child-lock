@@ -119,6 +119,32 @@ class AutoLockEngineTest {
         engine.onTick(true)
         assertEquals("two false polls are a notification peek, not the end", 1, armed.size)
     }
+
+    @Test
+    fun `another app in front while locked keeps the engine locked`() {
+        engine.onForeground("com.video")
+        engine.onTick(true)
+        engine.onLocked()
+        // The child reaches the home screen; the guard brings the video back.
+        engine.onForeground("com.launcher")
+        assertEquals("the lock is still on", AutoLockEngine.State.LOCKED, engine.state)
+        engine.onForeground("com.video")
+        assertEquals(AutoLockEngine.State.LOCKED, engine.state)
+        repeat(5) { engine.onTick(true) }
+        assertEquals("no second lock request while locked", 1, armed.size)
+        engine.onUnlocked(byParent = true)
+        assertEquals("unlocking from the video's moment can re-lock", AutoLockEngine.State.HOT, engine.state)
+    }
+
+    @Test
+    fun `unlocking while an unlisted app is in front goes idle`() {
+        engine.onForeground("com.video")
+        engine.onTick(true)
+        engine.onLocked()
+        engine.onForeground("com.launcher")
+        engine.onUnlocked(byParent = true)
+        assertEquals(AutoLockEngine.State.IDLE, engine.state)
+    }
 }
 
 /**

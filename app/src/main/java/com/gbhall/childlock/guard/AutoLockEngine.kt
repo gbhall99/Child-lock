@@ -9,7 +9,7 @@ import com.gbhall.childlock.settings.AutoLockTrigger
  * IDLE ─foreground chosen app─▶ WATCHING ─condition true─▶ ARMING ─▶ LOCKED
  * LOCKED ─unlock─▶ HOT (condition still true) ─false ×3─▶ REARMABLE ─true ×2─▶ ARMING
  * ARMING ─parent cancels─▶ DISARMED (stays until the app leaves the front)
- * any ─another app in front─▶ IDLE
+ * any but LOCKED ─another app in front─▶ IDLE (LOCKED only changes the app it is over)
  */
 class AutoLockEngine(private val listener: Listener) {
     interface Listener {
@@ -49,7 +49,15 @@ class AutoLockEngine(private val listener: Listener) {
         falseStreak = 0
         unlocksHere = 0
         graceLeft = 0
-        state = if (rules.containsKey(packageName)) State.WATCHING else State.IDLE
+        state = when {
+            // The lock is still on; only the app under it changed (the child
+            // reached the home screen, the guard brought the app back). Watching
+            // again here would send a second lock request into a running lock,
+            // and the parent's eventual unlock would land in the wrong state.
+            state == State.LOCKED -> State.LOCKED
+            rules.containsKey(packageName) -> State.WATCHING
+            else -> State.IDLE
+        }
     }
 
     /** Condition poll for the current app: is its moment happening right now? */
