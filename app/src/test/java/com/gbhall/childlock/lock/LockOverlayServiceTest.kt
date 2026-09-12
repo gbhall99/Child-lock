@@ -326,4 +326,17 @@ class LockOverlayServiceTest {
         tapUnlock(LockOverlayService.UNLOCK_ARM_MS + 200)
         assertEquals(LockState.Unlocked, LockController.state)
     }
+
+    @Test
+    fun `with the notification button switched off there is no button and no way in from there`() {
+        com.gbhall.childlock.settings.SettingsRepository.get(TestSupport.app).update { it.copy(notificationUnlock = false) }
+        start(lockIntent())
+        idle()
+        val nm = TestSupport.app.getSystemService(NotificationManager::class.java)
+        val n = shadowOf(nm).allNotifications.single()
+        assertEquals("what unlocks is exactly what is switched on", 0, n.actions?.size ?: 0)
+        tapUnlock(0)
+        tapUnlock(LockOverlayService.UNLOCK_ARM_MS + 200)
+        assertTrue(LockController.isLocked)
+    }
 }

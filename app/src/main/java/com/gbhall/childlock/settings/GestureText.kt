@@ -31,25 +31,20 @@ object GestureText {
         }.joinToString(" ")
 
     /**
-     * The unlock that still works when the main one does not, or empty when
-     * the allowed unlocks already cover it.
-     *
-     * Blocking swipes uses the same mode a screen reader uses, and in that
-     * mode the screen sends hover, not touches, so the corner hold cannot
-     * fire. The three-finger triple tap, done twice, is the fallback there.
-     * Saying "two corners always works" would be untrue in the default setup.
+     * The one unlock that exists without a switch of its own: the three-finger
+     * triple tap, done twice, while swipe blocking has the screen in the touch
+     * mode screen readers use. It is there because touch unlocks cannot fire
+     * in that mode. Everywhere else, what is allowed is exactly what is named.
      */
     fun fallbackHint(context: Context, s: LockSettings): String {
-        // Mirrors GuardPolicy.gestureBlockFlags: explore-by-touch is only ever
-        // requested on API 30+, so below that the corner hold still works.
+        // Mirrors GuardPolicy.gestureBlockFlags: explore-by-touch is only ever requested on API 30+.
         val exploring = s.hasVolumeGesture && s.blockGestures &&
             android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R
-        return when {
-            exploring -> context.getString(R.string.fallback_three_finger)
-            GestureType.CORNER_HOLD in s.gestures -> ""
-            else -> context.getString(R.string.fallback_corners)
-        }
+        return if (exploring) context.getString(R.string.fallback_three_finger) else ""
     }
+
+    /** How to force a restart when nothing else works; the lock never survives one. */
+    fun forceRestart(context: Context): String = context.getString(R.string.force_restart)
 
     private fun name(context: Context, s: LockSettings, g: GestureType): String = when (g) {
         GestureType.VOLUME_SEQUENCE -> context.getString(R.string.gesture_name_sequence, patternWords(context, s))

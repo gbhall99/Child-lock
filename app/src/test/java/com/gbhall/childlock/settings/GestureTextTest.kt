@@ -25,34 +25,16 @@ class GestureTextTest {
     }
 
     @Test
-    fun `without swipe blocking the corner hold is the backup`() {
-        val s = LockSettings(gesture = GestureType.VOLUME_SEQUENCE, blockGestures = false)
-        assertEquals(
-            ctx.getString(com.gbhall.childlock.R.string.fallback_corners),
-            GestureText.fallbackHint(ctx, s),
-        )
+    fun `without swipe blocking there is no backup that the settings do not show`() {
+        assertEquals("", GestureText.fallbackHint(ctx, LockSettings(gesture = GestureType.VOLUME_SEQUENCE, blockGestures = false)))
+        assertEquals("", GestureText.fallbackHint(ctx, LockSettings(gesture = GestureType.BADGE_PIN, blockGestures = true)))
+        assertEquals("", GestureText.fallbackHint(ctx, LockSettings(gesture = GestureType.CORNER_HOLD)))
     }
 
     @Test
     @org.robolectric.annotation.Config(sdk = [26])
-    fun `below api 30 the corner hold is the backup even with swipe blocking on`() {
-        // Explore-by-touch is never requested there, so touches still arrive.
-        val s = LockSettings(gesture = GestureType.VOLUME_SEQUENCE, blockGestures = true)
-        assertEquals(
-            ctx.getString(com.gbhall.childlock.R.string.fallback_corners),
-            GestureText.fallbackHint(ctx, s),
-        )
-    }
-
-    @Test
-    fun `a touch gesture never claims the three-finger tap`() {
-        val s = LockSettings(gesture = GestureType.BADGE_PIN, blockGestures = true)
-        assertEquals(
-            ctx.getString(com.gbhall.childlock.R.string.fallback_corners),
-            GestureText.fallbackHint(ctx, s),
-        )
-        // And when the corner hold is itself one of the allowed unlocks, it is not repeated as a backup.
-        assertEquals("", GestureText.fallbackHint(ctx, LockSettings(gesture = GestureType.CORNER_HOLD)))
+    fun `below api 30 swipe blocking never engages, so no three-finger backup is promised`() {
+        assertEquals("", GestureText.fallbackHint(ctx, LockSettings(gesture = GestureType.VOLUME_SEQUENCE, blockGestures = true)))
     }
 
     @Test

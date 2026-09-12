@@ -236,6 +236,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
             gestureEvent.gestureId == GESTURE_3_FINGER_TRIPLE_TAP &&
             LockController.isLocked &&
+            settings.blockGestures && settings.hasVolumeGesture && // the one mode whose hint names it
             !otherScreenReaderActive()
         ) {
             val now = SystemClock.uptimeMillis()

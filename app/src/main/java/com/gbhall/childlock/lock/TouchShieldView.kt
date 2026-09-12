@@ -76,13 +76,9 @@ class TouchShieldView(
     private val badgeGesture: BadgePinGesture? =
         if (GestureType.BADGE_PIN in settings.gestures) BadgePinGesture(settings.holdMs, this) else null
 
-    /** Corner hold when chosen, and always as the safety fallback when only volume unlocks are allowed. */
+    /** Only when allowed: a way out the parent never switched on must not exist. */
     private val cornerGesture: CornerHoldGesture? =
-        if (GestureType.CORNER_HOLD in settings.gestures || !settings.hasTouchGesture) {
-            CornerHoldGesture(settings.holdMs, settings.cornerPair, this)
-        } else {
-            null
-        }
+        if (GestureType.CORNER_HOLD in settings.gestures) CornerHoldGesture(settings.holdMs, settings.cornerPair, this) else null
 
     private val gesture: UnlockGesture = com.gbhall.childlock.gesture.CompositeGesture(listOfNotNull(badgeGesture, cornerGesture))
 

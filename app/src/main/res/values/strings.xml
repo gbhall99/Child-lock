@@ -120,7 +120,6 @@
     <string name="pattern_twice_title">Press it twice</string>
     <string name="pattern_twice_desc">Up, down, up, down. Harder to hit by accident.</string>
     
-    <string name="fallback_corners">If that ever fails, hold two opposite corners of the screen.</string>
     <string name="fallback_three_finger">If that ever fails, tap the screen three times with three fingers, then straight away do it again.</string>
     <string name="hold_duration">Hold for</string>
     <string name="corner_pair">Which corners</string>
@@ -212,19 +211,19 @@
     <string name="block_shade_desc">Closes as soon as it is pulled down.</string>
     <string name="relaunch_app">Bring the app back</string>
     <string name="relaunch_app_desc">If the home screen appears, the app returns.</string>
-    <string name="safety_note">Stuck? Hold the power button for about 10 seconds to force a restart. Child Lock never survives a restart.</string>
+    <string name="safety_note">Stuck? Hold the power button for 10 to 30 seconds (Samsung: power and volume down together) until the screen goes black. The phone restarts unlocked.</string>
 
     <!-- About -->
     <string name="about_version">Version</string>
     <string name="about_stuck">If you get stuck</string>
-    <string name="about_stuck_body">Hold the power button for about 10 seconds to force a restart. Child Lock never survives a restart, so the phone always comes back unlocked.</string>
+    <string name="about_stuck_body">Hold the power button for 10 to 30 seconds until the screen goes black. On Samsung phones hold power and volume down together. Every phone restarts this way, and Child Lock never survives a restart.</string>
     <string name="about_privacy_summary">Open source. No ads, no accounts, nothing leaves your phone.</string>
     <string name="about_privacy">Privacy policy</string>
     <string name="about_source">Source code</string>
     <string name="about_licence">Licence</string>
 
     <!-- Setup guide -->
-    <string name="setup_title">Two quick steps</string>
+    <string name="setup_title">Three quick steps</string>
     <string name="setup_progress">%1$d of %2$d done. Each step opens an Android setting.</string>
     <string name="setup_all_done">All set. You’re ready to hand the phone over.</string>
     <string name="setup_nice">Nice to have</string>
@@ -235,6 +234,14 @@
     <string name="setup_tile_desc">Lock with one tap from the swipe-down panel.</string>
     <string name="setup_tile_manual">Swipe down twice, tap the pencil, and drag Child Lock into the panel.</string>
     <string name="setup_open">Open settings</string>
+    <string name="setup_escape_title">Know your way out</string>
+    <string name="setup_escape_ack">Got it</string>
+    <string name="setup_escape_unlock">To unlock: %1$s</string>
+    <string name="setup_escape_restart">If nothing works: %1$s</string>
+    <string name="force_restart">hold the power button for 10 to 30 seconds (Samsung: power and volume down together) until the screen goes black. The phone restarts unlocked.</string>
+    <string name="notif_unlock_setting">Notification button</string>
+    <string name="notif_unlock_setting_desc">Two taps on Unlock in the lock notification.</string>
+    <string name="help_notif_unlock">A way out for a parent whose gesture is not being recognised. The button needs two taps at least a second apart, so drumming on it does nothing, and the notification is hidden on the lock screen. While the helper keeps the notifications panel closed, nobody can reach it anyway.</string>
     <string name="setup_add">Add</string>
     <string name="setup_skip">Skip for now</string>
 </resources>

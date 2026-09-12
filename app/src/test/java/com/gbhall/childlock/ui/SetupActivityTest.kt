@@ -75,16 +75,28 @@ class SetupActivityTest {
     }
 
     @Test
-    fun `all required done enables finishing`() {
+    fun `all required done enables finishing, and knowing the way out is required`() {
         ShadowSettings.setCanDrawOverlays(true)
         val flat = android.content.ComponentName(TestSupport.app, com.gbhall.childlock.guard.GuardAccessibilityService::class.java).flattenToString()
         android.provider.Settings.Secure.putString(TestSupport.app.contentResolver, android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, flat)
         val a = Robolectric.buildActivity(SetupActivity::class.java).setup().get()
         val done = button(a, a.getString(com.gbhall.childlock.R.string.done))
         assertNotNull(done)
-        assertTrue(done!!.isEnabled)
-        done.performClick()
+        assertFalse("permissions alone are not enough", done!!.isEnabled)
+        val shown = texts(a.window.decorView)
+        assertTrue(shown.contains(a.getString(com.gbhall.childlock.R.string.setup_escape_title)))
+        val s = SettingsRepository.get(TestSupport.app).load()
+        val expected = a.getString(com.gbhall.childlock.R.string.setup_escape_unlock, (com.gbhall.childlock.settings.GestureText.unlockHint(a, s) + " " + com.gbhall.childlock.settings.GestureText.fallbackHint(a, s)).trim()) +
+            "\n\n" + a.getString(com.gbhall.childlock.R.string.setup_escape_restart, com.gbhall.childlock.settings.GestureText.forceRestart(a))
+        assertTrue("says how to unlock and how to force a restart", shown.contains(expected))
+        assertTrue(expected.contains("10 to 30 seconds"))
+        button(a, a.getString(com.gbhall.childlock.R.string.setup_escape_ack))!!.performClick()
+        assertTrue(SettingsRepository.get(TestSupport.app).escapeAcknowledged)
+        val doneNow = button(a, a.getString(com.gbhall.childlock.R.string.done))!!
+        assertTrue(doneNow.isEnabled)
+        doneNow.performClick()
         assertTrue(a.isFinishing)
+        assertFalse(SetupActivity.isNeeded(a))
     }
 
     @Test

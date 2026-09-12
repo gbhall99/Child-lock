@@ -38,6 +38,8 @@ data class LockSettings(
     val gesture: GestureType = GestureType.VOLUME_SEQUENCE,
     /** Further ways to unlock allowed alongside [gesture]; any one of them works. */
     val extraGestures: Set<GestureType> = emptySet(),
+    /** The Unlock button in the lock notification (two deliberate taps). */
+    val notificationUnlock: Boolean = true,
     /** Hold duration for corner hold and volume chord; long-press duration for the badge PIN. */
     val holdMs: Long = 1500,
     val cornerPair: CornerPair = CornerPair.TOP_LEFT_BOTTOM_RIGHT,
@@ -152,6 +154,7 @@ class SettingsRepository private constructor(context: Context) {
         pinLength = prefs.getInt(KEY_PIN_LENGTH, 0),
         volumePattern = prefs.enum(KEY_VOLUME_PATTERN, VolumePattern.UP_THEN_DOWN),
         volumeRepeats = prefs.getInt(KEY_VOLUME_REPEATS, 1).coerceIn(1, 3),
+        notificationUnlock = prefs.getBoolean(KEY_NOTIFICATION_UNLOCK, true),
         keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
         armDelaySec = prefs.getInt(KEY_ARM_DELAY, 10).coerceIn(LockSettings.MIN_ARM_DELAY_SEC, LockSettings.MAX_ARM_DELAY_SEC),
         blockKeys = prefs.getBoolean(KEY_BLOCK_KEYS, true),
@@ -183,6 +186,7 @@ class SettingsRepository private constructor(context: Context) {
             .putInt(KEY_PIN_LENGTH, s.pinLength)
             .putString(KEY_VOLUME_PATTERN, s.volumePattern.name)
             .putInt(KEY_VOLUME_REPEATS, s.volumeRepeats)
+            .putBoolean(KEY_NOTIFICATION_UNLOCK, s.notificationUnlock)
             .putBoolean(KEY_KEEP_SCREEN_ON, s.keepScreenOn)
             .putInt(KEY_ARM_DELAY, s.armDelaySec)
             .putBoolean(KEY_BLOCK_KEYS, s.blockKeys)
@@ -208,6 +212,11 @@ class SettingsRepository private constructor(context: Context) {
     var setupDismissed: Boolean
         get() = prefs.getBoolean(KEY_SETUP_DISMISSED, false)
         set(v) = prefs.edit().putBoolean(KEY_SETUP_DISMISSED, v).apply()
+
+    /** The parent has read how to unlock and how to force a restart. */
+    var escapeAcknowledged: Boolean
+        get() = prefs.getBoolean(KEY_ESCAPE_ACKNOWLEDGED, false)
+        set(v) = prefs.edit().putBoolean(KEY_ESCAPE_ACKNOWLEDGED, v).apply()
 
     var overlayAttempted: Boolean
         get() = prefs.getBoolean(KEY_OVERLAY_ATTEMPTED, false)
@@ -236,6 +245,7 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_PIN_LENGTH = "pin_length"
         private const val KEY_VOLUME_PATTERN = "volume_pattern"
         private const val KEY_VOLUME_REPEATS = "volume_repeats"
+        private const val KEY_NOTIFICATION_UNLOCK = "notification_unlock"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_ARM_DELAY = "arm_delay_sec"
         private const val KEY_BLOCK_KEYS = "block_keys"
@@ -251,6 +261,7 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_SESSION_MIN = "session_minutes"
         private const val KEY_TILE_ADDED = "tile_added"
         private const val KEY_SETUP_DISMISSED = "setup_dismissed"
+        private const val KEY_ESCAPE_ACKNOWLEDGED = "escape_acknowledged"
         private const val KEY_OVERLAY_ATTEMPTED = "overlay_attempted"
 
         @Volatile private var instance: SettingsRepository? = null

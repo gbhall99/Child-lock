@@ -64,7 +64,7 @@ class TouchShieldViewTest {
 
     @Test
     fun `corner hold through real MotionEvents unlocks after the hold time`() {
-        val (v, host) = shield(LockSettings(holdMs = 1000))
+        val (v, host) = shield(LockSettings(gesture = GestureType.CORNER_HOLD, holdMs = 1000))
         v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, 40f to 60f))
         v.onTouchEvent(motion(MotionEvent.ACTION_POINTER_DOWN, 40f to 60f, 1040f to 2350f, actionIndex = 1))
         idle(600)
@@ -75,7 +75,7 @@ class TouchShieldViewTest {
 
     @Test
     fun `lifting one finger before the hold time does not unlock`() {
-        val (v, host) = shield(LockSettings(holdMs = 1000))
+        val (v, host) = shield(LockSettings(gesture = GestureType.CORNER_HOLD, holdMs = 1000))
         v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, 40f to 60f))
         v.onTouchEvent(motion(MotionEvent.ACTION_POINTER_DOWN, 40f to 60f, 1040f to 2350f, actionIndex = 1))
         idle(500)
@@ -109,16 +109,20 @@ class TouchShieldViewTest {
     }
 
     @Test
-    fun `volume chord mode keeps corner hold as a fallback`() {
-        val (v, host) = shield(LockSettings(gesture = GestureType.VOLUME_CHORD, holdMs = 1000))
-        v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, 40f to 60f, 1040f to 2350f))
-        idle(1100)
-        assertEquals(1, host.unlocks)
+    fun `a volume-only setup has no hidden corner hold`() {
+        // What unlocks is exactly what the parent allowed. A silent corner
+        // fallback let the lock open by a way the settings did not show.
+        for (g in listOf(GestureType.VOLUME_CHORD, GestureType.VOLUME_SEQUENCE)) {
+            val (v, host) = shield(LockSettings(gesture = g, holdMs = 1000))
+            v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, 40f to 60f, 1040f to 2350f))
+            idle(3000)
+            assertEquals(g.name, 0, host.unlocks)
+        }
     }
 
     @Test
     fun `disposed shield ignores touches and stops ticking`() {
-        val (v, host) = shield(LockSettings(holdMs = 500))
+        val (v, host) = shield(LockSettings(gesture = GestureType.CORNER_HOLD, holdMs = 500))
         v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, 40f to 60f, 1040f to 2350f))
         v.dispose()
         idle(2000)

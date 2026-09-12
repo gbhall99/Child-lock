@@ -182,6 +182,13 @@ class SettingsActivity : Activity() {
         )
         addView(
             card(null) {
+                addView(switchRow(getString(R.string.notif_unlock_setting), getString(R.string.notif_unlock_setting_desc), s.notificationUnlock, help = getString(R.string.help_notif_unlock)) { v ->
+                    repo.update { it.copy(notificationUnlock = v) }
+                })
+            },
+        )
+        addView(
+            card(null) {
                 addView(row(getString(R.string.rehearse_title), getString(R.string.rehearse_desc), actionButton(getString(R.string.rehearse_go)) { rehearse() }, null, R.drawable.ic_touch))
             },
         )
