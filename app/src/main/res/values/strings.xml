@@ -103,7 +103,7 @@
     <string name="pattern_twice_desc">Up, down, up, down. Harder to hit by accident.</string>
     
     <string name="fallback_corners">If that ever fails, hold two opposite corners of the screen.</string>
-    <string name="fallback_three_finger">If that ever fails, tap the screen three times with three fingers.</string>
+    <string name="fallback_three_finger">If that ever fails, tap the screen three times with three fingers, then straight away do it again.</string>
     <string name="hold_duration">Hold for</string>
     <string name="corner_pair">Which corners</string>
     <string name="pair_tl_br">Top-left and bottom-right</string>
@@ -181,7 +181,7 @@
     <string name="keep_inside_desc">The back button and the notifications panel do nothing while locked, and the app comes straight back if they swipe out. Needs the Child Lock helper.</string>
     <string name="keep_inside_more">Fine-tune</string>
     <string name="block_gestures">Block home and back swipes</string>
-    <string name="block_gestures_desc">Not recommended. It stops home and back swipes, but only by turning on the screen-reader touch mode, and in that mode taps can reach the app underneath and a three-finger tap unlocks. Without it, a swipe shows the home screen for a moment and the app comes straight back.</string>
+    <string name="block_gestures_desc">Stops home, back and recents swipes by putting the screen into the touch mode screen readers use while locked. Needs a volume gesture and Android 11 or newer. The touch backup to unlock is then a three-finger triple tap, done twice. Off, a swipe shows the home screen for a moment and the app comes straight back.</string>
     <string name="block_keys">Block the back button</string>
     <string name="block_keys_desc">Volume buttons still unlock.</string>
     <string name="block_shade">Keep the notifications panel closed</string>

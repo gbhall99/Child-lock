@@ -72,33 +72,32 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun `explore-by-touch swipe blocking is off by default`() {
-        // It stops the swipes only by handing the screen to explore-by-touch,
-        // where the shield receives hover instead of touches and a child can
-        // reach the app underneath. Reported from real use.
-        assertFalse(repo.load().blockGestures)
+    fun `explore-by-touch swipe blocking is on by default`() {
+        // Off, every system swipe lands and is undone a moment later, which on
+        // hardware reads as a lock that does not lock.
+        assertTrue(repo.load().blockGestures)
     }
 
     @Test
-    fun `the version 3 migration that forced gesture blocking on is undone`() {
+    fun `the version 4 migration that forced gesture blocking off is undone`() {
         val prefs = TestSupport.app.getSharedPreferences("childlock", 0)
-        prefs.edit().putBoolean("block_gestures", true).putInt("settings_version", 3).commit()
+        prefs.edit().putBoolean("block_gestures", false).putInt("settings_version", 4).commit()
         SettingsRepository.resetForTests()
-        assertFalse("v3 turned it on for everyone and was wrong", SettingsRepository.get(TestSupport.app).load().blockGestures)
+        assertTrue("v4 stored an off for everyone", SettingsRepository.get(TestSupport.app).load().blockGestures)
 
-        // And once undone, a parent who deliberately turns it on keeps it.
-        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = true) }
+        // And once undone, a parent who deliberately turns it off keeps it off.
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = false) }
         SettingsRepository.resetForTests()
-        assertTrue(SettingsRepository.get(TestSupport.app).load().blockGestures)
+        assertFalse(SettingsRepository.get(TestSupport.app).load().blockGestures)
     }
 
     @Test
     fun `the migration does not fire twice`() {
         val prefs = TestSupport.app.getSharedPreferences("childlock", 0)
-        repo.update { it.copy(blockGestures = true) }
-        assertEquals(4, prefs.getInt("settings_version", 0))
+        repo.update { it.copy(blockGestures = false) }
+        assertEquals(5, prefs.getInt("settings_version", 0))
         SettingsRepository.resetForTests()
-        assertTrue("a settled choice must survive every later start", SettingsRepository.get(TestSupport.app).load().blockGestures)
+        assertFalse("a settled choice must survive every later start", SettingsRepository.get(TestSupport.app).load().blockGestures)
     }
 
     @Test

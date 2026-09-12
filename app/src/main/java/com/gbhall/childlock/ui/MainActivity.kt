@@ -424,8 +424,8 @@ class MainActivity : Activity() {
             )
             addView(switchRow(getString(R.string.keep_screen_on), getString(R.string.keep_screen_on_desc), s.keepScreenOn) { v -> repo.update { it.copy(keepScreenOn = v) } })
             addView(switchRow(getString(R.string.keep_orientation), getString(R.string.keep_orientation_desc), s.keepOrientation) { v -> repo.update { it.copy(keepOrientation = v) } })
-            // Not blockGestures: it hands the screen to explore-by-touch. It stays
-            // an explicit opt-in under Fine-tune, with the warning attached.
+            // Not blockGestures: it changes how the screen behaves (explore-by-touch),
+            // so it keeps its own switch under Fine-tune with the explanation attached.
             val allInside = s.blockKeys && s.blockShade && s.relaunchApp
             addView(switchRow(getString(R.string.keep_inside_title), getString(R.string.keep_inside_desc), allInside) { v ->
                 repo.update { it.copy(blockKeys = v, blockShade = v, relaunchApp = v) }

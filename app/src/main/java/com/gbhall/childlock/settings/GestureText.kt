@@ -25,8 +25,8 @@ object GestureText {
      *
      * Blocking swipes uses the same mode a screen reader uses, and in that
      * mode the screen sends hover, not touches, so the corner hold cannot
-     * fire. The three-finger triple tap is the fallback there. Saying "two
-     * corners always works" would be untrue in the default setup.
+     * fire. The three-finger triple tap, done twice, is the fallback there.
+     * Saying "two corners always works" would be untrue in the default setup.
      */
     fun fallbackHint(context: Context, s: LockSettings): String {
         // Mirrors GuardPolicy.gestureBlockFlags: explore-by-touch is only ever

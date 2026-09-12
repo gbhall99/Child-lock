@@ -156,7 +156,7 @@ lock's notification is silent and shows no status-bar icon.
 | Taps, swipes, pokes anywhere on screen | Nothing happens |
 | Presses back or volume | Swallowed (with the accessibility guard) |
 | Drags down the notifications panel | Closed immediately (with the guard) |
-| Swipes home, back or recents | Blocked outright (with the guard and a volume gesture); otherwise the app you handed over is brought straight back |
+| Swipes home, back or recents | Blocked outright (with the guard and a volume gesture, Android 11 and newer; on by default); otherwise the app you handed over is brought straight back |
 | Presses the power button | Screen turns off; whatever was playing continues. The lock is still there after you unlock the phone |
 | Receives a real phone call | Child Lock unlocks itself so the call can be answered |
 
@@ -164,7 +164,8 @@ Without the accessibility guard, only the first row is enforced. Swipe
 blocking uses Android's touch-exploration mode while locked, the same switch
 screen readers use, which is why it only combines with the volume gestures:
 in that mode the screen no longer receives real touches, so a three-finger
-triple tap is the touch fallback to unlock.
+triple tap, done twice within a few seconds, is the touch fallback to unlock.
+"Block home and back swipes" under Fine-tune switches it off.
 
 ## Compatibility
 

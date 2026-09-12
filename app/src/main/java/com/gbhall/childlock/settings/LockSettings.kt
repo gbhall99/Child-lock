@@ -51,21 +51,20 @@ data class LockSettings(
     val blockShade: Boolean = true,
     val relaunchApp: Boolean = true,
     /**
-     * Stop home/back swipes outright while locked. OFF, and it should stay off
-     * until the mechanism changes.
+     * Stop home, back and recents swipes outright while locked. ON: with it
+     * off, every system swipe lands and is merely undone a moment later, and
+     * on hardware that reads as a lock that does not lock.
      *
-     * It works by switching on explore-by-touch, and that mode does far more
-     * than block swipes: the system turns finger input into hover before any
-     * window sees a touch, so the shield stops swallowing anything, the child
-     * can explore the app underneath, and a double tap activates whatever they
-     * land on. It also enables multi-finger gestures, which is what makes the
-     * three-finger triple tap unlock reachable by a small hand.
-     *
-     * Reported from real use: a child reached the YouTube player controls
-     * through a locked screen, and the lock came off without the volume keys
-     * being touched. Blocking the swipes is not worth handing over the screen.
+     * It works by switching on explore-by-touch, which does more than block
+     * swipes: the system turns finger input into hover before any window sees
+     * a touch, and it enables multi-finger gestures. Two things make that
+     * safe enough to be the default. The shield consumes hover as well as
+     * touch, so nothing walks through it onto the app underneath. And the
+     * three-finger triple tap that this mode makes the touch fallback has to
+     * be done twice in quick succession, which a small hand mashing the
+     * screen does not produce by accident.
      */
-    val blockGestures: Boolean = false,
+    val blockGestures: Boolean = true,
     /** Pin the screen to whatever orientation it has when the lock engages. */
     val keepOrientation: Boolean = true,
     /** Tap "Skip ad" style buttons in the app you handed over while locked. Off by default; reads button labels. */
@@ -104,14 +103,15 @@ class SettingsRepository private constructor(context: Context) {
         context.applicationContext.getSharedPreferences("childlock", Context.MODE_PRIVATE)
 
     init {
-        // v2 forced this off, v3 forced it back on, and v3 was wrong: with
-        // explore-by-touch on, the shield stops receiving touches at all and a
-        // child can reach the app underneath. v4 clears the key again so the
-        // default - off - applies. save() writes the key on every settings
-        // change, so a deliberate choice cannot be told from a forced one;
-        // anyone who wants this on will have to turn it on again.
-        if (prefs.getInt(KEY_VERSION, 0) < 4) {
-            prefs.edit().remove(KEY_BLOCK_GESTURES).putInt(KEY_VERSION, 4).apply()
+        // The swipe-blocking default has flipped more than once: v2 off, v3
+        // on, v4 off again after a child reached the app underneath, and now
+        // v5 on, once the shield consumed hover and the three-finger fallback
+        // needed repeating. save() writes the key on every settings change, so
+        // a deliberate choice cannot be told from a forced one; each flip
+        // clears the key so the new default applies, and anyone who wants the
+        // other setting turns it back by hand.
+        if (prefs.getInt(KEY_VERSION, 0) < 5) {
+            prefs.edit().remove(KEY_BLOCK_GESTURES).putInt(KEY_VERSION, 5).apply()
         }
     }
 
@@ -130,7 +130,7 @@ class SettingsRepository private constructor(context: Context) {
         blockKeys = prefs.getBoolean(KEY_BLOCK_KEYS, true),
         blockShade = prefs.getBoolean(KEY_BLOCK_SHADE, true),
         relaunchApp = prefs.getBoolean(KEY_RELAUNCH, true),
-        blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, false),
+        blockGestures = prefs.getBoolean(KEY_BLOCK_GESTURES, true),
         keepOrientation = prefs.getBoolean(KEY_KEEP_ORIENTATION, true),
         skipAds = prefs.getBoolean(KEY_SKIP_ADS, false),
         relockSameApp = prefs.getBoolean(KEY_RELOCK, true),

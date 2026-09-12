@@ -217,14 +217,29 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         requestedEvents = events
     }
 
-    /** With multi-finger gestures on, a three-finger triple tap is the touch fallback to unlock. */
+    /** When the last three-finger triple tap landed, or null if none is waiting for its partner. */
+    private var lastTripleTapMs: Long? = null
+
+    /**
+     * With multi-finger gestures on, a three-finger triple tap is the touch
+     * fallback to unlock. It has to happen twice within [TRIPLE_TAP_REPEAT_MS]:
+     * one is within reach of a small hand mashing the screen, two in a row
+     * is not, and a parent who knows the trick does it without thinking.
+     */
     override fun onGesture(gestureEvent: AccessibilityGestureEvent): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
             gestureEvent.gestureId == GESTURE_3_FINGER_TRIPLE_TAP &&
             LockController.isLocked &&
             !otherScreenReaderActive()
         ) {
-            LockController.unlock()
+            val now = SystemClock.uptimeMillis()
+            val first = lastTripleTapMs
+            if (first != null && now - first <= TRIPLE_TAP_REPEAT_MS) {
+                lastTripleTapMs = null
+                LockController.unlock()
+            } else {
+                lastTripleTapMs = now
+            }
             return true
         }
         return false
@@ -572,6 +587,8 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         private const val TAG = "GuardService"
         private const val TICK_MS = 33L
         private const val WATCH_MS = 1000L
+        /** The second three-finger triple tap must land within this of the first. */
+        const val TRIPLE_TAP_REPEAT_MS = 3000L
         private const val CACHE_MS = 5 * 60 * 1000L
         private const val MAX_CACHED_PACKAGES = 200
         private const val SCAN_MS = 500L
