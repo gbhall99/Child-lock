@@ -12,12 +12,14 @@ contains no advertising and no accounts. The app does not request the
 internet permission, so it has no way to transmit anything.
 
 The Google Play version is free for 30 days and then sold as a one-time
-purchase through Google Play's billing system, the one third-party library it
-contains. The payment is handled entirely by Google Play under Google's
-privacy policy; the app receives only whether the purchase exists and stores
-that as a yes/no flag on the device. The date of first launch is stored on the
-device for the trial. The version built from source contains no billing
-library and sells nothing.
+purchase through Google Play's billing system. The payment is handled
+entirely by Google Play under Google's privacy policy; the app receives only
+whether the purchase exists and stores that as a yes/no flag on the device.
+The date of first launch is stored on the device for the trial. The same
+version may once show Google Play's own "rate this app" sheet; that sheet is
+Google Play's, and the app learns nothing from it. These two Google Play
+libraries are the only third-party code in the app. The version built from
+source contains neither and sells nothing.
 
 ## Permissions and what they are used for
 

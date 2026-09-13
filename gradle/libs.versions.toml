@@ -4,9 +4,11 @@ kotlin = "2.1.21"
 junit = "4.13.2"
 robolectric = "4.14.1"
 billing = "9.1.0"
+play-review = "2.0.2"
 
 [libraries]
 billing = { group = "com.android.billingclient", name = "billing", version.ref = "billing" }
+play-review = { group = "com.google.android.play", name = "review", version.ref = "play-review" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 

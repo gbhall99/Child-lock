@@ -131,6 +131,12 @@ same account). Unlocking is never gated, so a trial that ends while the phone
 is locked still lets you out. The sideload build has no store and is simply
 unlocked. See MONETISATION.md.
 
+**Asking for a review.** The Play build shows Google's own "rate this app"
+sheet once, and only after three locks that ran for at least two minutes
+and were ended on purpose, with no fallback unlock or forced restart in the
+previous fortnight. It never asks while locked and never asks first whether
+you like the app, which Play forbids.
+
 **Other ways to unlock,** selectable in the app:
 
 - **Two-finger corner hold.** One finger in the top-left corner and one in the

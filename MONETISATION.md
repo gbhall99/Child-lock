@@ -88,6 +88,17 @@ Two policy items need care before submission:
 6. Price test after the first thousand installs: £2.99 vs £3.99 via Play
    price experiments; the app needs no release for it.
 
+## Reviews
+
+Ratings follow whether the lock worked when it mattered, not the price. The
+app asks for a review with Google's in-app sheet, once, and only on
+behavioural evidence that it did work: three locks of two minutes or more
+ended by the parent's own gesture or the timer, and no three-finger fallback
+or forced restart in the previous fortnight. Play forbids asking "do you like
+it?" first, so this is the honest version of that filter. The rest is done
+by hand: reply to every review in Play Console, and treat each "couldn't
+unlock" as a bug report; a fixed one is often edited up to five stars.
+
 ## Realistic numbers
 
 A niche utility with good ratings typically converts 3 to 6 percent of

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.view.WindowManager
 import com.gbhall.childlock.TestSupport
 import com.gbhall.childlock.TestSupport.idle
+import com.gbhall.childlock.review.ReviewSignals
 import com.gbhall.childlock.settings.GestureType
 import com.gbhall.childlock.settings.SettingsRepository
 import org.junit.After
@@ -52,6 +53,33 @@ class LockOverlayServiceTest {
         val c = Robolectric.buildService(LockOverlayService::class.java, intent).create().startCommand(0, 1)
         controller = c
         return c.get()
+    }
+
+    @Test
+    fun `a lock that ran a while and was ended by the parent counts as a good session, practice does not`() {
+        start(lockIntent())
+        idle()
+        assertTrue(LockController.state is LockState.Locked)
+        idle(ReviewSignals.GOOD_SESSION_MS + 1000)
+        LockController.unlock()
+        idle()
+        assertEquals(1, ReviewSignals.goodSessions(TestSupport.app))
+        controller?.destroy()
+        controller = null
+
+        start(lockIntent())
+        idle(10_000)
+        LockController.unlock()
+        idle()
+        assertEquals("too short to prove anything", 1, ReviewSignals.goodSessions(TestSupport.app))
+        controller?.destroy()
+        controller = null
+
+        start(lockIntent().putExtra(LockOverlayService.EXTRA_REHEARSAL, true))
+        idle(ReviewSignals.GOOD_SESSION_MS + 1000)
+        LockController.unlock()
+        idle()
+        assertEquals("practice is not a session", 1, ReviewSignals.goodSessions(TestSupport.app))
     }
 
     @Test

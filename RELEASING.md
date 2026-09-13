@@ -62,6 +62,9 @@ gesture navigation, once per release:
 - About → Purchase shows the days left; Buy opens the Play sheet with the
   right price; as a licence tester complete it, and the row says "Bought".
   Refund it in Play Console and, after a relaunch, the trial line is back.
+- Three real locks of over two minutes each, ended with the gesture; on the
+  next open of the app the Play "rate this app" sheet appears once (as a
+  licence tester it may be blank or skipped: Play's quota, not a bug).
 - More → "Preview the trial as over": the home screen says "Free trial
   over", the big button offers the purchase, the volume pattern and the tile
   no longer lock, Practise still does.

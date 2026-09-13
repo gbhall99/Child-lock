@@ -29,6 +29,7 @@ import com.gbhall.childlock.guard.GuardAccessibilityService
 import com.gbhall.childlock.lock.LockController
 import com.gbhall.childlock.lock.LockOverlayService
 import com.gbhall.childlock.lock.LockState
+import com.gbhall.childlock.review.Review
 import com.gbhall.childlock.settings.GestureText
 import com.gbhall.childlock.settings.GestureType
 import com.gbhall.childlock.settings.LockSettings
@@ -95,6 +96,7 @@ class MainActivity : Activity() {
         refreshPermissions()
         renderSettings(s)
         renderAccess()
+        Review.maybeAsk(this)
     }
 
     override fun onDestroy() {

@@ -31,6 +31,7 @@ import com.gbhall.childlock.gesture.VolumeChordGesture
 import com.gbhall.childlock.gesture.VolumeSequenceGesture
 import com.gbhall.childlock.lock.LockController
 import com.gbhall.childlock.lock.LockState
+import com.gbhall.childlock.lock.UnlockReason
 import com.gbhall.childlock.settings.GestureType
 import com.gbhall.childlock.settings.LockSettings
 import com.gbhall.childlock.settings.SettingsRepository
@@ -246,7 +247,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
             val first = lastTripleTapMs
             if (first != null && now - first <= TRIPLE_TAP_REPEAT_MS) {
                 lastTripleTapMs = null
-                LockController.unlock()
+                LockController.unlock(UnlockReason.FALLBACK)
             } else {
                 lastTripleTapMs = now
             }
