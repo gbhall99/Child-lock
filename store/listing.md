@@ -5,9 +5,9 @@
 - **App name** (30 max): Child Lock: Touch Freeze
 - **Short description** (80 max): Hand your phone to your child. Tap all they like, nothing happens.
 - **Category**: Parenting (secondary: Tools)
-- **Contact email**: _your address_ (required)
-- **Trader details (required for EEA distribution)**: registered name, postal address, phone and email. Play blocks EEA distribution without the Digital Services Act trader declaration.
-- **Terms URL**: publish a short EULA covering the right to withdraw within 14 days, refunds (Google's 48-hour window sits alongside statutory rights, it does not replace them), and the trader identity. Name that trader as the data controller in PRIVACY.md.
+- **Contact email**: inovata.ai@gmail.com
+- **Trader details (required for EEA distribution)**: registered name, postal address, phone and email, the same as in `TERMS.md`. Play blocks EEA distribution without the Digital Services Act trader declaration.
+- **Terms URL**: https://github.com/gbhall99/Child-lock/blob/main/TERMS.md (covers the 14-day right of withdrawal, refunds alongside Google's 48-hour window, and the trader identity). Fill in the trader placeholders in `TERMS.md` and `PRIVACY.md` before submitting.
 - **Privacy policy URL**: https://github.com/gbhall99/Child-lock/blob/main/PRIVACY.md
 - **Target audience**: 18 and over (the app is for parents; it is not designed for children). Answer "No" to "Is your app designed for children?".
 - **Ads**: No.
