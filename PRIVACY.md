@@ -1,6 +1,6 @@
 # Child Lock privacy policy
 
-_Last updated: 10 September 2026_
+_Last updated: 18 September 2026_
 
 Child Lock is a parental touch lock for Android. This policy describes what
 the app does with information, which is: nothing that leaves your phone.
@@ -65,7 +65,8 @@ collects no information from anyone.
 
 ## Changes and contact
 
-The trader and data controller is named in the app's store listing and terms.
-Changes to this policy are published at the same address as this document.
-Questions: the contact address in the store listing, or an issue on the
-repository.
+The data controller is the trader named in the terms of use, `TERMS.md`,
+published alongside this policy: _[registered name]_, _[postal address]_,
+reachable at inovata.ai@gmail.com. Changes to this policy are published at the
+same address as this document. Questions: that email address, or an issue on
+the repository.

@@ -109,8 +109,9 @@ The Play build is free for 30 days from first launch, then needs one purchase
   testing, so their purchases are free and refund instantly.
 - Complete the Play trader declaration (name, postal address, phone, email);
   the EEA cannot be served without it, and selling makes you a trader there.
-- Publish terms covering the 14-day right of withdrawal and refunds, and name
-  the trader as the data controller in the privacy policy.
+- Fill in the trader placeholders (registered name, postal address, phone,
+  governing law) in `TERMS.md` and `PRIVACY.md`; the terms cover the 14-day
+  right of withdrawal and refunds, and the listing links to them.
 
 Play does not offer free trials on one-time products, so the trial clock is
 the app's own: first launch is stored on the device, the purchase is restored
