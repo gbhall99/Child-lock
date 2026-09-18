@@ -11,8 +11,9 @@
 - **Privacy policy URL**: https://github.com/gbhall99/Child-lock/blob/main/PRIVACY.md
 - **Target audience**: 18 and over (the app is for parents; it is not designed for children). Answer "No" to "Is your app designed for children?".
 - **Ads**: No.
-- **In-app purchases**: declare them at Pro launch; today the app sells nothing and the paywall never offers a purchase.
-- **Content rating questionnaire**: Utility; no violence, no user content, no sharing of location, no purchases (until Pro is added). Expect "Everyone".
+- **In-app purchases**: Yes. One non-consumable product, id `childlock_full`, name "Child Lock", base price £2.99 (let Play convert other currencies). The app is free for 30 days, then this purchase unlocks it for good. Tick "contains in-app purchases" on the listing.
+- **Content rating questionnaire**: Utility; no violence, no user content, no sharing of location; digital purchases: yes. Expect "Everyone".
+- **Data safety**: the app itself collects nothing. Google Play handles the payment and keeps purchase history on Google's side; the app stores only a yes/no "bought" flag on the device.
 
 ## Full description (4000 max)
 
@@ -34,7 +35,7 @@ AUTO-LOCK
 Choose the apps you hand over and the moment that should lock them: a video call connecting, a video going full screen, anything playing, or simply opening. A five-second countdown gives you time to hand over; switch away or press the pattern to cancel. Unlock, and it locks again by itself only if the same moment ends and happens again.
 
 MADE TO BE TRUSTED
-• No ads, no accounts, no analytics, no internet permission
+• Free for 30 days, then one purchase. No subscription, no ads, no accounts, no analytics, no internet permission
 • Open source
 • Nothing on screen is ever read or stored
 • The lock is never saved: a restart always leaves the phone unlocked

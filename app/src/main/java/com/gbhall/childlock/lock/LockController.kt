@@ -7,6 +7,20 @@ import android.os.Looper
 import android.util.Log
 import java.util.concurrent.CopyOnWriteArraySet
 
+/** Why a lock ended. The review prompt reads it; nothing else does. */
+enum class UnlockReason {
+    /** The parent's own gesture, the notification button or the tile. */
+    PARENT,
+    /** The three-finger fallback: the phone got out, but the chosen gesture did not work. */
+    FALLBACK,
+    /** The hand-back timer or the hard cap ran out. */
+    TIMER,
+    /** A phone call had to get through. */
+    CALL,
+    /** The app gave up (permission lost, overlay failed). */
+    SYSTEM,
+}
+
 sealed interface LockState {
     data object Unlocked : LockState
 
@@ -65,8 +79,16 @@ object LockController {
         }
     }
 
+    /** Why the most recent unlock happened; meaningful only right after it. */
+    @Volatile
+    var lastUnlockReason: UnlockReason = UnlockReason.PARENT
+        private set
+
     /** Releases the lock or cancels a pending arm. The service observes this and tears down. */
-    fun unlock() = set(LockState.Unlocked)
+    fun unlock(reason: UnlockReason = UnlockReason.PARENT) {
+        lastUnlockReason = reason
+        set(LockState.Unlocked)
+    }
 
     /**
      * State changes synchronously; listeners always hear about it on a later

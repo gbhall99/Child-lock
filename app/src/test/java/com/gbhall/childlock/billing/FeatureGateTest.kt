@@ -1,59 +1,87 @@
 package com.gbhall.childlock.billing
 
-import android.app.AlertDialog
 import com.gbhall.childlock.TestSupport
-import com.gbhall.childlock.settings.SettingsRepository
-import com.gbhall.childlock.ui.MainActivity
-import com.gbhall.childlock.ui.Paywall
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.shadows.ShadowAlertDialog
 
 @RunWith(RobolectricTestRunner::class)
 class FeatureGateTest {
+    private val app get() = TestSupport.app
+    private val day = 24L * 60 * 60 * 1000
+    private var now = System.currentTimeMillis()
+
     @Before
     fun setUp() {
         TestSupport.clearSettings()
-        FeatureGate.setPreviewFree(TestSupport.app, false)
+        FeatureGate.clock = { now }
+    }
+
+    @After
+    fun tearDown() {
+        FeatureGate.clock = { System.currentTimeMillis() }
     }
 
     @Test
-    fun `nothing is withheld while nothing is for sale, even in a release-style build`() {
-        // Gradle runs these tests as the debug build; strip the flag so this
-        // proves the release case, which is where the gate used to bite.
-        val info = TestSupport.app.applicationInfo
-        val original = info.flags
-        info.flags = original and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE.inv()
-        try {
-            assertFalse(FeatureGate.isDebuggable(TestSupport.app))
-            assertFalse(FeatureGate.BILLING_READY)
-            assertTrue(FeatureGate.isPro(TestSupport.app))
-            for (f in FeatureGate.Feature.entries) assertTrue(f.name, FeatureGate.has(TestSupport.app, f))
-        } finally {
-            info.flags = original
-        }
+    fun `the trial starts the first time anything asks and runs for thirty days`() {
+        assertEquals(FeatureGate.Access.Trial(30), FeatureGate.access(app))
+        assertEquals(now, FeatureGate.trialStart(app))
+        now += 29 * day + day / 2
+        assertEquals("last half day still counts as a day", FeatureGate.Access.Trial(1), FeatureGate.access(app))
+        assertTrue(FeatureGate.isUnlocked(app))
+        now += day / 2
+        assertEquals(FeatureGate.Access.Expired, FeatureGate.access(app))
+        assertFalse(FeatureGate.isUnlocked(app))
     }
 
     @Test
-    fun `the free preview shows the gate, and the gate explains then lets the parent through`() {
-        FeatureGate.setPreviewFree(TestSupport.app, true)
-        assertFalse(FeatureGate.isPro(TestSupport.app))
-        SettingsRepository.get(TestSupport.app).setupDismissed = true
-        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
-        var allowed = 0
-        Paywall.require(activity, FeatureGate.Feature.AUTO_LOCK) { allowed++ }
-        assertEquals("explained first", 0, allowed)
-        val dialog = ShadowAlertDialog.getLatestAlertDialog()
-        assertNotNull(dialog)
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
-        TestSupport.idle()
-        assertEquals("never blocks what it says is unlocked", 1, allowed)
+    fun `days left round up so the first day says thirty and the last says one`() {
+        FeatureGate.trialStart(app)
+        now += 1
+        assertEquals(FeatureGate.Access.Trial(30), FeatureGate.access(app))
+        now += day - 1
+        assertEquals(FeatureGate.Access.Trial(29), FeatureGate.access(app))
+    }
+
+    @Test
+    fun `a purchase unlocks for good and a refund takes it away again`() {
+        FeatureGate.trialStart(app)
+        now += 45 * day
+        assertEquals(FeatureGate.Access.Expired, FeatureGate.access(app))
+        FeatureGate.recordPurchase(app, true)
+        assertEquals(FeatureGate.Access.Purchased, FeatureGate.access(app))
+        assertTrue(FeatureGate.isPurchased(app))
+        FeatureGate.recordPurchase(app, false)
+        assertEquals(FeatureGate.Access.Expired, FeatureGate.access(app))
+    }
+
+    @Test
+    fun `a build that cannot sell is simply unlocked`() {
+        FakeBilling.current.canSell = false
+        FeatureGate.trialStart(app)
+        now += 400 * day
+        assertEquals(FeatureGate.Access.Purchased, FeatureGate.access(app))
+        assertTrue(FeatureGate.isUnlocked(app))
+    }
+
+    @Test
+    fun `turning the clock back does not end the trial early or extend it past its start`() {
+        FeatureGate.trialStart(app)
+        now -= 10 * day
+        assertEquals(FeatureGate.Access.Trial(30), FeatureGate.access(app))
+    }
+
+    @Test
+    fun `the debug preview shows the app as it looks after the trial, without touching the purchase`() {
+        FeatureGate.setPreviewExpired(app, true)
+        assertTrue(FeatureGate.isPreviewingExpired(app))
+        assertEquals(FeatureGate.Access.Expired, FeatureGate.access(app))
+        FeatureGate.setPreviewExpired(app, false)
+        assertEquals(FeatureGate.Access.Trial(30), FeatureGate.access(app))
     }
 }

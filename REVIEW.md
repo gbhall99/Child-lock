@@ -176,9 +176,9 @@ rather than hidden behind a flag. Verified by compiling the Play flavour and
 confirming the matcher class does not exist in it.
 
 **D3. The paywall no longer sells something that does not exist. Fixed.**
-While billing is not wired, the sheet explains that the extras are unlocked
-and nothing is for sale. A single flag turns the purchase path on, and the
-price will come from the billing library rather than a constant.
+Google Play Billing is wired in the play flavour: the sheet shows the price
+Play reports, starts the purchase, restores it, and the app is free for 30
+days before it asks. The sideload flavour has no store and never asks.
 
 **D4. No trader identity, address, terms or withdrawal notice. Documented,
 yours to complete.** The listing and release checklist now spell out exactly
@@ -186,7 +186,11 @@ what is required: the Digital Services Act trader declaration, a terms URL
 covering the 14-day right of withdrawal and refunds, and naming that trader
 as data controller in the privacy policy.
 
-**D5. "No internet permission" stops being true when billing lands.**
+**D5. "No internet permission" stops being true when billing lands. Did not
+happen.** Play Billing talks to the Play Store app on the device, not to the
+network, so the app still declares no internet permission. The listing and
+privacy policy keep the claim; the privacy policy now names the one
+third-party SDK.
 
 **D6. Brand names removed from marketing copy. Fixed.** Nominative use in the
 internal package list stays; the listing no longer names other companies'
@@ -273,7 +277,8 @@ A restore-purchase path must exist before billing ships.
   corrupted. **Fixed.**
 - The notifications permission is grantable from the main screen again.
   **Fixed.**
-- Price is now one number across the code and the documents. **Fixed.**
+- The price lives in Play Console only; the code shows what Play reports and
+  the documents name the base price once. **Fixed.**
 
 ---
 

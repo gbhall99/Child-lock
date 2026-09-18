@@ -17,6 +17,8 @@ import android.view.Gravity
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.Toast
+import com.gbhall.childlock.billing.FeatureGate
+import com.gbhall.childlock.review.ReviewSignals
 import com.gbhall.childlock.ChildLockApp
 import com.gbhall.childlock.R
 import com.gbhall.childlock.settings.GestureText
@@ -45,7 +47,7 @@ class LockOverlayService : Service() {
     private val maxDurationStop = Runnable {
         if (LockController.isLocked) {
             Log.i(TAG, "Session over; unlocking")
-            LockController.unlock()
+            LockController.unlock(UnlockReason.TIMER)
         }
     }
 
@@ -63,7 +65,7 @@ class LockOverlayService : Service() {
             }
             if (mode == android.media.AudioManager.MODE_RINGTONE || mode == android.media.AudioManager.MODE_IN_CALL) {
                 Log.i(TAG, "Phone call in progress; unlocking so it can be answered")
-                LockController.unlock()
+                LockController.unlock(UnlockReason.CALL)
                 return
             }
             handler.postDelayed(this, CALL_WATCH_MS)
@@ -71,10 +73,18 @@ class LockOverlayService : Service() {
     }
 
     private var wasLocked = false
+    private var lockedSinceUptime = 0L
 
     private val stateListener: (LockState) -> Unit = { state ->
-        if (state is LockState.Locked) wasLocked = true
+        if (state is LockState.Locked && !wasLocked) {
+            wasLocked = true
+            lockedSinceUptime = state.sinceMs
+            if (!rehearsal) ReviewSignals.onLocked(this)
+        }
         if (state is LockState.Unlocked) {
+            if (wasLocked && !rehearsal) {
+                ReviewSignals.onUnlocked(this, SystemClock.uptimeMillis() - lockedSinceUptime, LockController.lastUnlockReason)
+            }
             teardown()
             handler.removeCallbacks(maxDurationStop)
             handler.removeCallbacks(callWatch)
@@ -121,6 +131,13 @@ class LockOverlayService : Service() {
         handler.removeCallbacks(stopAfterBanner)
         if (!Settings.canDrawOverlays(this)) {
             toast(R.string.toast_no_overlay_permission)
+            abort()
+            return
+        }
+        // Every way of locking checks this first; this is the backstop. Practising
+        // is allowed: it ends by itself and shows what the purchase buys.
+        if (!isRehearsal && !FeatureGate.isUnlocked(this)) {
+            toast(R.string.toast_trial_over)
             abort()
             return
         }
@@ -196,7 +213,7 @@ class LockOverlayService : Service() {
 
     /** Give up: state back to Unlocked (even if it never left), overlay gone, service stopped. */
     private fun abort() {
-        LockController.unlock()
+        LockController.unlock(UnlockReason.SYSTEM)
         teardown()
         stopSelf()
     }

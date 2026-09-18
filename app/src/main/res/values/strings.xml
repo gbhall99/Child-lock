@@ -177,9 +177,6 @@
     <string name="skip_ads_title">Skip ads for them</string>
     <string name="skip_ads_desc">Taps “Skip ad” in the app while locked.</string>
     <string name="help_skip_ads">Only a “Skip ad” style button, never the ad itself and never “Skip intro”. To find the button it reads button labels in that one app while locked. Nothing is stored or sent. Most streaming services make their ads unskippable, so in practice this helps on YouTube and a few others.</string>
-    <string name="pro_title">Child Lock Pro</string>
-    <string name="pro_body">Everything automatic: locking by itself when a call connects or a video goes full screen, locking again after you unlock, and skipping ads.\n\nThe lock itself, the volume buttons and every safety feature stay free, always.</string>
-    <string name="pro_body_soon">These automatic extras are still being finished, so they are unlocked for now and nothing is for sale yet.\n\nThe lock itself, the volume buttons and every safety feature will always be free.</string>
     <string name="session_title">Timer</string>
     <string name="session_off">No timer</string>
     <string name="session_minutes">%1$d minutes</string>
@@ -187,11 +184,33 @@
     <string name="rehearse_title">Practise</string>
     <string name="rehearse_desc">Lock this screen and unlock it. Ends by itself after a minute.</string>
     <string name="rehearse_go">Start</string>
-    <string name="pro_upgrade">Upgrade for %1$s</string>
+
+    <!-- Trial and purchase -->
+    <string name="trial_title">Free trial</string>
+    <plurals name="trial_days_left">
+        <item quantity="one">%d day left</item>
+        <item quantity="other">%d days left</item>
+    </plurals>
+    <string name="trial_over">Free trial over</string>
+    <string name="trial_over_body">Buy Child Lock once to keep locking.</string>
+    <string name="help_trial">Everything works free for 30 days. After that, one purchase unlocks the app for good on this Google account. Unlocking never needs the purchase.</string>
+    <string name="buy_title">Buy Child Lock</string>
+    <string name="buy_body">One purchase, no subscription. Google Play restores it on any phone signed in to your Google account.</string>
+    <string name="buy">Buy</string>
+    <string name="buy_for">Buy for %1$s</string>
+    <string name="buy_done">Bought. Thank you.</string>
+    <string name="buy_status">Purchase</string>
+    <string name="buy_status_purchased">Bought</string>
+    <string name="buy_restore">Restore purchase</string>
+    <string name="buy_restore_desc">Bought before, on this Google account.</string>
+    <string name="buy_restore_go">Restore</string>
     <string name="pro_not_now">Not now</string>
-    <string name="pro_coming">Purchases arrive with the Play Store release.</string>
-    <string name="pro_badge">Pro</string>
-    <string name="pro_preview_free">Preview as a free user (test builds only)</string>
+    <string name="pro_preview_expired">Preview the trial as over (test builds only)</string>
+    <string name="toast_store_unavailable">Google Play isn’t available right now. Check you’re signed in, then try again.</string>
+    <string name="toast_restore_checking">Checking with Google Play…</string>
+    <string name="toast_restored">Purchase restored.</string>
+    <string name="toast_restore_none">No purchase found for this Google account.</string>
+    <string name="toast_trial_over">Free trial over. Open Child Lock to buy it.</string>
 
     <!-- More settings -->
     <string name="arm_delay">Lock button countdown</string>

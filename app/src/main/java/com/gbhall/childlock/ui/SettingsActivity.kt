@@ -18,6 +18,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.gbhall.childlock.R
+import com.gbhall.childlock.billing.Billing
 import com.gbhall.childlock.billing.FeatureGate
 import com.gbhall.childlock.gesture.Corner
 import com.gbhall.childlock.gesture.CornerPair
@@ -274,9 +275,7 @@ class SettingsActivity : Activity() {
                 autoLockList = vertical { setPadding(0, dp(6), 0, 0) }
                 addView(autoLockList)
                 addView(actionButton(getString(R.string.autolock_add)) {
-                    Paywall.require(this@SettingsActivity, FeatureGate.Feature.AUTO_LOCK) {
-                        startActivity(Intent(this@SettingsActivity, AppPickerActivity::class.java))
-                    }
+                    startActivity(Intent(this@SettingsActivity, AppPickerActivity::class.java))
                 }.also { it.tag = "addApp" }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
                 autoLockNote = callout(getString(R.string.autolock_note), actionButton(getString(R.string.turn_on)) {
                     Disclosures.accessibility(this@SettingsActivity) { startActivity(GuardAccessibilityService.settingsIntent(this@SettingsActivity)) }
@@ -293,11 +292,11 @@ class SettingsActivity : Activity() {
                     ) { sec -> repo.update { it.copy(autoLockDelaySec = sec) } },
                 )
                 addView(switchRow(getString(R.string.relock_title), getString(R.string.relock_desc), s.relockSameApp, help = getString(R.string.help_relock)) { v ->
-                    Paywall.require(this@SettingsActivity, FeatureGate.Feature.RELOCK) { repo.update { it.copy(relockSameApp = v) } }
+                    repo.update { it.copy(relockSameApp = v) }
                 })
                 if (com.gbhall.childlock.guard.SkipAdFeature.AVAILABLE) {
                     addView(switchRow(getString(R.string.skip_ads_title), getString(R.string.skip_ads_desc), s.skipAds, help = getString(R.string.help_skip_ads)) { v ->
-                        Paywall.require(this@SettingsActivity, FeatureGate.Feature.SKIP_ADS) { repo.update { it.copy(skipAds = v) } }
+                        repo.update { it.copy(skipAds = v) }
                     })
                 }
             },
@@ -409,9 +408,9 @@ class SettingsActivity : Activity() {
                     repo.setupDismissed = false
                     startActivity(Intent(this@SettingsActivity, SetupActivity::class.java))
                 }, null, R.drawable.ic_tune))
-                if (FeatureGate.isDebuggable(this@SettingsActivity)) {
-                    addView(switchRow(getString(R.string.pro_preview_free), null, FeatureGate.isPreviewingFree(this@SettingsActivity)) { v ->
-                        FeatureGate.setPreviewFree(this@SettingsActivity, v)
+                if (FeatureGate.isDebuggable(this@SettingsActivity) && Billing.backend.canSell) {
+                    addView(switchRow(getString(R.string.pro_preview_expired), null, FeatureGate.isPreviewingExpired(this@SettingsActivity)) { v ->
+                        FeatureGate.setPreviewExpired(this@SettingsActivity, v)
                     })
                 }
             },
@@ -429,6 +428,11 @@ class SettingsActivity : Activity() {
                 addView(body(getString(R.string.about_privacy_summary), secondary = true).apply { setPadding(0, dp(8), 0, dp(4)) })
             },
         )
+        if (Billing.backend.canSell) {
+            purchaseCard = card(null) {}
+            addView(purchaseCard)
+            renderPurchase()
+        }
         addView(
             card(null) {
                 listOf(
@@ -446,6 +450,42 @@ class SettingsActivity : Activity() {
                 addView(body(getString(R.string.about_stuck_body), secondary = true))
             },
         )
+    }
+
+    // ---- Purchase (About) ---------------------------------------------------
+
+    private var purchaseCard: LinearLayout? = null
+    private val billingListener: () -> Unit = { renderPurchase() }
+
+    /** Trial or purchase state with the two actions that go with it. Rebuilt whenever Play answers. */
+    private fun renderPurchase() {
+        val cardView = purchaseCard ?: return
+        cardView.removeAllViews()
+        val access = FeatureGate.access(this)
+        val status = when (access) {
+            is FeatureGate.Access.Purchased -> getString(R.string.buy_status_purchased)
+            is FeatureGate.Access.Trial -> Paywall.trialLine(this, access)
+            is FeatureGate.Access.Expired -> getString(R.string.trial_over)
+        }
+        val action = if (access is FeatureGate.Access.Purchased) null else actionButton(Paywall.buyLabel(this)) { Paywall.show(this) }.also { it.tag = "buy" }
+        cardView.addView(row(getString(R.string.buy_status), status, action, null, R.drawable.ic_lock, help = getString(R.string.help_trial)))
+        if (access !is FeatureGate.Access.Purchased) {
+            cardView.addView(divider())
+            cardView.addView(row(getString(R.string.buy_restore), getString(R.string.buy_restore_desc), actionButton(getString(R.string.buy_restore_go)) { Paywall.restore(this) }.also { it.tag = "restore" }))
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (purchaseCard != null) {
+            Billing.addListener(billingListener)
+            renderPurchase()
+        }
+    }
+
+    override fun onStop() {
+        if (purchaseCard != null) Billing.removeListener(billingListener)
+        super.onStop()
     }
 
     private fun open(url: String) {

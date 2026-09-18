@@ -59,6 +59,15 @@ gesture navigation, once per release:
   button when switched off). None may work. Then the ones that are shown.
 - Three-finger triple tap once (stays locked), twice (unlocks).
 - Add a video app under Auto-lock, play a video full screen, wait 5 s.
+- About → Purchase shows the days left; Buy opens the Play sheet with the
+  right price; as a licence tester complete it, and the row says "Bought".
+  Refund it in Play Console and, after a relaunch, the trial line is back.
+- Three real locks of over two minutes each, ended with the gesture; on the
+  next open of the app the Play "rate this app" sheet appears once (as a
+  licence tester it may be blank or skipped: Play's quota, not a bug).
+- More → "Preview the trial as over": the home screen says "Free trial
+  over", the big button offers the purchase, the volume pattern and the tile
+  no longer lock, Practise still does.
 - Force a restart while locked (power for 10 to 30 s; Samsung power + volume
   down). The phone must come back unlocked.
 
@@ -69,7 +78,8 @@ gesture navigation, once per release:
 - Privacy policy URL points at `PRIVACY.md` on the default branch.
 - Declarations completed: accessibility service, foreground service
   (special use, with a short screen recording), display over other apps,
-  data safety (nothing collected), target audience (not for children), ads (none).
+  data safety (nothing collected by the app; Play handles the purchase),
+  target audience (not for children), ads (none), in-app purchases (yes).
   The screen recording should show: the setup guide's disclosure, arming from
   the app, the badge while locked, a swipe achieving nothing, the volume
   pattern unlocking. Under a minute is enough.
@@ -85,15 +95,29 @@ gesture navigation, once per release:
 
 `./gradlew assembleSideloadDebug` builds the personal one.
 
-## Before the first paid release
+## The purchase
 
+The Play build is free for 30 days from first launch, then needs one purchase
+(`FeatureGate.PRODUCT_ID`, `childlock_full`). Before the first release:
+
+- Play Console → Monetise → Products → In-app products → Create: product id
+  `childlock_full`, name "Child Lock", description "Unlocks Child Lock for
+  good. One purchase, no subscription.", base price £2.99, then **Activate**.
+  The app shows whatever price Play reports, so the price can change in the
+  console at any time without a release.
+- Play Console → Setup → Licence testing: add the Google accounts of everyone
+  testing, so their purchases are free and refund instantly.
 - Complete the Play trader declaration (name, postal address, phone, email);
-  the EEA cannot be served without it.
+  the EEA cannot be served without it, and selling makes you a trader there.
 - Publish terms covering the 14-day right of withdrawal and refunds, and name
   the trader as the data controller in the privacy policy.
-- Wire Play Billing and flip `FeatureGate.BILLING_READY`; until then the app
-  never offers a purchase.
-- Add a visible "Restore purchase" row.
+
+Play does not offer free trials on one-time products, so the trial clock is
+the app's own: first launch is stored on the device, the purchase is restored
+from Play. Clearing the app's data restarts the trial; a reinstall never
+loses the purchase. The sideload flavour has no store and is simply unlocked.
+
+To see the paid state on a test build: More → "Preview the trial as over".
 
 ## Notes
 

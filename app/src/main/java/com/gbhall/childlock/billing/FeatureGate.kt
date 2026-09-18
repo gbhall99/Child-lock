@@ -4,62 +4,80 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 
 /**
- * Single choke point for the free/Pro split (see MONETISATION.md).
+ * Single choke point for the free trial and the one-time purchase.
  *
- * Pro is true when a purchase has been recorded, or in debuggable builds so
- * the owner can test everything. Play Billing plugs in by calling
- * [recordPurchase] from the purchase callback; nothing else changes.
+ * Every build starts a [TRIAL_DAYS]-day trial on first launch. After that
+ * the lock will not engage until the app is bought once. Unlocking is never
+ * gated: a trial that ends while the phone is locked still lets the parent
+ * out. Builds that cannot sell ([PurchaseBackend.canSell] false) are simply
+ * unlocked.
+ *
+ * The purchase itself lives with Google Play and is restored from there on
+ * every launch, so a reinstall never loses it. The trial start is only on
+ * the device: clearing the app's data starts the trial again, which is an
+ * accepted cost of keeping the app free of accounts and servers.
  */
 object FeatureGate {
-    enum class Feature { AUTO_LOCK, SKIP_ADS, RELOCK, CUSTOM_BADGE }
+    const val TRIAL_DAYS = 30
 
-    /**
-     * Flipped on when Play Billing is wired in. While false the app never
-     * offers a purchase, because offering one it cannot complete would be a
-     * misleading commercial practice as well as a Play violation.
-     */
-    const val BILLING_READY = false
+    /** The one-time product configured in Play Console. Changing it orphans every existing purchase. */
+    const val PRODUCT_ID = "childlock_full"
 
-    /** Replaced by the billing library's localised price once billing is live. */
-    @Suppress("UNUSED_PARAMETER")
-    fun priceLabel(context: Context): String = "£2.99"
+    sealed class Access {
+        object Purchased : Access()
+        data class Trial(val daysLeft: Int) : Access()
+        object Expired : Access()
+    }
+
+    /** Wall-clock source, replaceable in tests. */
+    var clock: () -> Long = { System.currentTimeMillis() }
+
     private const val PREFS = "childlock"
     private const val KEY_PRO = "pro_unlocked"
-    private const val KEY_PREVIEW_FREE = "pro_preview_free"
+    private const val KEY_TRIAL_START = "trial_start_ms"
+    private const val KEY_PREVIEW_EXPIRED = "pro_preview_free"
+    private const val DAY_MS = 24L * 60 * 60 * 1000
 
-    /**
-     * Until billing exists nothing is for sale, so nothing is withheld: a
-     * paywall in front of features the app itself says are "unlocked for now"
-     * left release-style builds unable to add an auto-lock app at all. The
-     * debug-only "preview as a free user" switch is the one way to see the gate.
-     */
-    fun isPro(context: Context): Boolean {
-        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        if (prefs.getBoolean(KEY_PREVIEW_FREE, false)) return false
-        if (!BILLING_READY) return true
-        if (prefs.getBoolean(KEY_PRO, false)) return true
-        return isDebuggable(context)
+    fun access(context: Context): Access {
+        if (!Billing.backend.canSell) return Access.Purchased
+        val prefs = prefs(context)
+        if (prefs.getBoolean(KEY_PREVIEW_EXPIRED, false)) return Access.Expired
+        if (prefs.getBoolean(KEY_PRO, false)) return Access.Purchased
+        val elapsed = (clock() - trialStart(context)).coerceAtLeast(0L)
+        val left = TRIAL_DAYS * DAY_MS - elapsed
+        return if (left <= 0L) Access.Expired else Access.Trial(((left + DAY_MS - 1) / DAY_MS).toInt())
     }
 
-    fun has(context: Context, feature: Feature): Boolean = when (feature) {
-        Feature.AUTO_LOCK, Feature.SKIP_ADS, Feature.RELOCK, Feature.CUSTOM_BADGE -> isPro(context)
+    /** Whether a new lock may start. Never consulted for unlocking. */
+    fun isUnlocked(context: Context): Boolean = access(context) !is Access.Expired
+
+    fun isPurchased(context: Context): Boolean = prefs(context).getBoolean(KEY_PRO, false)
+
+    /** When the trial began, recorded the first time anything asks. */
+    fun trialStart(context: Context): Long {
+        val prefs = prefs(context)
+        val stored = prefs.getLong(KEY_TRIAL_START, 0L)
+        if (stored > 0L) return stored
+        val now = clock()
+        prefs.edit().putLong(KEY_TRIAL_START, now).apply()
+        return now
     }
 
-    /** Called by the billing integration once a purchase is verified. */
+    /** Called by the billing backend with what the store says this account owns. */
     fun recordPurchase(context: Context, purchased: Boolean) {
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putBoolean(KEY_PRO, purchased).apply()
+        prefs(context).edit().putBoolean(KEY_PRO, purchased).apply()
     }
 
-    /** Debug-only: lets the owner see the free experience. */
-    fun setPreviewFree(context: Context, preview: Boolean) {
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putBoolean(KEY_PREVIEW_FREE, preview).apply()
+    /** Debug-only: shows the app as it looks after the trial has ended. */
+    fun setPreviewExpired(context: Context, preview: Boolean) {
+        prefs(context).edit().putBoolean(KEY_PREVIEW_EXPIRED, preview).apply()
     }
 
-    fun isPreviewingFree(context: Context): Boolean =
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_PREVIEW_FREE, false)
+    fun isPreviewingExpired(context: Context): Boolean = prefs(context).getBoolean(KEY_PREVIEW_EXPIRED, false)
 
     fun isDebuggable(context: Context): Boolean =
         context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+
+    private fun prefs(context: Context) =
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }

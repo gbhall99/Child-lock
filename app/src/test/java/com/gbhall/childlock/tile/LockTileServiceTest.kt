@@ -39,6 +39,23 @@ class LockTileServiceTest {
     }
 
     @Test
+    @org.robolectric.annotation.Config(sdk = [33]) // Robolectric shadows the Intent overload of startActivityAndCollapse only
+    fun `tap after the trial opens the app instead of locking`() {
+        com.gbhall.childlock.billing.FeatureGate.setPreviewExpired(TestSupport.app, true)
+        try {
+            ForegroundTracker.lastApp = "com.example.call"
+            val t = tile()
+            t.onStartListening()
+            t.onClick()
+            assertNull(shadowOf(TestSupport.app).nextStartedService)
+            assertEquals(LockState.Unlocked, LockController.state)
+            t.onStopListening()
+        } finally {
+            com.gbhall.childlock.billing.FeatureGate.setPreviewExpired(TestSupport.app, false)
+        }
+    }
+
+    @Test
     fun `tile remembers whether it is in quick settings`() {
         val repo = com.gbhall.childlock.settings.SettingsRepository.get(TestSupport.app)
         val t = tile()
