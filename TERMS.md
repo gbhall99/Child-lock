@@ -12,7 +12,7 @@ The app is sold by the trader below, an individual trading under his own
 name, who is also the data controller for the purposes of the privacy
 policy. Google Play collects the payment on the trader's behalf.
 
-- **Trader**: Gareth Brandon Hall
+- **Trader**: Gareth Hall
 - **Postal address and telephone**: shown under the trader details on the
   app's Google Play listing
 - **Email**: inovata.ai@gmail.com
