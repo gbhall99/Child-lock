@@ -6,8 +6,8 @@
 - **Short description** (80 max): Hand your phone to your child. Tap all they like, nothing happens.
 - **Category**: Parenting (secondary: Tools)
 - **Contact email**: inovata.ai@gmail.com
-- **Trader details (required for EEA distribution)**: registered name, postal address, phone and email, the same as in `TERMS.md`. Play blocks EEA distribution without the Digital Services Act trader declaration.
-- **Terms URL**: https://github.com/gbhall99/Child-lock/blob/main/TERMS.md (covers the 14-day right of withdrawal, refunds alongside Google's 48-hour window, and the trader identity). Fill in the trader placeholders in `TERMS.md` and `PRIVACY.md` before submitting.
+- **Trader details (required for EEA distribution)**: Gareth Brandon Hall, personal developer account. Enter the postal address and phone in Play Console only; `TERMS.md` and `PRIVACY.md` point here for them rather than repeating them. Play blocks EEA distribution without the Digital Services Act trader declaration.
+- **Terms URL**: https://github.com/gbhall99/Child-lock/blob/main/TERMS.md (covers the 14-day right of withdrawal, refunds alongside Google's 48-hour window, and the trader identity). This and the privacy policy URL only resolve while the repository is public.
 - **Privacy policy URL**: https://github.com/gbhall99/Child-lock/blob/main/PRIVACY.md
 - **Target audience**: 18 and over (the app is for parents; it is not designed for children). Answer "No" to "Is your app designed for children?".
 - **Ads**: No.

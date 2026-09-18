@@ -75,7 +75,9 @@ gesture navigation, once per release:
 
 - Play Console app created, package `com.gbhall.childlock` (cannot change later).
 - Store listing from `store/listing.md`, assets from `store/assets/`.
-- Privacy policy URL points at `PRIVACY.md` on the default branch.
+- Privacy policy and terms URLs point at `PRIVACY.md` and `TERMS.md` on the
+  default branch. Play and users must be able to open them without signing
+  in, so the repository has to be public at submission and stay public.
 - Declarations completed: accessibility service, foreground service
   (special use, with a short screen recording), display over other apps,
   data safety (nothing collected by the app; Play handles the purchase),
@@ -109,9 +111,10 @@ The Play build is free for 30 days from first launch, then needs one purchase
   testing, so their purchases are free and refund instantly.
 - Complete the Play trader declaration (name, postal address, phone, email);
   the EEA cannot be served without it, and selling makes you a trader there.
-- Fill in the trader placeholders (registered name, postal address, phone,
-  governing law) in `TERMS.md` and `PRIVACY.md`; the terms cover the 14-day
-  right of withdrawal and refunds, and the listing links to them.
+- The trader in `TERMS.md` and `PRIVACY.md` is the personal account holder;
+  both documents send readers to the Play listing for the postal address and
+  phone, so those need only be entered in Play Console. The terms cover the
+  14-day right of withdrawal and refunds, and the listing links to them.
 
 Play does not offer free trials on one-time products, so the trial clock is
 the app's own: first launch is stored on the device, the purchase is restored

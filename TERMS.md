@@ -8,13 +8,13 @@ Google Play. Installing the app or buying it means you accept these terms.
 
 ## Who you are dealing with
 
-The app is sold by the trader below, who is also the data controller for the
-purposes of the privacy policy. Google Play collects the payment on the
-trader's behalf.
+The app is sold by the trader below, an individual trading under his own
+name, who is also the data controller for the purposes of the privacy
+policy. Google Play collects the payment on the trader's behalf.
 
-- **Trader**: _[registered name]_
-- **Postal address**: _[street, town, postcode, country]_
-- **Telephone**: _[number]_
+- **Trader**: Gareth Brandon Hall
+- **Postal address and telephone**: shown under the trader details on the
+  app's Google Play listing
 - **Email**: inovata.ai@gmail.com
 
 ## What you get
@@ -104,6 +104,6 @@ already made.
 
 ## Law
 
-These terms are governed by the law of _[the trader's country]_, without
-taking away any protection the law of the country you live in gives you as a
+These terms are governed by the law of England and Wales, without taking
+away any protection the law of the country you live in gives you as a
 consumer.

@@ -65,8 +65,9 @@ collects no information from anyone.
 
 ## Changes and contact
 
-The data controller is the trader named in the terms of use, `TERMS.md`,
-published alongside this policy: _[registered name]_, _[postal address]_,
-reachable at inovata.ai@gmail.com. Changes to this policy are published at the
+The data controller is Gareth Brandon Hall, the trader named in the terms of
+use, `TERMS.md`, published alongside this policy. His postal address is shown
+under the trader details on the app's Google Play listing, and he is reachable
+at inovata.ai@gmail.com. Changes to this policy are published at the
 same address as this document. Questions: that email address, or an issue on
 the repository.
