@@ -79,10 +79,10 @@ jobs:
       - name: Record the declaration video
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 35
           target: google_apis
           arch: x86_64
-          profile: pixel_6
+          profile: pixel_8
           disable-animations: false
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: scripts/record-demo.sh app/build/outputs/apk/play/debug/app-play-debug.apk store/media

@@ -38,14 +38,14 @@ still() { adb exec-out screencap -p > "$OUT/$1.png" 2>/dev/null && log "still $1
 FIND_NODE='
 import re, sys
 import xml.etree.ElementTree as ET
-needle = sys.argv[1]
+needles = sys.argv[1:]
 data = sys.stdin.read()
 try:
     root = ET.fromstring(data[data.index("<hierarchy"):])
 except Exception:
     sys.exit(1)
 for node in root.iter("node"):
-    if needle in node.get("text", "") or needle in node.get("content-desc", ""):
+    if any(n in node.get("text", "") or n in node.get("content-desc", "") for n in needles):
         m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.get("bounds", ""))
         if m:
             x1, y1, x2, y2 = map(int, m.groups())
@@ -53,11 +53,19 @@ for node in root.iter("node"):
             sys.exit(0)
 sys.exit(1)
 '
-# Centre of the first node whose text or description contains $1, or nothing.
+# Centre of the first node whose text or description contains any argument.
 find_text() {
   adb shell rm -f /sdcard/ui.xml
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
-  adb exec-out cat /sdcard/ui.xml 2>/dev/null | python3 -c "$FIND_NODE" "$1"
+  adb exec-out cat /sdcard/ui.xml 2>/dev/null | python3 -c "$FIND_NODE" "$@"
+}
+# One dump; taps the first of the given texts that is on screen, if any.
+tap_any() {
+  local centre
+  centre=$(find_text "$@")
+  [ -n "$centre" ] || return 1
+  adb shell input tap $centre
+  log "dismissed a prompt at $centre"
 }
 # Waits up to $2 seconds (default 25) for text $1 to be on screen.
 wait_text() {
@@ -157,6 +165,7 @@ adb shell settings put global hide_error_dialogs 1
 adb shell svc power stayon true
 adb shell settings put system screen_off_timeout 1800000
 adb shell settings put system show_touches 1
+adb shell settings put system time_12_24 24
 adb shell input keyevent KEYCODE_WAKEUP >/dev/null
 adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
 read -r W H < <(adb shell wm size | sed -E 's/.*: ([0-9]+)x([0-9]+).*/\1 \2/' | tail -1)
@@ -167,17 +176,44 @@ adb install -r -g "$APK" >>"$LOG" 2>&1 || { log "install failed"; exit 1; }
 adb shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow
 adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
 
-# A target app to hand over. Settings is on every image; a calculator is nicer.
-TARGET=$(adb shell pm list packages | tr -d '\r' | sed -n 's/^package://p' | grep -m1 -E 'calculator' || true)
-[ -n "$TARGET" ] || TARGET=com.android.settings
-log "target app $TARGET"
+# What the phone is handed over with: a children's video in the YouTube app
+# (on the Google images), else the same video in Chrome, else Settings.
+VIDEO="https://www.youtube.com/watch?v=XqZsoesa55w"
+TARGET=com.android.settings
+HANDOVER=settings
+focus_is() { adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | grep -qi "$1"; }
+dismiss_prompts() {
+  tap_any "No thanks" "NO THANKS" "Not now" "Skip" "SKIP" "Use without an account" "Accept & continue" "Dismiss" "Got it" "OK" || true
+}
+show_video() {
+  case "$HANDOVER" in
+    youtube) adb shell am start -a android.intent.action.VIEW -d "$VIDEO" -p com.google.android.youtube >/dev/null 2>&1 ;;
+    chrome) adb shell am start -a android.intent.action.VIEW -d "${VIDEO/www.youtube/m.youtube}" -p com.android.chrome >/dev/null 2>&1 ;;
+    *) open_target ;;
+  esac
+}
+choose_handover() {
+  if adb shell pm list packages | grep -q com.google.android.youtube; then
+    HANDOVER=youtube; show_video; sleep 10
+    dismiss_prompts; sleep 3; dismiss_prompts; sleep 3
+    if focus_is youtube; then TARGET=com.google.android.youtube; log "hand-over: YouTube app"; return; fi
+    log "YouTube app did not come up: $(adb shell dumpsys window | grep -m1 mCurrentFocus | tr -d '\r')"
+  fi
+  if adb shell pm list packages | grep -q com.android.chrome; then
+    HANDOVER=chrome; show_video; sleep 10
+    dismiss_prompts; sleep 3; dismiss_prompts; sleep 3
+    if focus_is chrome; then TARGET=com.android.chrome; log "hand-over: YouTube in Chrome"; return; fi
+    log "Chrome did not come up: $(adb shell dumpsys window | grep -m1 mCurrentFocus | tr -d '\r')"
+  fi
+  HANDOVER=settings; TARGET=com.android.settings; open_target; sleep 2; log "hand-over: Settings"
+}
 
-# Warm everything up off camera: the app's first start, and the target app.
+# Warm everything up off camera: the app's first start, and the hand-over app.
 log "warming up"
 launch .ui.MainActivity
 wait_text "Three quick steps" 60 >/dev/null && log "setup guide up" || log "WARNING: setup guide not seen during warm-up"
 adb shell input keyevent KEYCODE_HOME >/dev/null; sleep 1
-open_target; sleep 3
+choose_handover
 adb shell input keyevent KEYCODE_HOME >/dev/null; sleep 1
 
 # ---- record ------------------------------------------------------------------
@@ -195,8 +231,8 @@ sleep 0.5
 fresh_guide
 scene "The setup guide"; sleep 2.5; still 1-setup; scene_end
 if tap_text "Open settings" 10 && wait_text "Why Child Lock needs this" 10 >/dev/null; then
-  scene "Disclosure shown before enabling the helper"; sleep 7; still 2-disclosure; scene_end
-  scene "Android accessibility settings - switch on and Allow"
+  scene "Disclosure before enabling the helper"; sleep 7; still 2-disclosure; scene_end
+  scene "Accessibility settings - switch on and Allow"
   tap_text "Continue" 5
   tap_text "Child Lock helper" 15 && sleep 1 && still 3-a11y-settings
   tap_text "Use Child Lock helper" 10 && sleep 1
@@ -213,14 +249,14 @@ ensure_guard && log "helper is bound" || log "WARNING: helper not bound"
 # 2. Back to the guide: acknowledge the way out, finish.
 fresh_guide
 if tap_text "Got it" 10; then
-  scene "The way out is explained before the first lock"; sleep 3; still 5-escape
+  scene "The way out is explained first"; sleep 3; still 5-escape
   tap_text "Done" 10; sleep 1; scene_end
 fi
 ensure_guard && log "helper is bound after the guide" || log "WARNING: helper not bound after the guide"
 
-# 3. Hand over, then the volume pattern locks.
-open_target; sleep 2
-scene "Hand the phone over with an app on screen"; sleep 2; scene_end
+# 3. Hand over with the video playing, then the volume pattern locks.
+show_video; sleep 6
+scene "Hand over with a video playing"; sleep 3; scene_end
 scene "Volume up then volume down = locked"
 if pattern 1; then locked=1; else
   log "pattern did not lock; arming from the app instead"
@@ -252,7 +288,7 @@ sleep 1.5; still 9-unlocked; scene_end
 launch .ui.MainActivity; sleep 1.5
 # screenrecord only writes frames when the screen changes, so the file ends
 # at the last change: the closing scene has to move, or it falls off the end.
-scene "Unlocked - touch works as normal"
+scene "Unlocked - touch works again"
 adb shell input swipe $cx $((H * 7 / 10)) $cx $((H * 4 / 10)) 400; sleep 1
 adb shell input swipe $cx $((H * 4 / 10)) $cx $((H * 7 / 10)) 400; sleep 1
 still 10-home-after; scene_end
@@ -283,9 +319,9 @@ cut_scenes() {
     awk "BEGIN { exit !($dur > 0.5) }" || { log "scene '$cap' fell off the end of the recording"; continue; }
     args+=(-ss "$start" -t "$dur" -i "$raw")
     if [ "$1" = yes ]; then
-      fc+="[$n:v]drawtext=fontfile=$font:text='$cap':fontcolor=white:fontsize=46:box=1:boxcolor=black@0.65:boxborderw=18:x=(w-text_w)/2:y=h-200,setpts=PTS-STARTPTS[v$n];"
+      fc+="[$n:v]pad=iw:ih+180:0:0:black,drawtext=fontfile=$font:text='$cap':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=h-118,setpts=PTS-STARTPTS[v$n];"
     else
-      fc+="[$n:v]setpts=PTS-STARTPTS[v$n];"
+      fc+="[$n:v]pad=iw:ih+180:0:0:black,setpts=PTS-STARTPTS[v$n];"
     fi
     n=$((n + 1))
   done < "$SCENES"
