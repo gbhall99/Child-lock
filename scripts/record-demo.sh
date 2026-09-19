@@ -19,8 +19,17 @@ LOG="$OUT/demo.log"
 log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG"; }
 
 adb wait-for-device
+# Fresh CI emulators throw "Pixel Launcher isn't responding" for a while
+# after boot; that dialog sits over everything and breaks the UI dumps.
+adb shell settings put global hide_error_dialogs 1
+adb shell svc power stayon true
+adb shell settings put system screen_off_timeout 1800000
 adb shell input keyevent KEYCODE_WAKEUP >/dev/null
 adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
+log "letting the launcher settle"
+sleep 25
+adb shell input keyevent KEYCODE_BACK >/dev/null; adb shell input keyevent KEYCODE_HOME >/dev/null
+sleep 3
 read -r W H < <(adb shell wm size | sed -E 's/.*: ([0-9]+)x([0-9]+).*/\1 \2/' | tail -1)
 log "display ${W}x${H}"
 
@@ -47,13 +56,25 @@ for node in root.iter("node"):
 sys.exit(1)
 '
 tap_text() {
-  adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
-  local centre
-  centre=$(adb exec-out cat /sdcard/ui.xml | python3 -c "$FIND_NODE" "$1")
-  if [ -z "$centre" ]; then log "no node with text '$1'"; return 1; fi
+  local centre="" dump="" try
+  for try in 1 2 3; do
+    adb shell rm -f /sdcard/ui.xml
+    dump=$(adb shell uiautomator dump /sdcard/ui.xml 2>&1 | tr -d '\r')
+    centre=$(adb exec-out cat /sdcard/ui.xml 2>/dev/null | python3 -c "$FIND_NODE" "$1")
+    [ -n "$centre" ] && break
+    sleep 2
+  done
+  if [ -z "$centre" ]; then
+    log "no node with text '$1' (dump said: ${dump:-nothing}; $(adb exec-out cat /sdcard/ui.xml 2>/dev/null | grep -o 'text="[^"]*"' | head -12 | tr '\n' ' '))"
+    return 1
+  fi
   adb shell input tap $centre
   log "tapped '$1' at $centre"
 }
+
+# The shield window is titled "ChildLock"; it exists only while locked or arming.
+shield_up() { adb shell dumpsys window windows | grep -q 'ChildLock[^B]'; }
+guard_on() { adb shell dumpsys accessibility | grep -q GuardAccessibilityService; }
 
 log "install $APK"
 adb install -r -g "$APK" >>"$LOG" 2>&1 || { log "install failed"; exit 1; }
@@ -90,7 +111,8 @@ if ! adb shell settings get secure enabled_accessibility_services | grep -q "$PK
   adb shell settings put secure enabled_accessibility_services "$GUARD"
   adb shell settings put secure accessibility_enabled 1
 fi
-sleep 1
+for try in 1 2 3 4 5; do guard_on && break; sleep 2; done
+guard_on && log "helper is bound" || log "WARNING: helper not bound"
 
 # 2. Back to the guide: acknowledge the way out, finish.
 adb shell am start -n "$PKG/.ui.SetupActivity" >/dev/null
@@ -103,9 +125,8 @@ adb shell monkey -p "$TARGET" -c android.intent.category.LAUNCHER 1 >/dev/null 2
 sleep 3
 adb shell am start -n "$PKG/.ui.MainActivity" >/dev/null
 sleep 3; still 6-home
-before=$(adb shell dumpsys window windows | grep -c "$PKG")
 if tap_text "Lock in"; then
-  sleep 13
+  sleep 4; still 6b-countdown; sleep 9
 else
   log "no Lock button; arming with the volume pattern instead"
   adb shell monkey -p "$TARGET" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
@@ -113,8 +134,7 @@ else
   adb shell input keyevent KEYCODE_VOLUME_UP; sleep 0.4; adb shell input keyevent KEYCODE_VOLUME_DOWN
   sleep 13
 fi
-locked=$(adb shell dumpsys window windows | grep -c "$PKG")
-log "windows for $PKG before arming: $before, now: $locked (more means the shield is up)"
+if shield_up; then locked=1; log "shield is up"; else locked=0; log "WARNING: shield is not up"; fi
 still 7-locked
 
 # 4. Prods at a locked phone: taps, swipes from every edge, back, the shade.
@@ -128,14 +148,12 @@ adb shell input swipe $((W - 5)) $cy $((W / 3)) $cy 300; sleep 1.5
 adb shell input keyevent KEYCODE_BACK; sleep 1.5
 adb shell input keyevent KEYCODE_HOME; sleep 2
 still 8-after-swipes
-after=$(adb shell dumpsys window windows | grep -c "$PKG")
-log "windows for $PKG after the prods: $after"
+if shield_up; then log "shield still up after the prods"; else log "WARNING: shield gone after the prods"; fi
 
 # 5. The volume pattern unlocks.
 adb shell input keyevent KEYCODE_VOLUME_UP; sleep 0.4; adb shell input keyevent KEYCODE_VOLUME_DOWN
 sleep 4
-unlocked=$(adb shell dumpsys window windows | grep -c "$PKG")
-log "windows for $PKG after the pattern: $unlocked (back to the arming count means unlocked)"
+if shield_up; then unlocked=0; log "WARNING: shield still up after the pattern"; else unlocked=1; log "shield down: unlocked"; fi
 still 9-unlocked
 adb shell am start -n "$PKG/.ui.MainActivity" >/dev/null
 sleep 3; still 10-home-after
@@ -145,6 +163,5 @@ adb shell pkill -2 screenrecord || true
 wait $REC 2>/dev/null || true
 sleep 3
 adb pull /sdcard/demo.mp4 "$OUT/declaration-video.mp4" >>"$LOG" 2>&1 && log "video $(du -h "$OUT/declaration-video.mp4" | cut -f1)"
-if [ "$locked" -le "$before" ]; then log "WARNING: the shield never appeared; the clip does not show a lock"; fi
-if [ "$unlocked" -ge "$locked" ] && [ "$locked" -gt "$before" ]; then log "WARNING: the volume pattern did not unlock"; fi
+if [ "$locked" = 1 ] && [ "$unlocked" = 1 ]; then log "RESULT: lock and unlock both shown"; else log "RESULT: incomplete, see warnings above"; fi
 ls -la "$OUT" | tee -a "$LOG"

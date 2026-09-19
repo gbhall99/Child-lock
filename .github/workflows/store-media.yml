@@ -114,4 +114,4 @@ jobs:
           files: |
             out/store-screenshots.zip
             out/store-video/*
-            out/childlock-debug-apks/*
+            out/childlock-debug-apks/**/*.apk
