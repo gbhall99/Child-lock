@@ -102,6 +102,35 @@ raw_key() {
   adb shell sendevent "$KEY_DEV" 1 "$1" 1; adb shell sendevent "$KEY_DEV" 0 0 0
   adb shell sendevent "$KEY_DEV" 1 "$1" 0; adb shell sendevent "$KEY_DEV" 0 0 0
 }
+# Touches the same way: written to the touchscreen device (multitouch
+# protocol B), so touch exploration and the shield see them as a finger.
+# `input tap/swipe` would bypass that layer and reach the launcher.
+TOUCH_DEV=""; TMAXX=0; TMAXY=0
+find_touch() {
+  local info
+  info=$(adb shell getevent -pl 2>/dev/null | tr -d '\r')
+  TOUCH_DEV=$(echo "$info" | awk '/^add device/ {dev=$NF} /ABS_MT_POSITION_X/ {print dev; exit}')
+  [ -n "$TOUCH_DEV" ] || return 1
+  TMAXX=$(echo "$info" | awk -v d="$TOUCH_DEV" '/^add device/ {cur=$NF} cur==d && /ABS_MT_POSITION_X/ {for (i=1;i<=NF;i++) if ($i=="max") {print $(i+1)+0; exit}}')
+  TMAXY=$(echo "$info" | awk -v d="$TOUCH_DEV" '/^add device/ {cur=$NF} cur==d && /ABS_MT_POSITION_Y/ {for (i=1;i<=NF;i++) if ($i=="max") {print $(i+1)+0; exit}}')
+  [ "${TMAXX:-0}" -gt 0 ] && [ "${TMAXY:-0}" -gt 0 ]
+}
+tx() { awk "BEGIN { printf \"%d\", $1 * $TMAXX / ($W - 1) }"; }
+ty() { awk "BEGIN { printf \"%d\", $1 * $TMAXY / ($H - 1) }"; }
+# tap X Y (screen pixels)
+tap() {
+  if [ -z "$TOUCH_DEV" ]; then adb shell input tap "$1" "$2"; return; fi
+  local x y; x=$(tx "$1"); y=$(ty "$2")
+  adb shell "D=$TOUCH_DEV; sendevent \$D 3 47 0; sendevent \$D 3 57 $RANDOM; sendevent \$D 3 53 $x; sendevent \$D 3 54 $y; sendevent \$D 1 330 1; sendevent \$D 0 0 0; sleep 0.08; sendevent \$D 3 57 4294967295; sendevent \$D 1 330 0; sendevent \$D 0 0 0"
+}
+# swipe X1 Y1 X2 Y2 (screen pixels), about 400 ms
+swipe() {
+  if [ -z "$TOUCH_DEV" ]; then adb shell input swipe "$1" "$2" "$3" "$4" 400; return; fi
+  local x1 y1 x2 y2 n=12; x1=$(tx "$1"); y1=$(ty "$2"); x2=$(tx "$3"); y2=$(ty "$4")
+  adb shell "D=$TOUCH_DEV; sendevent \$D 3 47 0; sendevent \$D 3 57 $RANDOM; sendevent \$D 3 53 $x1; sendevent \$D 3 54 $y1; sendevent \$D 1 330 1; sendevent \$D 0 0 0; i=1; while [ \$i -le $n ]; do x=\$(( $x1 + ($x2 - $x1) * \$i / $n )); y=\$(( $y1 + ($y2 - $y1) * \$i / $n )); sendevent \$D 3 53 \$x; sendevent \$D 3 54 \$y; sendevent \$D 0 0 0; sleep 0.03; i=\$((i + 1)); done; sendevent \$D 3 57 4294967295; sendevent \$D 1 330 0; sendevent \$D 0 0 0"
+}
+back_key() { raw_key 158 || adb shell input keyevent KEYCODE_BACK; }
+
 # Up then down, through one delivery path: raw | console | numeric | inject.
 pattern_via() {
   case "$1" in
@@ -175,34 +204,60 @@ log "install $APK"
 adb install -r -g "$APK" >>"$LOG" 2>&1 || { log "install failed"; exit 1; }
 adb shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow
 adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
+# Android 13+ gates the accessibility toggle for apps installed by adb; a
+# Play install is not gated, so lift it to show what a Play user sees.
+adb shell appops set "$PKG" ACCESS_RESTRICTED_SETTINGS allow 2>/dev/null || true
+find_touch && log "touchscreen $TOUCH_DEV (${TMAXX}x${TMAXY})" || log "WARNING: no touchscreen device found; using input injection"
 
-# What the phone is handed over with: a children's video in the YouTube app
-# (on the Google images), else the same video in Chrome, else Settings.
-VIDEO="https://www.youtube.com/watch?v=XqZsoesa55w"
+# What the phone is handed over with: a cartoon playing in Google Photos'
+# player. YouTube is out: from a CI address it demands a sign-in "to confirm
+# you're not a bot", and YouTube Kids is not on the image. Big Buck Bunny is
+# CC BY 3.0 (Blender Foundation). Chrome's native player, then Settings, are
+# the fallbacks.
+CARTOON_URL="https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4"
+CARTOON=/sdcard/Movies/Big_Buck_Bunny.mp4
+CARTOON_ID=""
 TARGET=com.android.settings
 HANDOVER=settings
 focus_is() { adb shell dumpsys window 2>/dev/null | grep -m1 mCurrentFocus | grep -qi "$1"; }
 dismiss_prompts() {
-  tap_any "No thanks" "NO THANKS" "Not now" "Skip" "SKIP" "Use without an account" "Accept & continue" "Dismiss" "Got it" "OK" || true
+  tap_any "Allow all" "Allow" "No thanks" "NO THANKS" "Not now" "Skip" "SKIP" "Use without an account" "Accept & continue" "Dismiss" "Got it" "OK" || true
 }
 show_video() {
   case "$HANDOVER" in
-    youtube) adb shell am start -a android.intent.action.VIEW -d "$VIDEO" -p com.google.android.youtube >/dev/null 2>&1 ;;
-    chrome) adb shell am start -a android.intent.action.VIEW -d "${VIDEO/www.youtube/m.youtube}" -p com.android.chrome >/dev/null 2>&1 ;;
+    photos) adb shell am start -a android.intent.action.VIEW -d "content://media/external/video/media/$CARTOON_ID" -t video/mp4 -p com.google.android.apps.photos >/dev/null 2>&1 ;;
+    chrome) adb shell am start -a android.intent.action.VIEW -d "$CARTOON_URL" -p com.android.chrome >/dev/null 2>&1 ;;
     *) open_target ;;
   esac
 }
 choose_handover() {
-  if adb shell pm list packages | grep -q com.google.android.youtube; then
-    HANDOVER=youtube; show_video; sleep 10
-    dismiss_prompts; sleep 3; dismiss_prompts; sleep 3
-    if focus_is youtube; then TARGET=com.google.android.youtube; log "hand-over: YouTube app"; return; fi
-    log "YouTube app did not come up: $(adb shell dumpsys window | grep -m1 mCurrentFocus | tr -d '\r')"
+  local tmp="${RUNNER_TEMP:-/tmp}/bunny.mp4" try
+  if [ ! -s "$tmp" ]; then curl -sSL -m 300 -o "$tmp" "$CARTOON_URL" || log "cartoon download failed"; fi
+  if [ -s "$tmp" ] && adb shell pm list packages | grep -q com.google.android.apps.photos; then
+    adb shell mkdir -p /sdcard/Movies
+    adb push "$tmp" "$CARTOON" >/dev/null 2>&1
+    for try in 1 2 3 4 5 6; do
+      CARTOON_ID=$(adb shell content query --uri content://media/external/video/media --projection _id:_display_name 2>/dev/null | tr -d '\r' | grep -i Big_Buck_Bunny | sed -n 's/.*_id=\([0-9]*\).*/\1/p' | head -1)
+      [ -n "$CARTOON_ID" ] && break
+      adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d "file://$CARTOON" >/dev/null 2>&1
+      sleep 2
+    done
+    if [ -n "$CARTOON_ID" ]; then
+      HANDOVER=photos; show_video; sleep 8
+      dismiss_prompts; sleep 2; dismiss_prompts; sleep 2
+      for try in 1 2 3; do focus_is photos && break; sleep 2; done
+      if focus_is photos; then TARGET=com.google.android.apps.photos; log "hand-over: cartoon in Google Photos"; return; fi
+      log "Photos did not come up: $(adb shell dumpsys window | grep -m1 mCurrentFocus | tr -d '\r')"
+    else
+      log "the cartoon never appeared in the media store"
+    fi
   fi
   if adb shell pm list packages | grep -q com.android.chrome; then
     HANDOVER=chrome; show_video; sleep 10
-    dismiss_prompts; sleep 3; dismiss_prompts; sleep 3
-    if focus_is chrome; then TARGET=com.android.chrome; log "hand-over: YouTube in Chrome"; return; fi
+    dismiss_prompts; sleep 2; dismiss_prompts; sleep 2
+    tap $((W / 2)) $((H / 2)); sleep 2   # the native player wants one tap to play
+    for try in 1 2 3; do focus_is chrome && break; sleep 2; done
+    if focus_is chrome; then TARGET=com.android.chrome; log "hand-over: cartoon in Chrome"; return; fi
     log "Chrome did not come up: $(adb shell dumpsys window | grep -m1 mCurrentFocus | tr -d '\r')"
   fi
   HANDOVER=settings; TARGET=com.android.settings; open_target; sleep 2; log "hand-over: Settings"
@@ -265,19 +320,20 @@ if pattern 1; then locked=1; else
 fi
 sleep 2; still 7-locked; scene_end
 
-# 4. Prods at a locked phone: taps, swipes from every edge, back, home.
+# 4. Prods at a locked phone, as a finger makes them: taps, swipes from
+# every edge (shade, home gesture, back gestures), the back key.
 cx=$((W / 2)); cy=$((H / 2))
 scene "Taps and swipes do nothing"
-adb shell input tap $((W / 4)) $((H * 3 / 4)); sleep 0.8
-adb shell input tap $((W * 3 / 4)) $((H * 3 / 4)); sleep 0.8
-adb shell input swipe $cx 5 $cx $cy 300; sleep 1.2                # shade
-adb shell input swipe $cx $((H - 5)) $cx $cy 300; sleep 1.2       # home
-adb shell input swipe 5 $cy $((W * 2 / 3)) $cy 300; sleep 1.2     # back gesture
-adb shell input swipe $((W - 5)) $cy $((W / 3)) $cy 300; sleep 1.2
+tap $((W / 4)) $((H * 3 / 4)); sleep 0.8
+tap $((W * 3 / 4)) $((H / 2)); sleep 0.8
+swipe $cx 5 $cx $cy; sleep 1.2                 # shade
+swipe $cx $((H - 5)) $cx $cy; sleep 1.2        # home gesture
+swipe 5 $cy $((W * 2 / 3)) $cy; sleep 1.2      # back gesture, left edge
+swipe $((W - 5)) $cy $((W / 3)) $cy; sleep 1.2 # back gesture, right edge
 scene_end
-scene "Back and Home do nothing"
-adb shell input keyevent KEYCODE_BACK; sleep 1.2
-adb shell input keyevent KEYCODE_HOME; sleep 2
+scene "The back key does nothing"
+back_key; sleep 1.2
+back_key; sleep 1.5
 still 8-after-swipes; scene_end
 if shield_up; then log "shield still up after the prods"; else log "WARNING: shield gone after the prods"; fi
 
