@@ -201,7 +201,7 @@ read -r W H < <(adb shell wm size | sed -E 's/.*: ([0-9]+)x([0-9]+).*/\1 \2/' | 
 log "display ${W}x${H}"
 
 log "install $APK"
-adb install -r -g "$APK" >>"$LOG" 2>&1 || { log "install failed"; exit 1; }
+adb install -r -g -i com.android.vending "$APK" >>"$LOG" 2>&1 || { log "install failed"; exit 1; }   # -i: installer is Play
 adb shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow
 adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
 # Android 13+ gates the accessibility toggle for apps installed by adb; a
@@ -214,7 +214,8 @@ find_touch && log "touchscreen $TOUCH_DEV (${TMAXX}x${TMAXY})" || log "WARNING: 
 # you're not a bot", and YouTube Kids is not on the image. Big Buck Bunny is
 # CC BY 3.0 (Blender Foundation). Chrome's native player, then Settings, are
 # the fallbacks.
-CARTOON_URL="https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_320x180.mp4"
+CARTOON_URLS="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4 https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4 https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_640x360.m4v"
+CARTOON_URL=""
 CARTOON=/sdcard/Movies/Big_Buck_Bunny.mp4
 CARTOON_ID=""
 TARGET=com.android.settings
@@ -231,8 +232,14 @@ show_video() {
   esac
 }
 choose_handover() {
-  local tmp="${RUNNER_TEMP:-/tmp}/bunny.mp4" try
-  if [ ! -s "$tmp" ]; then curl -sSL -m 300 -o "$tmp" "$CARTOON_URL" || log "cartoon download failed"; fi
+  local tmp="${RUNNER_TEMP:-/tmp}/bunny.mp4" try u
+  for u in $CARTOON_URLS; do
+    rm -f "$tmp"
+    if curl -fsSL -m 600 -o "$tmp" "$u" && [ "$(stat -c %s "$tmp" 2>/dev/null || echo 0)" -gt 1000000 ]; then
+      CARTOON_URL=$u; log "cartoon from $u ($(du -h "$tmp" | cut -f1))"; break
+    fi
+    log "cartoon not available at $u"
+  done
   if [ -s "$tmp" ] && adb shell pm list packages | grep -q com.google.android.apps.photos; then
     adb shell mkdir -p /sdcard/Movies
     adb push "$tmp" "$CARTOON" >/dev/null 2>&1
@@ -255,7 +262,8 @@ choose_handover() {
   if adb shell pm list packages | grep -q com.android.chrome; then
     HANDOVER=chrome; show_video; sleep 10
     dismiss_prompts; sleep 2; dismiss_prompts; sleep 2
-    tap $((W / 2)) $((H / 2)); sleep 2   # the native player wants one tap to play
+    tap $((W / 2)) $((H / 2)); sleep 5   # the native player wants one tap to play
+    dismiss_prompts; sleep 2             # Chrome's notifications prompt comes late
     for try in 1 2 3; do focus_is chrome && break; sleep 2; done
     if focus_is chrome; then TARGET=com.android.chrome; log "hand-over: cartoon in Chrome"; return; fi
     log "Chrome did not come up: $(adb shell dumpsys window | grep -m1 mCurrentFocus | tr -d '\r')"
@@ -294,6 +302,7 @@ if tap_text "Open settings" 10 && wait_text "Why Child Lock needs this" 10 >/dev
   tap_text "Allow" 10 && sleep 1.5 && still 4-a11y-allowed
   scene_end
 fi
+for try in 1 2 3 4; do adb shell settings get secure enabled_accessibility_services | grep -q "$PKG" && break; sleep 2; done
 if ! adb shell settings get secure enabled_accessibility_services | grep -q "$PKG"; then
   log "enabling the helper by settings (UI path did not)"
   adb shell settings put secure enabled_accessibility_services "$GUARD"
@@ -311,6 +320,7 @@ ensure_guard && log "helper is bound after the guide" || log "WARNING: helper no
 
 # 3. Hand over with the video playing, then the volume pattern locks.
 show_video; sleep 6
+[ "$HANDOVER" = chrome ] && { dismiss_prompts; sleep 1; }
 scene "Hand over with a video playing"; sleep 3; scene_end
 scene "Volume up then volume down = locked"
 if pattern 1; then locked=1; else

@@ -110,10 +110,20 @@ class SetupActivity : Activity() {
 
     // ---- steps ------------------------------------------------------------
 
+    /** Android's "Restricted setting" gate only ever stops apps that did not come from a store. */
+    private fun sideloaded(): Boolean {
+        val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try { packageManager.getInstallSourceInfo(packageName).installingPackageName } catch (e: Exception) { null }
+        } else {
+            @Suppress("DEPRECATION") packageManager.getInstallerPackageName(packageName)
+        }
+        return installer != "com.android.vending"
+    }
+
     private fun currentSteps(): List<Step> {
         val overlay = Settings.canDrawOverlays(this)
         val helper = GuardAccessibilityService.isEnabled(this)
-        val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && repo.overlayAttempted && (!overlay || !helper)
+        val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && sideloaded() && repo.overlayAttempted && (!overlay || !helper)
         val restrictedHint = if (restricted) {
             callout(getString(R.string.restricted_desc), actionButton(getString(R.string.app_info)) {
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
