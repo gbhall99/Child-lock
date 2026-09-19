@@ -44,13 +44,20 @@ try:
     root = ET.fromstring(data[data.index("<hierarchy"):])
 except Exception:
     sys.exit(1)
-for node in root.iter("node"):
-    if any(n in node.get("text", "") or n in node.get("content-desc", "") for n in needles):
-        m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.get("bounds", ""))
-        if m:
-            x1, y1, x2, y2 = map(int, m.groups())
-            print((x1 + x2) // 2, (y1 + y2) // 2)
-            sys.exit(0)
+def centre(node):
+    m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.get("bounds", ""))
+    return ((int(m.group(1)) + int(m.group(3))) // 2, (int(m.group(2)) + int(m.group(4))) // 2) if m else None
+nodes = list(root.iter("node"))
+for n in needles:
+    for node in nodes:
+        if n in (node.get("text", "").strip(), node.get("content-desc", "").strip()):
+            c = centre(node)
+            if c: print(*c); sys.exit(0)
+for n in needles:
+    for node in nodes:
+        if n in node.get("text", "") or n in node.get("content-desc", ""):
+            c = centre(node)
+            if c: print(*c); sys.exit(0)
 sys.exit(1)
 '
 # Centre of the first node whose text or description contains any argument.
@@ -243,12 +250,21 @@ choose_handover() {
   if [ -s "$tmp" ] && adb shell pm list packages | grep -q com.google.android.apps.photos; then
     adb shell mkdir -p /sdcard/Movies
     adb push "$tmp" "$CARTOON" >/dev/null 2>&1
-    for try in 1 2 3 4 5 6; do
-      CARTOON_ID=$(adb shell content query --uri content://media/external/video/media --projection _id:_display_name 2>/dev/null | tr -d '\r' | grep -i Big_Buck_Bunny | sed -n 's/.*_id=\([0-9]*\).*/\1/p' | head -1)
-      [ -n "$CARTOON_ID" ] && break
-      adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d "file://$CARTOON" >/dev/null 2>&1
-      sleep 2
-    done
+    log "on device: $(adb shell ls -la /storage/emulated/0/Movies/ 2>/dev/null | tr -d '\r' | grep -i bunny)"
+    cartoon_id() {
+      adb shell content query --uri content://media/external/video/media --projection _id:_display_name 2>/dev/null | tr -d '\r' | grep -i Big_Buck_Bunny | sed -n 's/.*_id=\([0-9]*\).*/\1/p' | head -1
+    }
+    adb shell content call --uri content://media/external/file --method scan_file --arg /storage/emulated/0/Movies/Big_Buck_Bunny.mp4 >/dev/null 2>&1
+    sleep 2; CARTOON_ID=$(cartoon_id)
+    if [ -z "$CARTOON_ID" ]; then
+      adb shell content call --uri content://media/external/file --method scan_volume --arg external_primary >/dev/null 2>&1
+      sleep 4; CARTOON_ID=$(cartoon_id)
+    fi
+    if [ -z "$CARTOON_ID" ]; then
+      adb shell content insert --uri content://media/external/video/media --bind _data:s:/storage/emulated/0/Movies/Big_Buck_Bunny.mp4 --bind _display_name:s:Big_Buck_Bunny.mp4 --bind mime_type:s:video/mp4 --bind title:s:Big_Buck_Bunny >/dev/null 2>&1
+      sleep 2; CARTOON_ID=$(cartoon_id)
+    fi
+    [ -n "$CARTOON_ID" ] && log "cartoon is media id $CARTOON_ID"
     if [ -n "$CARTOON_ID" ]; then
       HANDOVER=photos; show_video; sleep 8
       dismiss_prompts; sleep 2; dismiss_prompts; sleep 2
@@ -320,7 +336,7 @@ ensure_guard && log "helper is bound after the guide" || log "WARNING: helper no
 
 # 3. Hand over with the video playing, then the volume pattern locks.
 show_video; sleep 6
-[ "$HANDOVER" = chrome ] && { dismiss_prompts; sleep 1; }
+[ "$HANDOVER" = chrome ] && { dismiss_prompts; sleep 1; tap $((W / 2)) $((H * 27 / 100)); sleep 2; }
 scene "Hand over with a video playing"; sleep 3; scene_end
 scene "Volume up then volume down = locked"
 if pattern 1; then locked=1; else
