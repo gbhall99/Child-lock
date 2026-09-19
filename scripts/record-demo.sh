@@ -9,12 +9,15 @@
 # Writes out-dir/declaration-video.mp4 plus PNG stills of the key moments and
 # demo.log with what happened, so a silent failure never passes as a clip.
 #
-# Two emulator facts shape this script. A fresh CI emulator is slow: the
+# Three emulator facts shape this script. A fresh CI emulator is slow: the
 # app's first start can take 15 s and the launcher throws "isn't responding"
 # dialogs, so every tap waits for its text and the app is warmed up before
-# recording starts. And keys injected with `input keyevent` bypass the
-# accessibility key filter, so the volume pattern is sent through the
-# emulator console as hardware events instead.
+# recording starts. Keys injected with `input keyevent` bypass the
+# accessibility key filter, so the volume pattern is written to the input
+# device as raw evdev events (needs adb root; the emulator console is tried
+# first and has not worked on API 34). And the main activity redirects to the
+# setup guide once per process, so the process is restarted before each
+# on-camera visit to the guide.
 set -uo pipefail
 APK=${1:-app/build/outputs/apk/play/debug/app-play-debug.apk}
 OUT=${2:-store/media}
