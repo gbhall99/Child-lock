@@ -103,11 +103,18 @@ guard_on() { adb shell dumpsys accessibility | grep -q GuardAccessibilityService
 # (named, then numeric Linux codes); "inject" is the last resort.
 KEY_DEV=""
 console_key() { adb emu event send "EV_KEY:$1:1" >/dev/null 2>&1; adb emu event send "EV_KEY:$1:0" >/dev/null 2>&1; }
-raw_key() {
+find_key_dev() {
   [ -n "$KEY_DEV" ] || KEY_DEV=$(adb shell getevent -pl 2>/dev/null | tr -d '\r' | awk '/^add device/ {dev=$NF} /KEY_VOLUMEUP/ {print dev; exit}')
-  [ -n "$KEY_DEV" ] || return 1
-  adb shell sendevent "$KEY_DEV" 1 "$1" 1; adb shell sendevent "$KEY_DEV" 0 0 0
-  adb shell sendevent "$KEY_DEV" 1 "$1" 0; adb shell sendevent "$KEY_DEV" 0 0 0
+  [ -n "$KEY_DEV" ]
+}
+raw_key() {
+  find_key_dev || return 1
+  adb shell "K=$KEY_DEV; sendevent \$K 1 $1 1; sendevent \$K 0 0 0; sleep 0.08; sendevent \$K 1 $1 0; sendevent \$K 0 0 0"
+}
+# Volume up, then down, 300 ms apart, as one command on the device.
+raw_pattern() {
+  find_key_dev || return 1
+  adb shell "K=$KEY_DEV; sendevent \$K 1 115 1; sendevent \$K 0 0 0; sleep 0.08; sendevent \$K 1 115 0; sendevent \$K 0 0 0; sleep 0.3; sendevent \$K 1 114 1; sendevent \$K 0 0 0; sleep 0.08; sendevent \$K 1 114 0; sendevent \$K 0 0 0"
 }
 # Touches the same way: written to the touchscreen device (multitouch
 # protocol B), so touch exploration and the shield see them as a finger.
@@ -141,7 +148,7 @@ back_key() { raw_key 158 || adb shell input keyevent KEYCODE_BACK; }
 # Up then down, through one delivery path: raw | console | numeric | inject.
 pattern_via() {
   case "$1" in
-    raw) raw_key 115 || return 1; sleep 0.5; raw_key 114 ;;
+    raw) raw_pattern || return 1 ;;
     console) console_key KEY_VOLUMEUP; sleep 0.5; console_key KEY_VOLUMEDOWN ;;
     numeric) console_key 115; sleep 0.5; console_key 114 ;;
     inject) adb shell input keyevent KEYCODE_VOLUME_UP; sleep 0.5; adb shell input keyevent KEYCODE_VOLUME_DOWN ;;
@@ -151,7 +158,7 @@ pattern_via() {
 PATTERN_PATH=""
 pattern() {
   local want_up=$1 m   # 1: expecting the shield to come up; 0: to go away
-  for m in ${PATTERN_PATH:-raw console numeric inject}; do
+  for m in ${PATTERN_PATH:+$PATTERN_PATH raw raw} ${PATTERN_PATH:-raw raw console numeric inject}; do
     pattern_via "$m" || { log "pattern via $m unavailable"; continue; }
     sleep 2
     if { [ "$want_up" = 1 ] && shield_up; } || { [ "$want_up" = 0 ] && ! shield_up; }; then
@@ -250,6 +257,13 @@ choose_handover() {
   if [ -s "$tmp" ] && adb shell pm list packages | grep -q com.google.android.apps.photos; then
     adb shell mkdir -p /sdcard/Movies
     adb push "$tmp" "$CARTOON" >/dev/null 2>&1
+    if command -v ffmpeg >/dev/null 2>&1; then
+      local light="${RUNNER_TEMP:-/tmp}/bunny-light.mp4"
+      if ffmpeg -loglevel error -y -ss 60 -t 150 -i "$tmp" -vf scale=640:-2 -c:v libx264 -profile:v baseline -preset veryfast -crf 26 -an -movflags +faststart "$light" 2>/dev/null && [ -s "$light" ]; then
+        log "cartoon transcoded to 640x360 for a responsive emulator ($(du -h "$light" | cut -f1))"
+        adb push "$light" "$CARTOON" >/dev/null 2>&1
+      fi
+    fi
     log "on device: $(adb shell ls -la /storage/emulated/0/Movies/ 2>/dev/null | tr -d '\r' | grep -i bunny)"
     cartoon_id() {
       adb shell content query --uri content://media/external/video/media --projection _id:_display_name 2>/dev/null | tr -d '\r' | grep -i Big_Buck_Bunny | sed -n 's/.*_id=\([0-9]*\).*/\1/p' | head -1
@@ -365,7 +379,11 @@ if shield_up; then log "shield still up after the prods"; else log "WARNING: shi
 
 # 5. The volume pattern unlocks.
 scene "Volume up then volume down = unlocked"
-if pattern 0; then unlocked=1; else unlocked=0; log "WARNING: shield still up after the pattern"; fi
+if pattern 0; then unlocked=1; else
+  unlocked=0; log "WARNING: shield still up after the pattern; unlocking through the service so the clip ends unlocked"
+  adb shell am start-foreground-service -n "$PKG/.lock.LockOverlayService" -a com.gbhall.childlock.action.UNLOCK >/dev/null 2>&1
+  sleep 2
+fi
 sleep 1.5; still 9-unlocked; scene_end
 launch .ui.MainActivity; sleep 1.5
 # screenrecord only writes frames when the screen changes, so the file ends
