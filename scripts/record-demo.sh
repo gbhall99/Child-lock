@@ -76,22 +76,49 @@ tap_text() {
 # The shield window is titled "ChildLock"; it exists only while locked or arming.
 shield_up() { adb shell dumpsys window windows | grep -q 'ChildLock[^B]'; }
 guard_on() { adb shell dumpsys accessibility | grep -q GuardAccessibilityService; }
-# A hardware volume press through the emulator console, which the accessibility
-# key filter sees; `input keyevent` would not reach it.
-vol() {
-  if adb emu event send "EV_KEY:KEY_VOLUME$1:1" 2>/dev/null | grep -q OK; then
-    adb emu event send "EV_KEY:KEY_VOLUME$1:0" >/dev/null 2>&1
-  else
-    log "emulator console refused the key; falling back to input keyevent"
-    adb shell input keyevent "KEYCODE_VOLUME_$1"
-  fi
+# Volume presses. `input keyevent` bypasses the accessibility key filter, so
+# the pattern is tried through the emulator console (named, then numeric
+# Linux codes) and as raw evdev writes; "inject" is the last resort.
+KEY_DEV=""
+console_key() { adb emu event send "EV_KEY:$1:1" >/dev/null 2>&1; adb emu event send "EV_KEY:$1:0" >/dev/null 2>&1; }
+raw_key() {
+  [ -n "$KEY_DEV" ] || KEY_DEV=$(adb shell getevent -pl 2>/dev/null | tr -d '\r' | awk '/^add device/ {dev=$NF} /KEY_VOLUMEUP/ {print dev; exit}')
+  [ -n "$KEY_DEV" ] || return 1
+  adb shell sendevent "$KEY_DEV" 1 "$1" 1; adb shell sendevent "$KEY_DEV" 0 0 0
+  adb shell sendevent "$KEY_DEV" 1 "$1" 0; adb shell sendevent "$KEY_DEV" 0 0 0
 }
-pattern() { vol UP; sleep 0.4; vol DOWN; }
+# Up then down, through one delivery path: console | numeric | raw | inject.
+pattern_via() {
+  case "$1" in
+    console) console_key KEY_VOLUMEUP; sleep 0.4; console_key KEY_VOLUMEDOWN ;;
+    numeric) console_key 115; sleep 0.4; console_key 114 ;;
+    raw) raw_key 115 || return 1; sleep 0.4; raw_key 114 ;;
+    inject) adb shell input keyevent KEYCODE_VOLUME_UP; sleep 0.4; adb shell input keyevent KEYCODE_VOLUME_DOWN ;;
+  esac
+}
+# Tries each path until the shield state flips; remembers what worked.
+PATTERN_PATH=""
+pattern() {
+  local want_up=$1 m   # 1: expecting the shield to come up; 0: to go away
+  for m in ${PATTERN_PATH:-console raw numeric inject}; do
+    pattern_via "$m" || { log "pattern via $m unavailable"; continue; }
+    sleep 3
+    if { [ "$want_up" = 1 ] && shield_up; } || { [ "$want_up" = 0 ] && ! shield_up; }; then
+      log "pattern via $m worked"; PATTERN_PATH=$m; return 0
+    fi
+    log "pattern via $m did nothing"
+  done
+  return 1
+}
+# The setup activity is not exported, so it is reached through the main
+# activity, which redirects to it until the guide is finished.
 launch() { adb shell am start -W -n "$PKG/$1" >/dev/null 2>&1; }
 
 # ---- prepare ---------------------------------------------------------------
 
 adb wait-for-device
+adb root >/dev/null 2>&1 && adb wait-for-device && sleep 2   # raw key writes need it
+log "console says: $(adb emu event send EV_KEY:KEY_VOLUMEUP:0 2>&1 | tr -d '\r' | tr '\n' ' ')"
 # Error dialogs from a slow launcher would sit over everything and break the
 # UI dumps; the screen must not go off mid-clip.
 adb shell settings put global hide_error_dialogs 1
@@ -128,7 +155,7 @@ REC=$!
 sleep 2
 
 # 1. Setup guide and the accessibility disclosure.
-launch .ui.SetupActivity
+launch .ui.MainActivity
 wait_text "Three quick steps" 20 >/dev/null; sleep 2; still 1-setup
 if tap_text "Open settings" 10; then
   wait_text "Why Child Lock needs this" 10 >/dev/null; sleep 4; still 2-disclosure
@@ -148,7 +175,7 @@ for try in 1 2 3 4 5; do guard_on && break; sleep 2; done
 guard_on && log "helper is bound" || log "WARNING: helper not bound"
 
 # 2. Back to the guide: acknowledge the way out, finish.
-launch .ui.SetupActivity
+launch .ui.MainActivity
 wait_text "Three quick steps" 20 >/dev/null
 tap_text "Got it" 10 && sleep 3 && still 5-escape
 tap_text "Done" 10 && sleep 2
@@ -164,8 +191,7 @@ else
   log "no Lock button; arming with the volume pattern instead"
   adb shell monkey -p "$TARGET" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
   sleep 3
-  pattern
-  sleep 4
+  pattern 1
 fi
 if shield_up; then locked=1; log "shield is up"; else locked=0; log "WARNING: shield is not up"; fi
 still 7-locked
@@ -184,8 +210,7 @@ still 8-after-swipes
 if shield_up; then log "shield still up after the prods"; else log "WARNING: shield gone after the prods"; fi
 
 # 5. The volume pattern unlocks.
-pattern
-sleep 4
+pattern 0
 if shield_up; then unlocked=0; log "WARNING: shield still up after the pattern"; else unlocked=1; log "shield down: unlocked"; fi
 still 9-unlocked
 launch .ui.MainActivity
