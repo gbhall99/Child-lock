@@ -185,8 +185,11 @@ adb shell input keyevent KEYCODE_HOME >/dev/null; sleep 1
 adb shell rm -f /sdcard/demo.mp4
 adb shell screenrecord --bit-rate 8000000 --time-limit 180 /sdcard/demo.mp4 &
 REC=$!
-sleep 1
+# Scene times count from when the recorder actually starts writing, which is
+# a second or two after it is launched.
+for try in $(seq 1 50); do adb shell ls /sdcard/demo.mp4 >/dev/null 2>&1 && break; sleep 0.2; done
 REC_T0=$(date +%s.%N)
+sleep 0.5
 
 # 1. Setup guide and the accessibility disclosure.
 fresh_guide
@@ -251,7 +254,7 @@ scene "Unlocked - touch works as normal"; sleep 2; still 10-home-after; scene_en
 
 # ---- collect -----------------------------------------------------------------
 
-sleep 3   # the recording must outlast the last scene
+sleep 4   # the recording must outlast the last scene
 adb shell pkill -2 screenrecord || true
 wait $REC 2>/dev/null || true
 sleep 3
