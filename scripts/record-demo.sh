@@ -251,29 +251,44 @@ scene "Unlocked - touch works as normal"; sleep 2; still 10-home-after; scene_en
 
 # ---- collect -----------------------------------------------------------------
 
+sleep 3   # the recording must outlast the last scene
 adb shell pkill -2 screenrecord || true
 wait $REC 2>/dev/null || true
 sleep 3
 adb pull /sdcard/demo.mp4 "$OUT/raw-recording.mp4" >>"$LOG" 2>&1 && log "raw video $(du -h "$OUT/raw-recording.mp4" | cut -f1)"
 adb shell settings put system show_touches 0
 
-# Cut the raw recording down to the scenes, each with its caption.
-if command -v ffmpeg >/dev/null 2>&1 && [ -s "$SCENES" ] && [ -s "$OUT/raw-recording.mp4" ]; then
-  FONT=$(fc-match -f '%{file}' DejaVuSans 2>/dev/null); [ -f "$FONT" ] || FONT=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
-  i=0; : > "$OUT/segments.txt"
+# Cuts the raw recording down to the scenes in one ffmpeg run (the concat
+# filter keeps the timing honest; stream-copy concat did not). $1 is "yes"
+# for captions, "no" for a plain cut when drawtext is unavailable.
+cut_scenes() {
+  local raw="$OUT/raw-recording.mp4" rawdur font n=0 fc="" a b cap start end dur i
+  local -a args=()
+  rawdur=$(ffmpeg -i "$raw" 2>&1 | sed -n 's/.*Duration: \([0-9]*\):\([0-9]*\):\([0-9.]*\).*/\1 \2 \3/p' | awk '{print $1*3600+$2*60+$3}')
+  [ -n "$rawdur" ] || return 1
+  font=$(fc-match -f '%{file}' DejaVuSans 2>/dev/null); [ -f "$font" ] || font=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
   while read -r a b cap; do
     start=$(awk "BEGIN { v = $a - 0.4; print (v < 0) ? 0 : v }")
-    dur=$(awk "BEGIN { print $b - $start }")
-    ffmpeg -loglevel error -y -ss "$start" -t "$dur" -i "$OUT/raw-recording.mp4" \
-      -vf "drawtext=fontfile=$FONT:text='$cap':fontcolor=white:fontsize=46:box=1:boxcolor=black@0.65:boxborderw=18:x=(w-text_w)/2:y=h-200" \
-      -c:v libx264 -preset veryfast -crf 22 -pix_fmt yuv420p -an "$OUT/seg$i.mp4" \
-      && echo "file 'seg$i.mp4'" >> "$OUT/segments.txt"
-    i=$((i + 1))
+    end=$(awk "BEGIN { v = $b; m = $rawdur - 0.3; print (v > m) ? m : v }")
+    dur=$(awk "BEGIN { print $end - $start }")
+    awk "BEGIN { exit !($dur > 0.5) }" || { log "scene '$cap' fell off the end of the recording"; continue; }
+    args+=(-ss "$start" -t "$dur" -i "$raw")
+    if [ "$1" = yes ]; then
+      fc+="[$n:v]drawtext=fontfile=$font:text='$cap':fontcolor=white:fontsize=46:box=1:boxcolor=black@0.65:boxborderw=18:x=(w-text_w)/2:y=h-200,setpts=PTS-STARTPTS[v$n];"
+    else
+      fc+="[$n:v]setpts=PTS-STARTPTS[v$n];"
+    fi
+    n=$((n + 1))
   done < "$SCENES"
-  ffmpeg -loglevel error -y -f concat -safe 0 -i "$OUT/segments.txt" -c copy -movflags +faststart "$OUT/declaration-video.mp4" \
-    && log "captioned video $(du -h "$OUT/declaration-video.mp4" | cut -f1), $i scenes" \
-    || log "WARNING: could not assemble the captioned video"
-  rm -f "$OUT"/seg*.mp4 "$OUT/segments.txt"
+  [ "$n" -gt 0 ] || return 1
+  for i in $(seq 0 $((n - 1))); do fc+="[v$i]"; done
+  fc+="concat=n=$n:v=1:a=0[out]"
+  ffmpeg -loglevel error -y "${args[@]}" -filter_complex "$fc" -map "[out]" \
+    -c:v libx264 -preset veryfast -crf 22 -pix_fmt yuv420p -movflags +faststart "$OUT/declaration-video.mp4" \
+    && log "cut video: $n scenes, captions=$1, $(du -h "$OUT/declaration-video.mp4" | cut -f1)"
+}
+if command -v ffmpeg >/dev/null 2>&1 && [ -s "$SCENES" ] && [ -s "$OUT/raw-recording.mp4" ]; then
+  cut_scenes yes || cut_scenes no || { log "WARNING: could not cut the recording; using the raw one"; cp "$OUT/raw-recording.mp4" "$OUT/declaration-video.mp4"; }
 else
   log "ffmpeg or scenes missing; the raw recording is the only video"
   cp "$OUT/raw-recording.mp4" "$OUT/declaration-video.mp4" 2>/dev/null || true
