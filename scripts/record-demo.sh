@@ -327,7 +327,7 @@ scene "The setup guide"; sleep 2.5; still 1-setup; scene_end
 if tap_text "Open settings" 10 && wait_text "Why Child Lock needs this" 10 >/dev/null; then
   scene "Disclosure before enabling the helper"; sleep 7; still 2-disclosure; scene_end
   c=$(wait_text "Continue" 5)
-  scene "Continue to Android's accessibility settings"; [ -n "$c" ] && tap_at "$c"; sleep 2.5; scene_end
+  scene "Continue to the accessibility settings"; [ -n "$c" ] && tap_at "$c"; sleep 2.5; scene_end
   c=$(wait_text "Child Lock helper" 15)
   scene "Open Child Lock helper"; [ -n "$c" ] && tap_at "$c"; sleep 2; scene_end
   still 3-a11y-settings
