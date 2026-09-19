@@ -45,8 +45,13 @@ workflow's release job produces a signed bundle.
    Actions → Android → "Run workflow", pick the branch and enter the tag; the
    job creates the tag and the Release itself.
 5. Download the `.aab` from the Release (or the artifact) and upload it to
-   Play Console (Internal testing first), or run
-   `scripts/play-upload.py --key <service-account.json> --aab <file>`.
+   Play Console (Internal testing first). With the `PLAY_SERVICE_ACCOUNT_JSON`
+   secret set, the release job does this itself through
+   `scripts/play-upload.py` (bundle to Internal testing, listing text and
+   images from `store/`). The Release also carries the sideload debug APK.
+6. Store screenshots, the declaration video and both debug APKs come from
+   Actions → "Store media" → Run workflow; they land on the `store-media`
+   pre-release. `store/submission.md` walks the Console forms.
 
 ## Hardware pass before a release
 

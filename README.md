@@ -12,7 +12,7 @@ adult does without thinking and a toddler will not stumble into.
 `PLAN.md` holds the full design. This file is the practical guide.
 `REVIEW.md` records the September 2026 expert review and the grouped work it
 produced. `RELEASING.md` covers signing and Play submission, `store/listing.md` the
-store copy and declarations, `PRIVACY.md` the privacy policy, `TERMS.md` the
+store copy, `store/submission.md` the Console forms step by step, `PRIVACY.md` the privacy policy, `TERMS.md` the
 terms of use, and `MONETISATION.md` the business plan.
 
 ## Build and install
