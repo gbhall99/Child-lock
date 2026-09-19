@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sideload flavour only: the skip-ad feature and the wording that mentions it.
+     The Play flavour has neither the feature nor any mention of it. -->
+<resources>
+    <string name="accessibility_description">While the lock is on, Child Lock uses this to notice the volume-button pattern, block the back button and swipes, close the notifications panel, and return to the app you handed over. While off, it only notices which app is open and whether a call or video is playing, so it can lock automatically. It never reads or stores what is on screen, with one exception: when the optional “Skip ads” feature is switched on, it reads button labels in the app you handed over, and nothing else.</string>
+    <string name="disclosure_body">Child Lock uses Android’s accessibility feature as a parental lock, not as an accessibility aid.\n\nWhile locked, it:\n• Notices the volume-button pattern that unlocks\n• Blocks the back button and home/back swipes\n• Closes the notifications panel and returns to the app\n\nWhile unlocked, it only notices which app is open, and whether a call or video is playing, for automatic locking.\n\nIt never reads, stores or sends what is on your screen.\n\nThis copy of Child Lock also offers “Skip ads for them”. It is off unless you turn it on, and when on it reads button labels in the app you handed over so it can tap “Skip ad”.\n\nNext, switch on “Child Lock helper” and tap Allow.</string>
+    <string name="skip_ads_title">Skip ads for them</string>
+    <string name="skip_ads_desc">Taps “Skip ad” in the app while locked.</string>
+    <string name="help_skip_ads">Only a “Skip ad” style button, never the ad itself and never “Skip intro”. To find the button it reads button labels in that one app while locked. Nothing is stored or sent. Most streaming services make their ads unskippable, so in practice this helps on YouTube and a few others.</string>
+</resources>

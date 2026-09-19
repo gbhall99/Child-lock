@@ -90,7 +90,7 @@ jobs:
           CHILDLOCK_STOREPASSWORD: ${{ secrets.CHILDLOCK_STOREPASSWORD }}
           CHILDLOCK_KEYALIAS: ${{ secrets.CHILDLOCK_KEYALIAS }}
           CHILDLOCK_KEYPASSWORD: ${{ secrets.CHILDLOCK_KEYPASSWORD }}
-        run: ./gradlew --no-daemon bundlePlayRelease
+        run: ./gradlew --no-daemon bundlePlayRelease assembleSideloadDebug
 
       - uses: actions/upload-artifact@v4
         with:
@@ -105,5 +105,23 @@ jobs:
           # commit that was built.
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           target_commitish: ${{ github.sha }}
-          files: app/build/outputs/bundle/playRelease/app-play-release.aab
+          files: |
+            app/build/outputs/bundle/playRelease/app-play-release.aab
+            app/build/outputs/apk/sideload/debug/app-sideload-debug.apk
           generate_release_notes: true
+
+      # Straight to Play's internal testing track when a service-account key
+      # is configured (secret PLAY_SERVICE_ACCOUNT_JSON; see RELEASING.md).
+      # The app must already exist in Play Console: the API cannot create it.
+      - name: Upload to Play Console (internal testing)
+        env:
+          KEY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "PLAY_SERVICE_ACCOUNT_JSON is not set; skipping the Play upload."
+            exit 0
+          fi
+          printf '%s' "$KEY" > "$RUNNER_TEMP/play.json"
+          pip install --quiet google-api-python-client google-auth
+          python3 scripts/play-upload.py --key "$RUNNER_TEMP/play.json" \
+            --aab app/build/outputs/bundle/playRelease/app-play-release.aab --track internal
