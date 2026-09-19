@@ -294,8 +294,9 @@ class SettingsActivity : Activity() {
                 addView(switchRow(getString(R.string.relock_title), getString(R.string.relock_desc), s.relockSameApp, help = getString(R.string.help_relock)) { v ->
                     repo.update { it.copy(relockSameApp = v) }
                 })
-                if (com.gbhall.childlock.guard.SkipAdFeature.AVAILABLE) {
-                    addView(switchRow(getString(R.string.skip_ads_title), getString(R.string.skip_ads_desc), s.skipAds, help = getString(R.string.help_skip_ads)) { v ->
+                val skipAds = com.gbhall.childlock.guard.SkipAdFeature
+                if (skipAds.AVAILABLE) {
+                    addView(switchRow(getString(skipAds.TITLE_RES), getString(skipAds.DESC_RES), s.skipAds, help = getString(skipAds.HELP_RES)) { v ->
                         repo.update { it.copy(skipAds = v) }
                     })
                 }

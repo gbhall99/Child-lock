@@ -13,6 +13,11 @@ import android.view.accessibility.AccessibilityNodeInfo
 object SkipAdFeature {
     const val AVAILABLE = false
 
+    /** No strings either: the Play build never mentions the feature. */
+    const val TITLE_RES = 0
+    const val DESC_RES = 0
+    const val HELP_RES = 0
+
     @Suppress("UNUSED_PARAMETER")
     fun isSupported(packageName: String): Boolean = false
 

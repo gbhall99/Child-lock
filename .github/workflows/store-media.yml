@@ -13,6 +13,8 @@ on:
       - .github/workflows/store-media.yml
       - scripts/record-demo.sh
       - scripts/render-store-assets.sh
+      - app/src/main/res/values/strings.xml
+      - app/src/sideload/res/values/strings.xml
 
 jobs:
   screenshots:

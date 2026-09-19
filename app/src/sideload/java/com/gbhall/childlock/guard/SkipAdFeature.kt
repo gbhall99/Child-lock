@@ -1,6 +1,7 @@
 package com.gbhall.childlock.guard
 
 import android.view.accessibility.AccessibilityNodeInfo
+import com.gbhall.childlock.R
 
 /**
  * Sideload flavour: skip-ad tapping is present.
@@ -12,6 +13,11 @@ import android.view.accessibility.AccessibilityNodeInfo
  */
 object SkipAdFeature {
     const val AVAILABLE = true
+
+    /** The settings row's strings live in this flavour's resources. */
+    val TITLE_RES = R.string.skip_ads_title
+    val DESC_RES = R.string.skip_ads_desc
+    val HELP_RES = R.string.help_skip_ads
 
     fun isSupported(packageName: String): Boolean = SkipAdMatcher.isSupported(packageName)
 

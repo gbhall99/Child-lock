@@ -31,25 +31,13 @@ source contains neither and sells nothing.
   home/back swipes, closes the notification shade, and brings back the app you
   handed over. While the lock is off it only observes which app is in the
   foreground, for the auto-lock feature and to remember what to return to. It
-  never reads, stores or transmits screen content, text, or any other data,
-  with a single opt-in exception described below.
+  never reads, stores or transmits screen content, text, or any other data.
+  The capability to read screen content is compiled out of the app, so it
+  cannot do so at all.
 - **Notifications.** A silent notification while the lock is on, required by
   Android for a foreground service.
 - **Foreground service (special use).** Keeps the touch lock alive while it is
   on.
-
-## The one exception, and only outside the Play Store
-
-Child Lock is built in two versions. **The version on Google Play cannot read
-screen content at all**: the capability is compiled out of it, so the
-paragraph above is unconditional there.
-
-A separate version, built from source and installed by hand, has an optional
-"Skip ads for them" feature. It is off unless you switch it on. When it is
-on, and only while the lock is on and only inside the app you handed over, it
-looks at that app's on-screen button labels for one that says "Skip ad" and
-taps it. It looks at nothing else, taps nothing else, and stores and
-transmits nothing.
 
 ## Data storage
 
