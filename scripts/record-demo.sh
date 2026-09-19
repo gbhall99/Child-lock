@@ -94,6 +94,7 @@ tap_text() {
   adb shell input tap $centre
   log "tapped '$1' at $centre"
 }
+tap_at() { adb shell input tap $1; log "tapped at $1"; }
 # The shield window is titled "ChildLock"; it exists only while locked or arming.
 shield_up() { adb shell dumpsys window windows | grep -q 'ChildLock[^B]'; }
 guard_on() { adb shell dumpsys accessibility | grep -q GuardAccessibilityService; }
@@ -259,8 +260,8 @@ choose_handover() {
     adb push "$tmp" "$CARTOON" >/dev/null 2>&1
     if command -v ffmpeg >/dev/null 2>&1; then
       local light="${RUNNER_TEMP:-/tmp}/bunny-light.mp4"
-      if ffmpeg -loglevel error -y -ss 60 -t 150 -i "$tmp" -vf scale=640:-2 -c:v libx264 -profile:v baseline -preset veryfast -crf 26 -an -movflags +faststart "$light" 2>/dev/null && [ -s "$light" ]; then
-        log "cartoon transcoded to 640x360 for a responsive emulator ($(du -h "$light" | cut -f1))"
+      if ffmpeg -loglevel error -y -ss 60 -t 150 -i "$tmp" -vf scale=480:-2,fps=24 -c:v libx264 -profile:v baseline -preset veryfast -crf 30 -an -movflags +faststart "$light" 2>/dev/null && [ -s "$light" ]; then
+        log "cartoon transcoded to 480x270 for a responsive emulator ($(du -h "$light" | cut -f1))"
         adb push "$light" "$CARTOON" >/dev/null 2>&1
       fi
     fi
@@ -325,12 +326,16 @@ fresh_guide
 scene "The setup guide"; sleep 2.5; still 1-setup; scene_end
 if tap_text "Open settings" 10 && wait_text "Why Child Lock needs this" 10 >/dev/null; then
   scene "Disclosure before enabling the helper"; sleep 7; still 2-disclosure; scene_end
-  scene "Accessibility settings - switch on and Allow"
-  tap_text "Continue" 5
-  tap_text "Child Lock helper" 15 && sleep 1 && still 3-a11y-settings
-  tap_text "Use Child Lock helper" 10 && sleep 1
-  tap_text "Allow" 10 && sleep 1.5 && still 4-a11y-allowed
-  scene_end
+  c=$(wait_text "Continue" 5)
+  scene "Continue to Android's accessibility settings"; [ -n "$c" ] && tap_at "$c"; sleep 2.5; scene_end
+  c=$(wait_text "Child Lock helper" 15)
+  scene "Open Child Lock helper"; [ -n "$c" ] && tap_at "$c"; sleep 2; scene_end
+  still 3-a11y-settings
+  c=$(wait_text "Use Child Lock helper" 10)
+  scene "Switch it on"; [ -n "$c" ] && tap_at "$c"; sleep 2.5; scene_end
+  c=$(wait_text "Allow" 10)
+  scene "Allow"; [ -n "$c" ] && tap_at "$c"; sleep 2; scene_end
+  still 4-a11y-allowed
 fi
 for try in 1 2 3 4; do adb shell settings get secure enabled_accessibility_services | grep -q "$PKG" && break; sleep 2; done
 if ! adb shell settings get secure enabled_accessibility_services | grep -q "$PKG"; then
@@ -342,9 +347,11 @@ ensure_guard && log "helper is bound" || log "WARNING: helper not bound"
 
 # 2. Back to the guide: acknowledge the way out, finish.
 fresh_guide
-if tap_text "Got it" 10; then
-  scene "The way out is explained first"; sleep 3; still 5-escape
-  tap_text "Done" 10; sleep 1; scene_end
+c=$(wait_text "Got it" 10)
+if [ -n "$c" ]; then
+  scene "The way out is explained first"; sleep 2.5; tap_at "$c"; sleep 1.5; scene_end
+  still 5-escape
+  tap_text "Done" 10
 fi
 ensure_guard && log "helper is bound after the guide" || log "WARNING: helper not bound after the guide"
 
@@ -358,23 +365,23 @@ if pattern 1; then locked=1; else
   launch .ui.MainActivity; tap_text "Lock in" 10 && sleep 13
   if shield_up; then locked=1; else locked=0; log "WARNING: shield is not up"; fi
 fi
-sleep 2; still 7-locked; scene_end
+sleep 1; scene_end
+still 7-locked
 
 # 4. Prods at a locked phone, as a finger makes them: taps, swipes from
 # every edge (shade, home gesture, back gestures), the back key.
 cx=$((W / 2)); cy=$((H / 2))
 scene "Taps and swipes do nothing"
-tap $((W / 4)) $((H * 3 / 4)); sleep 0.8
-tap $((W * 3 / 4)) $((H / 2)); sleep 0.8
-swipe $cx 5 $cx $cy; sleep 1.2                 # shade
-swipe $cx $((H - 5)) $cx $cy; sleep 1.2        # home gesture
-swipe 5 $cy $((W * 2 / 3)) $cy; sleep 1.2      # back gesture, left edge
-swipe $((W - 5)) $cy $((W / 3)) $cy; sleep 1.2 # back gesture, right edge
+tap $((W / 4)) $((H * 3 / 4)); sleep 0.6
+tap $((W * 3 / 4)) $((H / 2)); sleep 0.6
+swipe $cx 5 $cx $cy; sleep 0.8                 # shade
+swipe $cx $((H - 5)) $cx $cy; sleep 0.8        # home gesture
+swipe 5 $cy $((W * 2 / 3)) $cy; sleep 0.8      # back gesture, left edge
 scene_end
 scene "The back key does nothing"
-back_key; sleep 1.2
 back_key; sleep 1.5
-still 8-after-swipes; scene_end
+scene_end
+still 8-after-swipes
 if shield_up; then log "shield still up after the prods"; else log "WARNING: shield gone after the prods"; fi
 
 # 5. The volume pattern unlocks.
@@ -384,7 +391,8 @@ if pattern 0; then unlocked=1; else
   adb shell am start-foreground-service -n "$PKG/.lock.LockOverlayService" -a com.gbhall.childlock.action.UNLOCK >/dev/null 2>&1
   sleep 2
 fi
-sleep 1.5; still 9-unlocked; scene_end
+sleep 1; scene_end
+still 9-unlocked
 launch .ui.MainActivity; sleep 1.5
 # screenrecord only writes frames when the screen changes, so the file ends
 # at the last change: the closing scene has to move, or it falls off the end.
