@@ -147,6 +147,26 @@ adb shell input keyevent KEYCODE_HOME >/dev/null; sleep 2
 adb shell monkey -p "$TARGET" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1; sleep 4
 adb shell input keyevent KEYCODE_HOME >/dev/null; sleep 2
 
+# The main activity only redirects to the guide once per process, so the
+# process is restarted before each on-camera visit to the guide.
+fresh_guide() {
+  adb shell am force-stop "$PKG"; sleep 1
+  launch .ui.MainActivity
+  wait_text "Three quick steps" 20 >/dev/null
+}
+# A force-stop unbinds the helper; the system rebinds it on the next launch,
+# and toggling the setting hurries that along when it does not.
+ensure_guard() {
+  local try
+  for try in 1 2 3 4 5; do guard_on && return 0; sleep 2; done
+  adb shell settings put secure enabled_accessibility_services ""
+  sleep 1
+  adb shell settings put secure enabled_accessibility_services "$GUARD"
+  adb shell settings put secure accessibility_enabled 1
+  for try in 1 2 3 4 5; do guard_on && return 0; sleep 2; done
+  return 1
+}
+
 # ---- record ------------------------------------------------------------------
 
 adb shell rm -f /sdcard/demo.mp4
@@ -155,8 +175,7 @@ REC=$!
 sleep 2
 
 # 1. Setup guide and the accessibility disclosure.
-launch .ui.MainActivity
-wait_text "Three quick steps" 20 >/dev/null; sleep 2; still 1-setup
+fresh_guide; sleep 2; still 1-setup
 if tap_text "Open settings" 10; then
   wait_text "Why Child Lock needs this" 10 >/dev/null; sleep 4; still 2-disclosure
   if tap_text "Continue" 10; then
@@ -171,14 +190,13 @@ if ! adb shell settings get secure enabled_accessibility_services | grep -q "$PK
   adb shell settings put secure enabled_accessibility_services "$GUARD"
   adb shell settings put secure accessibility_enabled 1
 fi
-for try in 1 2 3 4 5; do guard_on && break; sleep 2; done
-guard_on && log "helper is bound" || log "WARNING: helper not bound"
+ensure_guard && log "helper is bound" || log "WARNING: helper not bound"
 
 # 2. Back to the guide: acknowledge the way out, finish.
-launch .ui.MainActivity
-wait_text "Three quick steps" 20 >/dev/null
+fresh_guide
 tap_text "Got it" 10 && sleep 3 && still 5-escape
 tap_text "Done" 10 && sleep 2
+ensure_guard && log "helper is bound after the guide" || log "WARNING: helper not bound after the guide"
 
 # 3. Hand over: open the target app, then arm from Child Lock.
 adb shell monkey -p "$TARGET" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
