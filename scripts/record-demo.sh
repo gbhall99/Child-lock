@@ -250,7 +250,13 @@ scene "Volume up then volume down = unlocked"
 if pattern 0; then unlocked=1; else unlocked=0; log "WARNING: shield still up after the pattern"; fi
 sleep 1.5; still 9-unlocked; scene_end
 launch .ui.MainActivity; sleep 1.5
-scene "Unlocked - touch works as normal"; sleep 2; still 10-home-after; scene_end
+# screenrecord only writes frames when the screen changes, so the file ends
+# at the last change: the closing scene has to move, or it falls off the end.
+scene "Unlocked - touch works as normal"
+adb shell input swipe $cx $((H * 7 / 10)) $cx $((H * 4 / 10)) 400; sleep 1
+adb shell input swipe $cx $((H * 4 / 10)) $cx $((H * 7 / 10)) 400; sleep 1
+still 10-home-after; scene_end
+adb shell input tap $cx $((H / 3)); sleep 1
 
 # ---- collect -----------------------------------------------------------------
 
