@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Drives the play-debug build on a running emulator and records the video the
 # Play Console declarations ask for: the setup guide and its disclosure,
-# enabling the helper, arming from the app, the badge while locked, swipes
-# and taps achieving nothing, the volume pattern unlocking.
+# enabling the helper, the volume pattern locking, the badge while locked,
+# taps and swipes achieving nothing, the volume pattern unlocking.
 #
 # Usage: scripts/record-demo.sh [apk] [out-dir]
 # Needs adb on PATH and one booted emulator (see .github/workflows/store-media.yml).
-# Writes out-dir/declaration-video.mp4 plus PNG stills of the key moments and
-# demo.log with what happened, so a silent failure never passes as a clip.
+# Writes out-dir/declaration-video.mp4 (the scenes, cut tight and captioned,
+# when ffmpeg is available), raw-recording.mp4, PNG stills of the key
+# moments, and demo.log with what happened, so a silent failure never passes
+# as a clip.
 #
 # Three emulator facts shape this script. A fresh CI emulator is slow: the
 # app's first start can take 15 s and the launcher throws "isn't responding"
@@ -15,7 +17,7 @@
 # recording starts. Keys injected with `input keyevent` bypass the
 # accessibility key filter, so the volume pattern is written to the input
 # device as raw evdev events (needs adb root; the emulator console is tried
-# first and has not worked on API 34). And the main activity redirects to the
+# next and has not worked on API 34). And the main activity redirects to the
 # setup guide once per process, so the process is restarted before each
 # on-camera visit to the guide.
 set -uo pipefail
@@ -25,7 +27,8 @@ PKG=com.gbhall.childlock
 GUARD="$PKG/$PKG.guard.GuardAccessibilityService"
 mkdir -p "$OUT"
 LOG="$OUT/demo.log"
-: > "$LOG"
+SCENES="$OUT/scenes.txt"
+: > "$LOG"; : > "$SCENES"
 log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOG"; }
 
 # ---- helpers ---------------------------------------------------------------
@@ -61,7 +64,7 @@ wait_text() {
   local t=0 max=${2:-25} c=""
   while [ "$t" -lt "$max" ]; do
     c=$(find_text "$1"); [ -n "$c" ] && { echo "$c"; return 0; }
-    sleep 2; t=$((t + 2))
+    sleep 1; t=$((t + 1))
   done
   return 1
 }
@@ -79,9 +82,10 @@ tap_text() {
 # The shield window is titled "ChildLock"; it exists only while locked or arming.
 shield_up() { adb shell dumpsys window windows | grep -q 'ChildLock[^B]'; }
 guard_on() { adb shell dumpsys accessibility | grep -q GuardAccessibilityService; }
+
 # Volume presses. `input keyevent` bypasses the accessibility key filter, so
-# the pattern is tried through the emulator console (named, then numeric
-# Linux codes) and as raw evdev writes; "inject" is the last resort.
+# the pattern goes in as raw evdev writes first, then the emulator console
+# (named, then numeric Linux codes); "inject" is the last resort.
 KEY_DEV=""
 console_key() { adb emu event send "EV_KEY:$1:1" >/dev/null 2>&1; adb emu event send "EV_KEY:$1:0" >/dev/null 2>&1; }
 raw_key() {
@@ -90,22 +94,22 @@ raw_key() {
   adb shell sendevent "$KEY_DEV" 1 "$1" 1; adb shell sendevent "$KEY_DEV" 0 0 0
   adb shell sendevent "$KEY_DEV" 1 "$1" 0; adb shell sendevent "$KEY_DEV" 0 0 0
 }
-# Up then down, through one delivery path: console | numeric | raw | inject.
+# Up then down, through one delivery path: raw | console | numeric | inject.
 pattern_via() {
   case "$1" in
-    console) console_key KEY_VOLUMEUP; sleep 0.4; console_key KEY_VOLUMEDOWN ;;
-    numeric) console_key 115; sleep 0.4; console_key 114 ;;
-    raw) raw_key 115 || return 1; sleep 0.4; raw_key 114 ;;
-    inject) adb shell input keyevent KEYCODE_VOLUME_UP; sleep 0.4; adb shell input keyevent KEYCODE_VOLUME_DOWN ;;
+    raw) raw_key 115 || return 1; sleep 0.5; raw_key 114 ;;
+    console) console_key KEY_VOLUMEUP; sleep 0.5; console_key KEY_VOLUMEDOWN ;;
+    numeric) console_key 115; sleep 0.5; console_key 114 ;;
+    inject) adb shell input keyevent KEYCODE_VOLUME_UP; sleep 0.5; adb shell input keyevent KEYCODE_VOLUME_DOWN ;;
   esac
 }
 # Tries each path until the shield state flips; remembers what worked.
 PATTERN_PATH=""
 pattern() {
   local want_up=$1 m   # 1: expecting the shield to come up; 0: to go away
-  for m in ${PATTERN_PATH:-console raw numeric inject}; do
+  for m in ${PATTERN_PATH:-raw console numeric inject}; do
     pattern_via "$m" || { log "pattern via $m unavailable"; continue; }
-    sleep 3
+    sleep 2
     if { [ "$want_up" = 1 ] && shield_up; } || { [ "$want_up" = 0 ] && ! shield_up; }; then
       log "pattern via $m worked"; PATTERN_PATH=$m; return 0
     fi
@@ -113,43 +117,8 @@ pattern() {
   done
   return 1
 }
-# The setup activity is not exported, so it is reached through the main
-# activity, which redirects to it until the guide is finished.
 launch() { adb shell am start -W -n "$PKG/$1" >/dev/null 2>&1; }
-
-# ---- prepare ---------------------------------------------------------------
-
-adb wait-for-device
-adb root >/dev/null 2>&1 && adb wait-for-device && sleep 2   # raw key writes need it
-log "console says: $(adb emu event send EV_KEY:KEY_VOLUMEUP:0 2>&1 | tr -d '\r' | tr '\n' ' ')"
-# Error dialogs from a slow launcher would sit over everything and break the
-# UI dumps; the screen must not go off mid-clip.
-adb shell settings put global hide_error_dialogs 1
-adb shell svc power stayon true
-adb shell settings put system screen_off_timeout 1800000
-adb shell input keyevent KEYCODE_WAKEUP >/dev/null
-adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
-read -r W H < <(adb shell wm size | sed -E 's/.*: ([0-9]+)x([0-9]+).*/\1 \2/' | tail -1)
-log "display ${W}x${H}"
-
-log "install $APK"
-adb install -r -g "$APK" >>"$LOG" 2>&1 || { log "install failed"; exit 1; }
-adb shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow
-adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
-
-# A target app to hand over. Settings is on every image; a calculator is nicer.
-TARGET=$(adb shell pm list packages | tr -d '\r' | sed -n 's/^package://p' | grep -m1 -E 'calculator' || true)
-[ -n "$TARGET" ] || TARGET=com.android.settings
-log "target app $TARGET"
-
-# Warm everything up off camera: the app's first start, and the target app.
-log "warming up"
-launch .ui.MainActivity
-wait_text "Three quick steps" 60 >/dev/null && log "setup guide up" || log "WARNING: setup guide not seen during warm-up"
-adb shell input keyevent KEYCODE_HOME >/dev/null; sleep 2
-adb shell monkey -p "$TARGET" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1; sleep 4
-adb shell input keyevent KEYCODE_HOME >/dev/null; sleep 2
-
+open_target() { adb shell monkey -p "$TARGET" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1; }
 # The main activity only redirects to the guide once per process, so the
 # process is restarted before each on-camera visit to the guide.
 fresh_guide() {
@@ -170,23 +139,66 @@ ensure_guard() {
   return 1
 }
 
+# Scenes: what the final clip keeps, with a caption each. Times are seconds
+# since the recording started; everything between scenes is cut.
+REC_T0=0
+now_rel() { awk "BEGIN { printf \"%.2f\", $(date +%s.%N) - $REC_T0 }"; }
+SCENE_T=0; SCENE_CAP=""
+scene() { SCENE_CAP=$1; SCENE_T=$(now_rel); log "scene: $1"; }
+scene_end() { echo "$SCENE_T $(now_rel) $SCENE_CAP" >> "$SCENES"; }
+
+# ---- prepare ---------------------------------------------------------------
+
+adb wait-for-device
+adb root >/dev/null 2>&1 && adb wait-for-device && sleep 2   # raw key writes need it
+# Error dialogs from a slow launcher would sit over everything and break the
+# UI dumps; the screen must not go off mid-clip; taps and swipes draw a dot.
+adb shell settings put global hide_error_dialogs 1
+adb shell svc power stayon true
+adb shell settings put system screen_off_timeout 1800000
+adb shell settings put system show_touches 1
+adb shell input keyevent KEYCODE_WAKEUP >/dev/null
+adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
+read -r W H < <(adb shell wm size | sed -E 's/.*: ([0-9]+)x([0-9]+).*/\1 \2/' | tail -1)
+log "display ${W}x${H}"
+
+log "install $APK"
+adb install -r -g "$APK" >>"$LOG" 2>&1 || { log "install failed"; exit 1; }
+adb shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow
+adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
+
+# A target app to hand over. Settings is on every image; a calculator is nicer.
+TARGET=$(adb shell pm list packages | tr -d '\r' | sed -n 's/^package://p' | grep -m1 -E 'calculator' || true)
+[ -n "$TARGET" ] || TARGET=com.android.settings
+log "target app $TARGET"
+
+# Warm everything up off camera: the app's first start, and the target app.
+log "warming up"
+launch .ui.MainActivity
+wait_text "Three quick steps" 60 >/dev/null && log "setup guide up" || log "WARNING: setup guide not seen during warm-up"
+adb shell input keyevent KEYCODE_HOME >/dev/null; sleep 1
+open_target; sleep 3
+adb shell input keyevent KEYCODE_HOME >/dev/null; sleep 1
+
 # ---- record ------------------------------------------------------------------
 
 adb shell rm -f /sdcard/demo.mp4
 adb shell screenrecord --bit-rate 8000000 --time-limit 180 /sdcard/demo.mp4 &
 REC=$!
-sleep 2
+sleep 1
+REC_T0=$(date +%s.%N)
 
 # 1. Setup guide and the accessibility disclosure.
-fresh_guide; sleep 2; still 1-setup
-if tap_text "Open settings" 10; then
-  wait_text "Why Child Lock needs this" 10 >/dev/null; sleep 4; still 2-disclosure
-  if tap_text "Continue" 10; then
-    # Android's accessibility settings: open the service, switch it on, allow.
-    tap_text "Child Lock helper" 15 && sleep 2 && still 3-a11y-settings
-    tap_text "Use Child Lock helper" 10 && sleep 2
-    tap_text "Allow" 10 && sleep 2 && still 4-a11y-allowed
-  fi
+fresh_guide
+scene "The setup guide"; sleep 2.5; still 1-setup; scene_end
+if tap_text "Open settings" 10 && wait_text "Why Child Lock needs this" 10 >/dev/null; then
+  scene "Disclosure shown before enabling the helper"; sleep 7; still 2-disclosure; scene_end
+  scene "Android accessibility settings - switch on and Allow"
+  tap_text "Continue" 5
+  tap_text "Child Lock helper" 15 && sleep 1 && still 3-a11y-settings
+  tap_text "Use Child Lock helper" 10 && sleep 1
+  tap_text "Allow" 10 && sleep 1.5 && still 4-a11y-allowed
+  scene_end
 fi
 if ! adb shell settings get secure enabled_accessibility_services | grep -q "$PKG"; then
   log "enabling the helper by settings (UI path did not)"
@@ -197,51 +209,74 @@ ensure_guard && log "helper is bound" || log "WARNING: helper not bound"
 
 # 2. Back to the guide: acknowledge the way out, finish.
 fresh_guide
-tap_text "Got it" 10 && sleep 3 && still 5-escape
-tap_text "Done" 10 && sleep 2
+if tap_text "Got it" 10; then
+  scene "The way out is explained before the first lock"; sleep 3; still 5-escape
+  tap_text "Done" 10; sleep 1; scene_end
+fi
 ensure_guard && log "helper is bound after the guide" || log "WARNING: helper not bound after the guide"
 
-# 3. Hand over: open the target app, then arm from Child Lock.
-adb shell monkey -p "$TARGET" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
-sleep 4
-launch .ui.MainActivity
-wait_text "Child Lock" 20 >/dev/null; sleep 2; still 6-home
-if tap_text "Lock in" 10; then
-  sleep 4; still 6b-countdown; sleep 9
-else
-  log "no Lock button; arming with the volume pattern instead"
-  adb shell monkey -p "$TARGET" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
-  sleep 3
-  pattern 1
+# 3. Hand over, then the volume pattern locks.
+open_target; sleep 2
+scene "Hand the phone over with an app on screen"; sleep 2; scene_end
+scene "Volume up then volume down = locked"
+if pattern 1; then locked=1; else
+  log "pattern did not lock; arming from the app instead"
+  launch .ui.MainActivity; tap_text "Lock in" 10 && sleep 13
+  if shield_up; then locked=1; else locked=0; log "WARNING: shield is not up"; fi
 fi
-if shield_up; then locked=1; log "shield is up"; else locked=0; log "WARNING: shield is not up"; fi
-still 7-locked
+sleep 2; still 7-locked; scene_end
 
-# 4. Prods at a locked phone: taps, swipes from every edge, back, the shade.
+# 4. Prods at a locked phone: taps, swipes from every edge, back, home.
 cx=$((W / 2)); cy=$((H / 2))
-adb shell input tap $((W / 4)) $((H * 3 / 4)); sleep 1
-adb shell input tap $((W * 3 / 4)) $((H * 3 / 4)); sleep 1
-adb shell input swipe $cx 5 $cx $cy 300; sleep 1.5                # shade
-adb shell input swipe $cx $((H - 5)) $cx $cy 300; sleep 1.5       # home
-adb shell input swipe 5 $cy $((W * 2 / 3)) $cy 300; sleep 1.5     # back gesture
-adb shell input swipe $((W - 5)) $cy $((W / 3)) $cy 300; sleep 1.5
-adb shell input keyevent KEYCODE_BACK; sleep 1.5
+scene "Taps and swipes do nothing"
+adb shell input tap $((W / 4)) $((H * 3 / 4)); sleep 0.8
+adb shell input tap $((W * 3 / 4)) $((H * 3 / 4)); sleep 0.8
+adb shell input swipe $cx 5 $cx $cy 300; sleep 1.2                # shade
+adb shell input swipe $cx $((H - 5)) $cx $cy 300; sleep 1.2       # home
+adb shell input swipe 5 $cy $((W * 2 / 3)) $cy 300; sleep 1.2     # back gesture
+adb shell input swipe $((W - 5)) $cy $((W / 3)) $cy 300; sleep 1.2
+scene_end
+scene "Back and Home do nothing"
+adb shell input keyevent KEYCODE_BACK; sleep 1.2
 adb shell input keyevent KEYCODE_HOME; sleep 2
-still 8-after-swipes
+still 8-after-swipes; scene_end
 if shield_up; then log "shield still up after the prods"; else log "WARNING: shield gone after the prods"; fi
 
 # 5. The volume pattern unlocks.
-pattern 0
-if shield_up; then unlocked=0; log "WARNING: shield still up after the pattern"; else unlocked=1; log "shield down: unlocked"; fi
-still 9-unlocked
-launch .ui.MainActivity
-sleep 3; still 10-home-after
+scene "Volume up then volume down = unlocked"
+if pattern 0; then unlocked=1; else unlocked=0; log "WARNING: shield still up after the pattern"; fi
+sleep 1.5; still 9-unlocked; scene_end
+launch .ui.MainActivity; sleep 1.5
+scene "Unlocked - touch works as normal"; sleep 2; still 10-home-after; scene_end
 
 # ---- collect -----------------------------------------------------------------
 
 adb shell pkill -2 screenrecord || true
 wait $REC 2>/dev/null || true
 sleep 3
-adb pull /sdcard/demo.mp4 "$OUT/declaration-video.mp4" >>"$LOG" 2>&1 && log "video $(du -h "$OUT/declaration-video.mp4" | cut -f1)"
-if [ "$locked" = 1 ] && [ "$unlocked" = 1 ]; then log "RESULT: lock and unlock both shown"; else log "RESULT: incomplete, see warnings above"; fi
+adb pull /sdcard/demo.mp4 "$OUT/raw-recording.mp4" >>"$LOG" 2>&1 && log "raw video $(du -h "$OUT/raw-recording.mp4" | cut -f1)"
+adb shell settings put system show_touches 0
+
+# Cut the raw recording down to the scenes, each with its caption.
+if command -v ffmpeg >/dev/null 2>&1 && [ -s "$SCENES" ] && [ -s "$OUT/raw-recording.mp4" ]; then
+  FONT=$(fc-match -f '%{file}' DejaVuSans 2>/dev/null); [ -f "$FONT" ] || FONT=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+  i=0; : > "$OUT/segments.txt"
+  while read -r a b cap; do
+    start=$(awk "BEGIN { v = $a - 0.4; print (v < 0) ? 0 : v }")
+    dur=$(awk "BEGIN { print $b - $start }")
+    ffmpeg -loglevel error -y -ss "$start" -t "$dur" -i "$OUT/raw-recording.mp4" \
+      -vf "drawtext=fontfile=$FONT:text='$cap':fontcolor=white:fontsize=46:box=1:boxcolor=black@0.65:boxborderw=18:x=(w-text_w)/2:y=h-200" \
+      -c:v libx264 -preset veryfast -crf 22 -pix_fmt yuv420p -an "$OUT/seg$i.mp4" \
+      && echo "file 'seg$i.mp4'" >> "$OUT/segments.txt"
+    i=$((i + 1))
+  done < "$SCENES"
+  ffmpeg -loglevel error -y -f concat -safe 0 -i "$OUT/segments.txt" -c copy -movflags +faststart "$OUT/declaration-video.mp4" \
+    && log "captioned video $(du -h "$OUT/declaration-video.mp4" | cut -f1), $i scenes" \
+    || log "WARNING: could not assemble the captioned video"
+  rm -f "$OUT"/seg*.mp4 "$OUT/segments.txt"
+else
+  log "ffmpeg or scenes missing; the raw recording is the only video"
+  cp "$OUT/raw-recording.mp4" "$OUT/declaration-video.mp4" 2>/dev/null || true
+fi
+if [ "${locked:-0}" = 1 ] && [ "${unlocked:-0}" = 1 ]; then log "RESULT: lock and unlock both shown"; else log "RESULT: incomplete, see warnings above"; fi
 ls -la "$OUT" | tee -a "$LOG"

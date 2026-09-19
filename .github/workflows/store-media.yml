@@ -66,6 +66,9 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: ffmpeg for the captioned cut
+        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
+
       - name: Record the declaration video
         uses: reactivecircus/android-emulator-runner@v2
         with:
