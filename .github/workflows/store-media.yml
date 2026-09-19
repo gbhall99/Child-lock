@@ -76,13 +76,23 @@ jobs:
       - name: ffmpeg for the captioned cut
         run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg)
 
+      # The newest Pixel profile this SDK knows; the list grows with the tools.
+      - name: Pick the device profile
+        id: profile
+        run: |
+          list=$("$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" list device -c 2>/dev/null || true)
+          for p in pixel_9 pixel_8 pixel_7 pixel_6; do
+            if echo "$list" | grep -qx "$p"; then echo "profile=$p" >> "$GITHUB_OUTPUT"; echo "using $p"; exit 0; fi
+          done
+          echo "profile=pixel_6" >> "$GITHUB_OUTPUT"; echo "falling back to pixel_6"
+
       - name: Record the declaration video
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
           target: google_apis
           arch: x86_64
-          profile: pixel_8
+          profile: ${{ steps.profile.outputs.profile }}
           disable-animations: false
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: scripts/record-demo.sh app/build/outputs/apk/play/debug/app-play-debug.apk store/media
@@ -98,7 +108,7 @@ jobs:
     # The same files on the Releases page under the "store-media" pre-release,
     # replaced on every run, so they can be fetched without the Actions UI.
     needs: [screenshots, video]
-    if: always() && needs.screenshots.result == 'success'
+    if: needs.screenshots.result == 'success' && needs.video.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
