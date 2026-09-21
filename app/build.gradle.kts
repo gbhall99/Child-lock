@@ -25,7 +25,7 @@ android {
         targetSdk = 36
         // CI derives the version code from the release tag; 1 is the local default.
         versionCode = (System.getenv("CHILDLOCK_VERSION_CODE") ?: "1").toInt()
-        versionName = "1.0.0"
+        versionName = "1.0.1"
         resourceConfigurations += listOf("en")
     }
 
