@@ -168,7 +168,7 @@ lock's notification is silent and shows no status-bar icon.
 | Presses back or volume | Swallowed (with the accessibility guard) |
 | Drags down the notifications panel | Closed immediately (with the guard) |
 | Swipes home, back or recents | Blocked outright (with the guard and a volume gesture, Android 11 and newer; on by default); otherwise the app you handed over is brought straight back |
-| Presses the power button | Screen turns off; whatever was playing continues. The lock is still there after you unlock the phone |
+| Presses the power button | Screen turns off; whatever was playing continues. The lock screen works as normal (PIN, fingerprint, swipe), and the lock is still there once the phone is unlocked |
 | Receives a real phone call | Child Lock unlocks itself so the call can be answered |
 
 Without the accessibility guard, only the first row is enforced. Swipe

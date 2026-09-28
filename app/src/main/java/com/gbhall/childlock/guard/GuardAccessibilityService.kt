@@ -118,12 +118,25 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     }
     private val settingsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> rebuildKeyGesture() }
 
+    /**
+     * Screen off, screen on and the keyguard going away all change whether the
+     * device lock screen is in front, and the gesture-blocking flags must follow:
+     * left on, explore-by-touch turns the PIN pad and swipe-to-unlock into
+     * hover, and a parent who pressed the power button mid-lock cannot get back
+     * into the phone at all.
+     */
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            screenOn = intent.action != Intent.ACTION_SCREEN_OFF
+            if (intent.action == Intent.ACTION_SCREEN_OFF || intent.action == Intent.ACTION_SCREEN_ON) {
+                screenOn = intent.action == Intent.ACTION_SCREEN_ON
+            }
+            rebuildKeyGesture()
             ensureAutoLockTicking()
         }
     }
+
+    /** The device lock screen (or a dark screen about to show it) is the user's, never ours to block. */
+    private fun onDeviceLockScreen(): Boolean = !screenOn || keyguardLocked()
 
     private val tick = object : Runnable {
         override fun run() {
@@ -141,7 +154,11 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         applyServiceFlags(locked = false)
         startCameraTracking()
         try {
-            val filter = IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON) }
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
             } else {
@@ -201,14 +218,15 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
 
     /**
      * Base flags always; touch-exploration + multi-finger only while locked with a
-     * volume gesture (blocks one-finger home/back swipes); content-change events
-     * and view ids only while skip-ad tapping can actually run.
+     * volume gesture (blocks one-finger home/back swipes) and the device lock
+     * screen is not in front; content-change events and view ids only while
+     * skip-ad tapping can actually run.
      */
     private fun applyServiceFlags(locked: Boolean) {
         val extra = if (otherScreenReaderActive()) {
             0 // TalkBack and friends own explore-by-touch; competing breaks both.
         } else {
-            GuardPolicy.gestureBlockFlags(locked, settings.blockGestures, settings.hasVolumeGesture, Build.VERSION.SDK_INT)
+            GuardPolicy.gestureBlockFlags(locked && !onDeviceLockScreen(), settings.blockGestures, settings.hasVolumeGesture, Build.VERSION.SDK_INT)
         }
         val wanted = BASE_FLAGS or extra or (if (skipAdsActive()) AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS else 0)
         val events = MANIFEST_EVENTS or (if (skipAdsActive()) AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED else 0)
