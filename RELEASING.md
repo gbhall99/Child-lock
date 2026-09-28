@@ -73,6 +73,8 @@ gesture navigation, once per release:
 - More → "Preview the trial as over": the home screen says "Free trial
   over", the big button offers the purchase, the volume pattern and the tile
   no longer lock, Practise still does.
+- Press power while locked, then wake the phone. The lock screen must take
+  a PIN or a swipe as normal, and the lock must still be there afterwards.
 - Force a restart while locked (power for 10 to 30 s; Samsung power + volume
   down). The phone must come back unlocked.
 

@@ -424,6 +424,36 @@ class GuardAccessibilityServiceTest {
     }
 
     @Test
+    fun `the device lock screen gets ordinary touch back, and the lock survives it`() {
+        val block = GuardPolicy.FLAG_TOUCH_EXPLORATION or GuardPolicy.FLAG_MULTI_FINGER
+        val km = shadowOf(TestSupport.app.getSystemService(android.app.KeyguardManager::class.java))
+        SettingsRepository.get(TestSupport.app).update { it.copy(blockGestures = true) }
+        TestSupport.idle()
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertEquals(block, service.requestedFlags and block)
+
+        // The parent presses power: the screen goes dark and the keyguard comes up.
+        km.setKeyguardLocked(true)
+        TestSupport.app.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF))
+        TestSupport.idle()
+        assertEquals("the PIN pad and swipe-to-unlock need real touches", 0, service.requestedFlags and block)
+        assertTrue("the lock itself is kept", LockController.isLocked)
+
+        // Screen on, still on the lock screen: still ordinary touch.
+        TestSupport.app.sendBroadcast(Intent(Intent.ACTION_SCREEN_ON))
+        TestSupport.idle()
+        assertEquals(0, service.requestedFlags and block)
+
+        // The phone is unlocked: the child is back in a locked app, so blocking resumes.
+        km.setKeyguardLocked(false)
+        TestSupport.app.sendBroadcast(Intent(Intent.ACTION_USER_PRESENT))
+        TestSupport.idle()
+        assertEquals(block, service.requestedFlags and block)
+        assertTrue(LockController.isLocked)
+    }
+
+    @Test
     fun `the device lock screen keeps its own keys`() {
         SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.CORNER_HOLD) }
         LockController.set(LockState.Locked("com.example.call", 0))
