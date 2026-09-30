@@ -30,6 +30,15 @@ android {
     }
 
     signingConfigs {
+        // One shared debug key, so every test build (CI runs included) installs
+        // over the last one instead of needing an uninstall. It signs nothing
+        // that ships: Play and release builds use the release key.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (hasReleaseKey) {
             create("release") {
                 storeFile = file(signingValue("storeFile")!!)
