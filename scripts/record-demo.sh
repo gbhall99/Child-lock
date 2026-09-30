@@ -380,7 +380,9 @@ adb shell screencap -p /sdcard/hint.png && adb pull /sdcard/hint.png "$OUT/7b-to
 { echo "--- after the first tap ---"
   adb shell dumpsys accessibility 2>/dev/null | grep -iE "touchExplor|flags|eventTypes|Child Lock" | head -12
   adb shell dumpsys window windows 2>/dev/null | grep -E "Window #|mHasSurface|ty=" | grep -iE "childlock|Window #" | head -12
-  adb logcat -d -t 2000 -s GuardService:V TouchShieldView:V LockOverlayService:V LockController:V TouchExplorer:V AndroidRuntime:E 2>/dev/null | tail -30
+  adb logcat -d > "$OUT/logcat.txt" 2>&1
+  echo "logcat lines: $(wc -l < "$OUT/logcat.txt")"
+  grep -E "GuardService|TouchShieldView|LockController|LockOverlayService|TouchExplorer|AndroidRuntime" "$OUT/logcat.txt" | tail -40
 } >>"$LOG"
 tap $((W * 3 / 4)) $((H / 2)); sleep 0.6
 swipe $cx 5 $cx $cy; sleep 0.8                 # shade
