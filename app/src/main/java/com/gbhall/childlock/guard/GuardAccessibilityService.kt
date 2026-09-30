@@ -302,7 +302,6 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_START) {
             // Explore-by-touch keeps this touch from the shield; show the hint for it.
-            Log.d(TAG, "Touch while exploring")
             LockController.touchedWhileLocked()
             return
         }

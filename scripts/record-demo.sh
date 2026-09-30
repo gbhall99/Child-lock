@@ -364,7 +364,7 @@ scene "Hand over with a video playing"; sleep 3; scene_end
 scene "Volume up then volume down = locked"
 if pattern 1; then locked=1; else
   log "pattern did not lock; arming from the app instead"
-  { echo "--- app log ---"; adb logcat -d -t 2000 -s GuardService:V LockOverlayService:V LockController:V AndroidRuntime:E 2>/dev/null | tail -60; } >>"$LOG"
+  { echo "--- app log ---"; adb logcat -d -s GuardService:V LockOverlayService:V LockController:V AndroidRuntime:E 2>/dev/null | tail -40; } >>"$LOG"
   launch .ui.MainActivity; tap_text "Lock in" 10 && sleep 13
   if shield_up; then locked=1; else locked=0; log "WARNING: shield is not up"; fi
 fi
@@ -379,14 +379,7 @@ tap $((W / 4)) $((H * 3 / 4)); sleep 0.5
 # A touch names the way out beside the padlock for a moment; capture on the
 # device, since pulling a PNG through adb takes longer than the hint lasts.
 adb shell screencap -p /sdcard/hint.png && adb pull /sdcard/hint.png "$OUT/7b-touch-hint.png" >/dev/null 2>&1 && log "still 7b-touch-hint"
-{ echo "--- after the first tap ---"
-  adb shell getevent -lp "$TOUCH_DEV" 2>/dev/null | grep -E "ABS_MT_(PRESSURE|TOUCH_MAJOR|TRACKING)" 
-  adb shell dumpsys accessibility 2>/dev/null | grep -iE "touchExplor|flags|eventTypes|Child Lock" | head -12
-  adb shell dumpsys window windows 2>/dev/null | grep -E "Window #|mHasSurface|ty=" | grep -iE "childlock|Window #" | head -12
-  adb logcat -d > "$OUT/logcat.txt" 2>&1
-  echo "logcat lines: $(wc -l < "$OUT/logcat.txt")"
-  grep -E "GuardService|TouchShieldView|LockController|LockOverlayService|TouchExplorer|AndroidRuntime" "$OUT/logcat.txt" | tail -40
-} >>"$LOG"
+adb logcat -d -s TouchShieldView:I 2>/dev/null | grep -q "unlock hint" && log "the touch showed the hint" || log "WARNING: the touch did not show the hint"
 tap $((W * 3 / 4)) $((H / 2)); sleep 0.6
 swipe $cx 5 $cx $cy; sleep 0.8                 # shade
 swipe $cx $((H - 5)) $cx $cy; sleep 0.8        # home gesture

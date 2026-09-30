@@ -214,20 +214,14 @@ class TouchShieldView(
      */
     override fun onHoverEvent(event: MotionEvent): Boolean {
         if (disposed) return true
-        if (event.actionMasked == MotionEvent.ACTION_HOVER_ENTER) {
-            Log.d("TouchShieldView", "Hover reached the shield")
-            showHint()
-        }
+        if (event.actionMasked == MotionEvent.ACTION_HOVER_ENTER) showHint()
         return true // same job as onTouchEvent, for the mode that replaces it
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (disposed) return true
         val masked = event.actionMasked
-        if (masked == MotionEvent.ACTION_DOWN) {
-            Log.d("TouchShieldView", "Touch reached the shield")
-            showHint()
-        }
+        if (masked == MotionEvent.ACTION_DOWN) showHint()
         val action = when (masked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> TouchAction.DOWN
             MotionEvent.ACTION_MOVE -> TouchAction.MOVE
