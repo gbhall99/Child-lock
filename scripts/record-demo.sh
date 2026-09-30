@@ -132,17 +132,19 @@ find_touch() {
 }
 tx() { awk "BEGIN { printf \"%d\", $1 * $TMAXX / ($W - 1) }"; }
 ty() { awk "BEGIN { printf \"%d\", $1 * $TMAXY / ($H - 1) }"; }
+# Contacts carry pressure and size: a touchscreen that reports pressure
+# treats a zero-pressure contact as a hover, not a touch.
 # tap X Y (screen pixels)
 tap() {
   if [ -z "$TOUCH_DEV" ]; then adb shell input tap "$1" "$2"; return; fi
   local x y; x=$(tx "$1"); y=$(ty "$2")
-  adb shell "D=$TOUCH_DEV; sendevent \$D 3 47 0; sendevent \$D 3 57 $RANDOM; sendevent \$D 3 53 $x; sendevent \$D 3 54 $y; sendevent \$D 1 330 1; sendevent \$D 0 0 0; sleep 0.08; sendevent \$D 3 57 -1; sendevent \$D 1 330 0; sendevent \$D 0 0 0"
+  adb shell "D=$TOUCH_DEV; sendevent \$D 3 47 0; sendevent \$D 3 57 $RANDOM; sendevent \$D 3 53 $x; sendevent \$D 3 54 $y; sendevent \$D 3 58 60; sendevent \$D 3 48 6; sendevent \$D 1 330 1; sendevent \$D 0 0 0; sleep 0.08; sendevent \$D 3 57 -1; sendevent \$D 1 330 0; sendevent \$D 0 0 0"
 }
 # swipe X1 Y1 X2 Y2 (screen pixels), about 400 ms
 swipe() {
   if [ -z "$TOUCH_DEV" ]; then adb shell input swipe "$1" "$2" "$3" "$4" 400; return; fi
   local x1 y1 x2 y2 n=12; x1=$(tx "$1"); y1=$(ty "$2"); x2=$(tx "$3"); y2=$(ty "$4")
-  adb shell "D=$TOUCH_DEV; sendevent \$D 3 47 0; sendevent \$D 3 57 $RANDOM; sendevent \$D 3 53 $x1; sendevent \$D 3 54 $y1; sendevent \$D 1 330 1; sendevent \$D 0 0 0; i=1; while [ \$i -le $n ]; do x=\$(( $x1 + ($x2 - $x1) * \$i / $n )); y=\$(( $y1 + ($y2 - $y1) * \$i / $n )); sendevent \$D 3 53 \$x; sendevent \$D 3 54 \$y; sendevent \$D 0 0 0; sleep 0.03; i=\$((i + 1)); done; sendevent \$D 3 57 -1; sendevent \$D 1 330 0; sendevent \$D 0 0 0"
+  adb shell "D=$TOUCH_DEV; sendevent \$D 3 47 0; sendevent \$D 3 57 $RANDOM; sendevent \$D 3 53 $x1; sendevent \$D 3 54 $y1; sendevent \$D 3 58 60; sendevent \$D 3 48 6; sendevent \$D 1 330 1; sendevent \$D 0 0 0; i=1; while [ \$i -le $n ]; do x=\$(( $x1 + ($x2 - $x1) * \$i / $n )); y=\$(( $y1 + ($y2 - $y1) * \$i / $n )); sendevent \$D 3 53 \$x; sendevent \$D 3 54 \$y; sendevent \$D 0 0 0; sleep 0.03; i=\$((i + 1)); done; sendevent \$D 3 57 -1; sendevent \$D 1 330 0; sendevent \$D 0 0 0"
 }
 back_key() { raw_key 158 || adb shell input keyevent KEYCODE_BACK; }
 
@@ -378,6 +380,7 @@ tap $((W / 4)) $((H * 3 / 4)); sleep 0.5
 # device, since pulling a PNG through adb takes longer than the hint lasts.
 adb shell screencap -p /sdcard/hint.png && adb pull /sdcard/hint.png "$OUT/7b-touch-hint.png" >/dev/null 2>&1 && log "still 7b-touch-hint"
 { echo "--- after the first tap ---"
+  adb shell getevent -lp "$TOUCH_DEV" 2>/dev/null | grep -E "ABS_MT_(PRESSURE|TOUCH_MAJOR|TRACKING)" 
   adb shell dumpsys accessibility 2>/dev/null | grep -iE "touchExplor|flags|eventTypes|Child Lock" | head -12
   adb shell dumpsys window windows 2>/dev/null | grep -E "Window #|mHasSurface|ty=" | grep -iE "childlock|Window #" | head -12
   adb logcat -d > "$OUT/logcat.txt" 2>&1
