@@ -362,7 +362,7 @@ scene "Hand over with a video playing"; sleep 3; scene_end
 scene "Volume up then volume down = locked"
 if pattern 1; then locked=1; else
   log "pattern did not lock; arming from the app instead"
-  { echo "--- app log ---"; adb logcat -d -t 300 --pid="$(adb shell pidof "$PKG" | tr -d '\r')" 2>/dev/null | tail -60; } >>"$LOG"
+  { echo "--- app log ---"; adb logcat -d -t 2000 -s GuardService:V LockOverlayService:V LockController:V AndroidRuntime:E 2>/dev/null | tail -60; } >>"$LOG"
   launch .ui.MainActivity; tap_text "Lock in" 10 && sleep 13
   if shield_up; then locked=1; else locked=0; log "WARNING: shield is not up"; fi
 fi
@@ -374,11 +374,13 @@ still 7-locked
 cx=$((W / 2)); cy=$((H / 2))
 scene "Taps and swipes do nothing"
 tap $((W / 4)) $((H * 3 / 4)); sleep 0.5
-still 7b-touch-hint                           # a touch names the way out beside the padlock
+# A touch names the way out beside the padlock for a moment; capture on the
+# device, since pulling a PNG through adb takes longer than the hint lasts.
+adb shell screencap -p /sdcard/hint.png && adb pull /sdcard/hint.png "$OUT/7b-touch-hint.png" >/dev/null 2>&1 && log "still 7b-touch-hint"
 { echo "--- after the first tap ---"
   adb shell dumpsys accessibility 2>/dev/null | grep -iE "touchExplor|flags|eventTypes|Child Lock" | head -12
   adb shell dumpsys window windows 2>/dev/null | grep -E "Window #|mHasSurface|ty=" | grep -iE "childlock|Window #" | head -12
-  adb logcat -d -t 400 --pid="$(adb shell pidof "$PKG" | tr -d '\r')" 2>/dev/null | grep -iE "hint|explor|shield|Guard" | tail -20
+  adb logcat -d -t 2000 -s GuardService:V TouchShieldView:V LockOverlayService:V LockController:V TouchExplorer:V AndroidRuntime:E 2>/dev/null | tail -30
 } >>"$LOG"
 tap $((W * 3 / 4)) $((H / 2)); sleep 0.6
 swipe $cx 5 $cx $cy; sleep 0.8                 # shade

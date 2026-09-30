@@ -65,7 +65,12 @@ object LockController {
     var touchSink: (() -> Unit)? = null
 
     fun touchedWhileLocked() {
-        if (isLocked) touchSink?.invoke()
+        val sink = touchSink
+        if (!isLocked || sink == null) {
+            Log.d(TAG, "Touch reported but no shield to hint (locked=$isLocked)")
+            return
+        }
+        sink()
     }
 
     /**
