@@ -38,7 +38,7 @@ object ReviewSignals {
         val e = p.edit().remove(KEY_LOCKED_SINCE)
         when (reason) {
             UnlockReason.FALLBACK, UnlockReason.SYSTEM -> e.putLong(KEY_DISTRESS, clock())
-            UnlockReason.PARENT, UnlockReason.TIMER ->
+            UnlockReason.PARENT, UnlockReason.TIMER, UnlockReason.PHONE_UNLOCKED ->
                 if (durationMs >= GOOD_SESSION_MS) e.putInt(KEY_GOOD, p.getInt(KEY_GOOD, 0) + 1)
             UnlockReason.CALL -> Unit
         }

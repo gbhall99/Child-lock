@@ -154,7 +154,7 @@ class SettingsActivityTest {
     fun `about page - names the version and links out`() {
         val a = page(SettingsActivity.Page.ABOUT)
         assertTrue(texts(a).contains(a.getString(R.string.about_version)))
-        assertTrue("the stuck advice lives here too", texts(a).contains(a.getString(R.string.about_stuck_body)))
+        assertTrue("the stuck advice lives here too", texts(a).contains(com.gbhall.childlock.settings.GestureText.stuckAbout(a)))
         assertTrue(texts(a).contains(a.getString(R.string.about_privacy)))
         // The privacy policy is the first link row, so its Open button is the first.
         UiTestSupport.button(a, a.getString(R.string.open))!!.performClick()

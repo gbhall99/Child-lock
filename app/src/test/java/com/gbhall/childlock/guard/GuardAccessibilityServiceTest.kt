@@ -90,37 +90,11 @@ class GuardAccessibilityServiceTest {
 
         LockController.unlock()
         TestSupport.idle()
-        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.VOLUME_CHORD) }
+        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.VOLUME_SEQUENCE) }
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
         assertTrue(service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP)))
         assertFalse(service.onKeyEvent(key(KeyEvent.KEYCODE_BACK)))
-    }
-
-    @Test
-    fun `volume chord held through the service unlocks`() {
-        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.VOLUME_CHORD, holdMs = 1000) }
-        LockController.set(LockState.Locked("com.example.call", 0))
-        TestSupport.idle()
-        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP))
-        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_DOWN))
-        TestSupport.idle(600)
-        assertTrue(LockController.isLocked)
-        TestSupport.idle(500)
-        assertEquals(LockState.Unlocked, LockController.state)
-    }
-
-    @Test
-    fun `releasing a chord key resets the hold`() {
-        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.VOLUME_CHORD, holdMs = 1000) }
-        LockController.set(LockState.Locked("com.example.call", 0))
-        TestSupport.idle()
-        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP))
-        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_DOWN))
-        TestSupport.idle(600)
-        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP, down = false))
-        TestSupport.idle(2000)
-        assertTrue(LockController.isLocked)
     }
 
     private fun tap(code: Int, t: Long, holdMs: Long = 120) {
@@ -530,25 +504,4 @@ class GuardAccessibilityServiceTest {
         assertEquals("competing with TalkBack breaks both", 0, service.requestedFlags and block)
     }
 
-    @Test
-    fun `volume pattern and volume chord can both be allowed`() {
-        SettingsRepository.get(TestSupport.app).update {
-            it.copy(holdMs = 1000).withGestures(setOf(GestureType.VOLUME_SEQUENCE, GestureType.VOLUME_CHORD))
-        }
-        TestSupport.idle()
-        LockController.set(LockState.Locked("com.example.call", 0))
-        TestSupport.idle()
-        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP))
-        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_DOWN))
-        TestSupport.idle(1100)
-        assertEquals("the chord unlocked", LockState.Unlocked, LockController.state)
-        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP, down = false))
-        service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_DOWN, down = false))
-        LockController.set(LockState.Locked("com.example.call", 0))
-        TestSupport.idle()
-        tap(KeyEvent.KEYCODE_VOLUME_UP, 5000)
-        tap(KeyEvent.KEYCODE_VOLUME_DOWN, 5300, HOLD)
-        TestSupport.idle()
-        assertEquals("and so does the pattern", LockState.Unlocked, LockController.state)
-    }
 }

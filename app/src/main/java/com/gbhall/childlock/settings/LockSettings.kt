@@ -26,11 +26,14 @@ enum class GestureType {
     /** Volume press pattern; locks and unlocks. Needs the accessibility guard. */
     VOLUME_SEQUENCE,
     CORNER_HOLD,
-    BADGE_PIN,
-    VOLUME_CHORD;
+    BADGE_PIN;
+    // Holding both volume keys used to be a fourth way out. It is the same
+    // gesture as Android's own accessibility shortcut, which fires first and
+    // can open a settings page mid-lock, so it is gone. A stored "VOLUME_CHORD"
+    // no longer parses and loads as the volume pattern.
 
     /** Gestures that only the accessibility guard can see. */
-    val needsGuard: Boolean get() = this == VOLUME_SEQUENCE || this == VOLUME_CHORD
+    val needsGuard: Boolean get() = this == VOLUME_SEQUENCE
 }
 
 data class LockSettings(

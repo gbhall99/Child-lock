@@ -148,7 +148,7 @@ Core functionality that needs the service:
 
 It never reads window content. The Play build is compiled without any node-reading code path, so it cannot read text on screen at all.
 
-User protections: a prominent disclosure with explicit consent is shown in the app before the user is sent to enable the service. The lock is always started by the user, shows a visible badge for its whole duration, is never persisted (a restart always ends it), releases itself when the phone rings and after at most 90 minutes, and refuses to start if the way out would not work. The core touch lock also works with the service disabled; the service only hardens it.
+User protections: a prominent disclosure with explicit consent is shown in the app before the user is sent to enable the service. The lock is always started by the user, shows a visible badge for its whole duration, is never persisted (a restart always ends it), releases itself when the phone rings, when the parent unlocks the phone through its own secure lock screen, and after at most 90 minutes, and refuses to start if the way out would not work. The core touch lock also works with the service disabled; the service only hardens it.
 ```
 
 - Video: the URL from section 0.

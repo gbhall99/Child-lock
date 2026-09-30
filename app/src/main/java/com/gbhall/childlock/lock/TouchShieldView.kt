@@ -6,11 +6,13 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.TypedValue
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
@@ -72,6 +74,41 @@ class TouchShieldView(
     private var progress = 0f
     private var disposed = false
     private val handler = Handler(Looper.getMainLooper())
+
+    /**
+     * A touch shows the way out beside the padlock for a moment, the way a
+     * video player shows its lock button when you tap. A toddler cannot act on
+     * it; a parent who forgot the pattern always sees it. After it fades it
+     * waits a little before showing again, so drumming does not keep it up.
+     */
+    private val hintText: String = com.gbhall.childlock.settings.GestureText.touchHint(context, settings)
+    private val hintTextSizePx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, HINT_TEXT_SP, resources.displayMetrics)
+    private val hintTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = hintTextSizePx
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    }
+    private val hintBackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(235, 32, 33, 36) }
+    private val hintRect = RectF()
+
+    /** True while the "how to get out" label is up beside the badge. */
+    var isHintShowing = false
+        private set
+    private var hintAllowedAt = 0L
+    private val hideHint = Runnable {
+        isHintShowing = false
+        hintAllowedAt = SystemClock.uptimeMillis() + HINT_COOLDOWN_MS
+        invalidate()
+    }
+
+    private fun showHint() {
+        if (disposed || isHintShowing || hintText.isEmpty()) return
+        if (SystemClock.uptimeMillis() < hintAllowedAt) return
+        isHintShowing = true
+        invalidate()
+        handler.removeCallbacks(hideHint)
+        handler.postDelayed(hideHint, HINT_MS)
+    }
 
     private val badgeGesture: BadgePinGesture? =
         if (GestureType.BADGE_PIN in settings.gestures) BadgePinGesture(settings.holdMs, this) else null
@@ -174,12 +211,14 @@ class TouchShieldView(
      */
     override fun onHoverEvent(event: MotionEvent): Boolean {
         if (disposed) return true
+        if (event.actionMasked == MotionEvent.ACTION_HOVER_ENTER) showHint()
         return true // same job as onTouchEvent, for the mode that replaces it
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (disposed) return true
         val masked = event.actionMasked
+        if (masked == MotionEvent.ACTION_DOWN) showHint()
         val action = when (masked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> TouchAction.DOWN
             MotionEvent.ACTION_MOVE -> TouchAction.MOVE
@@ -260,11 +299,36 @@ class TouchShieldView(
             )
             canvas.drawArc(arc, -90f, 360f * progress, false, ringPaint)
         }
+        if (isHintShowing) drawHint(canvas)
+    }
+
+    /** A dark pill beside the badge, on whichever side has the room. */
+    private fun drawHint(canvas: Canvas) {
+        val padH = 12f * density
+        val gap = 8f * density
+        hintTextPaint.textSize = hintTextSizePx
+        var textWidth = hintTextPaint.measureText(hintText)
+        val maxText = width - badgeMargin * 2 - padH * 2
+        if (maxText > 0f && textWidth > maxText) {
+            hintTextPaint.textSize = hintTextSizePx * maxText / textWidth
+            textWidth = hintTextPaint.measureText(hintText)
+        }
+        val pillW = textWidth + padH * 2
+        val pillH = maxOf(badgeRadius * 2, hintTextPaint.textSize + 16f * density)
+        val onLeftHalf = badgeCenterX < width / 2f
+        val wanted = if (onLeftHalf) badgeRect.right + gap else badgeRect.left - gap - pillW
+        val left = wanted.coerceIn(0f, maxOf(0f, width - pillW))
+        val top = badgeCenterY - pillH / 2
+        hintRect.set(left, top, left + pillW, top + pillH)
+        canvas.drawRoundRect(hintRect, pillH / 2, pillH / 2, hintBackPaint)
+        val baseline = hintRect.centerY() - (hintTextPaint.descent() + hintTextPaint.ascent()) / 2
+        canvas.drawText(hintText, hintRect.left + padH, baseline, hintTextPaint)
     }
 
     fun dispose() {
         disposed = true
         handler.removeCallbacks(tick)
+        handler.removeCallbacks(hideHint)
         gesture.reset()
     }
 
@@ -277,6 +341,11 @@ class TouchShieldView(
         const val BADGE_SLOP_DP = 16f
         const val EDGE_EXCLUSION_DP = 48f
         private const val TICK_MS = 33L
+
+        /** How long the touch hint stays up, and how long it rests before it can show again. */
+        const val HINT_MS = 2500L
+        const val HINT_COOLDOWN_MS = 1500L
+        private const val HINT_TEXT_SP = 14f
 
         /** Custom accessibility action id for "unlock". */
         val ACTION_UNLOCK_ID = R.id.action_unlock

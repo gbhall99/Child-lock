@@ -19,6 +19,8 @@ enum class UnlockReason {
     CALL,
     /** The app gave up (permission lost, overlay failed). */
     SYSTEM,
+    /** The parent got back into the phone through its own lock screen: face, fingerprint or PIN. */
+    PHONE_UNLOCKED,
 }
 
 sealed interface LockState {

@@ -124,11 +124,17 @@ class SettingsRepositoryTest {
 
     @Test
     fun `several ways to unlock survive a round trip, with the main one first`() {
-        repo.save(LockSettings().withGestures(setOf(GestureType.BADGE_PIN, GestureType.VOLUME_CHORD, GestureType.CORNER_HOLD)))
+        repo.save(LockSettings().withGestures(setOf(GestureType.BADGE_PIN, GestureType.CORNER_HOLD)))
         val s = repo.load()
-        assertEquals(setOf(GestureType.BADGE_PIN, GestureType.VOLUME_CHORD, GestureType.CORNER_HOLD), s.gestures)
+        assertEquals(setOf(GestureType.BADGE_PIN, GestureType.CORNER_HOLD), s.gestures)
         assertEquals("first in the fixed order is the main one", GestureType.CORNER_HOLD, s.gesture)
-        assertEquals(setOf(GestureType.BADGE_PIN, GestureType.VOLUME_CHORD), s.extraGestures)
+        assertEquals(setOf(GestureType.BADGE_PIN), s.extraGestures)
+        assertFalse(s.hasVolumeGesture)
+        repo.save(s.withGestures(setOf(GestureType.BADGE_PIN, GestureType.VOLUME_SEQUENCE)))
+        val v = repo.load()
+        assertEquals(GestureType.VOLUME_SEQUENCE, v.gesture)
+        assertEquals(setOf(GestureType.BADGE_PIN), v.extraGestures)
+        assertTrue(v.hasVolumeGesture)
         assertTrue(s.hasVolumeGesture)
         assertTrue(s.hasTouchGesture)
         // The main one is never also listed as an extra, even if the stored set says so.
@@ -136,5 +142,15 @@ class SettingsRepositoryTest {
         prefs.edit().putString("gesture", "VOLUME_SEQUENCE").putStringSet("extra_gestures", setOf("VOLUME_SEQUENCE", "BADGE_PIN")).commit()
         SettingsRepository.resetForTests()
         assertEquals(setOf(GestureType.BADGE_PIN), SettingsRepository.get(TestSupport.app).load().extraGestures)
+    }
+
+    @Test
+    fun `a phone that saved the retired hold-both-volume-keys unlock loads the volume pattern`() {
+        val prefs = TestSupport.app.getSharedPreferences("childlock", 0)
+        prefs.edit().putString("gesture", "VOLUME_CHORD").putStringSet("extra_gestures", setOf("VOLUME_CHORD", "CORNER_HOLD")).commit()
+        SettingsRepository.resetForTests()
+        val s = SettingsRepository.get(TestSupport.app).load()
+        assertEquals(GestureType.VOLUME_SEQUENCE, s.gesture)
+        assertEquals(setOf(GestureType.CORNER_HOLD), s.extraGestures)
     }
 }

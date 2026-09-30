@@ -67,7 +67,7 @@ class LockPreflightTest {
         assertEquals("no helper, but the corners work", LockPreflight.Result.Ok, LockPreflight.check(both, helperConnected = false, touchExplorationOn = false))
         assertEquals("screen reader, but the volume works", LockPreflight.Result.Ok, LockPreflight.check(both, helperConnected = true, touchExplorationOn = true))
         assertEquals("switches on the volume keys, but the corners work", LockPreflight.Result.Ok, LockPreflight.check(both, helperConnected = true, touchExplorationOn = false, keyFilteringToolActive = true))
-        val volumeOnly = setOf(GestureType.VOLUME_SEQUENCE, GestureType.VOLUME_CHORD)
+        val volumeOnly = setOf(GestureType.VOLUME_SEQUENCE)
         assertEquals(LockPreflight.Result.HelperNeeded, LockPreflight.check(volumeOnly, helperConnected = false, touchExplorationOn = false))
         val touchOnly = setOf(GestureType.CORNER_HOLD, GestureType.BADGE_PIN)
         assertEquals(LockPreflight.Result.ScreenReaderNeedsVolume, LockPreflight.check(touchOnly, helperConnected = true, touchExplorationOn = true))

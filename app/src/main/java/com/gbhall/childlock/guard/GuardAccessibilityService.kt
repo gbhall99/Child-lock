@@ -27,7 +27,6 @@ import com.gbhall.childlock.billing.FeatureGate
 import com.gbhall.childlock.gesture.GestureEvent
 import com.gbhall.childlock.gesture.HardwareKey
 import com.gbhall.childlock.gesture.UnlockGesture
-import com.gbhall.childlock.gesture.VolumeChordGesture
 import com.gbhall.childlock.gesture.VolumeSequenceGesture
 import com.gbhall.childlock.lock.LockController
 import com.gbhall.childlock.lock.LockState
@@ -205,9 +204,6 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
             if (GestureType.VOLUME_SEQUENCE in settings.gestures) {
                 add(VolumeSequenceGesture(settings.volumePattern, settings.volumeRepeats, ::onKeyGestureEvent))
             }
-            if (GestureType.VOLUME_CHORD in settings.gestures && locked) {
-                add(VolumeChordGesture(settings.holdMs, ::onKeyGestureEvent))
-            }
         }
         keyGesture = when (parts.size) {
             0 -> null
@@ -321,7 +317,8 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         val app = isLaunchable(pkg)
         val home = isHome(pkg)
         if (!app && !home) return // a system dialog or a transient window over the app
-        if (app) ForegroundTracker.lastApp = pkg
+        // Settings and system dialogs are never the app to hand over.
+        if (app && GuardPolicy.canBeProtected(pkg)) ForegroundTracker.lastApp = pkg
         engine.onForeground(pkg)
         ensureAutoLockTicking()
     }

@@ -50,6 +50,38 @@ class TouchShieldViewTest {
     }
 
     @Test
+    fun `a touch shows the way out beside the padlock, briefly and not on every tap`() {
+        val (v, _) = shield()
+        assertFalse(v.isHintShowing)
+        v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, 500f to 900f))
+        assertTrue("the way out appears on touch", v.isHintShowing)
+        idle(TouchShieldView.HINT_MS + 100)
+        assertFalse("and fades by itself", v.isHintShowing)
+        v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, 500f to 900f))
+        assertFalse("drumming on the screen does not keep it up", v.isHintShowing)
+        idle(TouchShieldView.HINT_COOLDOWN_MS + 100)
+        v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, 500f to 900f))
+        assertTrue(v.isHintShowing)
+    }
+
+    @Test
+    fun `in explore-by-touch the hint follows the finger too`() {
+        val (v, _) = shield()
+        v.onHoverEvent(motion(MotionEvent.ACTION_HOVER_ENTER, 500f to 900f))
+        assertTrue(v.isHintShowing)
+    }
+
+    @Test
+    fun `the hint names the way out the parent chose`() {
+        val app = TestSupport.app
+        assertTrue(com.gbhall.childlock.settings.GestureText.touchHint(app, LockSettings()).contains("up, then down"))
+        assertEquals(
+            app.getString(com.gbhall.childlock.R.string.touch_hint_corners),
+            com.gbhall.childlock.settings.GestureText.touchHint(app, LockSettings(gesture = GestureType.CORNER_HOLD)),
+        )
+    }
+
+    @Test
     fun `hover is consumed too, so explore-by-touch cannot reach the app underneath`() {
         // Explore-by-touch delivers hover instead of touch. A shield that only
         // handles onTouchEvent swallows nothing at all in that mode, which is
@@ -112,7 +144,7 @@ class TouchShieldViewTest {
     fun `a volume-only setup has no hidden corner hold`() {
         // What unlocks is exactly what the parent allowed. A silent corner
         // fallback let the lock open by a way the settings did not show.
-        for (g in listOf(GestureType.VOLUME_CHORD, GestureType.VOLUME_SEQUENCE)) {
+        for (g in listOf(GestureType.VOLUME_SEQUENCE)) {
             val (v, host) = shield(LockSettings(gesture = g, holdMs = 1000))
             v.onTouchEvent(motion(MotionEvent.ACTION_DOWN, 40f to 60f, 1040f to 2350f))
             idle(3000)

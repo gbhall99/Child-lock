@@ -29,7 +29,7 @@ WHAT STOPS WORKING FOR THE CHILD
 • The back button and the volume buttons
 • Pulling down the notifications panel
 • Swiping home or opening recent apps
-The power button still works, and an incoming call unlocks the phone so you can answer it.
+The power button still works, and an incoming call unlocks the phone so you can answer it. If the screen goes off, unlocking the phone with your face, fingerprint or PIN also ends Child Lock.
 
 AUTO-LOCK
 Choose the apps you hand over and the moment that should lock them: a video call connecting, a video going full screen, anything playing, or simply opening. A five-second countdown gives you time to hand over; switch away or press the pattern to cancel. Unlock, and it locks again by itself only if the same moment ends and happens again.
@@ -42,7 +42,7 @@ MADE TO BE TRUSTED
 • Colour-blind-safe design: every state has a shape and a word, never colour alone
 
 OTHER WAYS TO UNLOCK
-Prefer touch? Hold one finger in each of two opposite corners for a moment, hold the badge and type a PIN, or hold both volume buttons. Allow any combination; only what you switch on can unlock.
+Prefer touch? Hold one finger in each of two opposite corners for a moment, or hold the badge and type a PIN. Allow any combination; only what you switch on can unlock.
 
 SETUP
 A short assistant walks you through three steps: "Display over other apps", which is how touches are blocked; the Child Lock helper accessibility service, which handles the volume pattern, swipe blocking and auto-lock; and a page that shows how to unlock and how to force a restart if nothing else works. Every permission is explained before you enable it.

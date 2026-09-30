@@ -293,9 +293,56 @@ class LockOverlayServiceTest {
         assertEquals(0, overlayViews().size)
     }
 
+    private fun keyguard() = shadowOf(TestSupport.app.getSystemService(android.app.KeyguardManager::class.java))
+
+    private fun broadcast(action: String) {
+        TestSupport.app.sendBroadcast(Intent(action))
+        idle()
+    }
+
+    @Test
+    fun `unlocking the phone with face, fingerprint or PIN ends the lock`() {
+        start(lockIntent())
+        idle()
+        assertTrue(LockController.isLocked)
+        keyguard().setIsDeviceLocked(true)
+        broadcast(Intent.ACTION_SCREEN_OFF)
+        assertTrue("the lock stays while the phone is locked", LockController.isLocked)
+        // Face unlock passes on the lock screen; the parent then swipes up.
+        keyguard().setIsDeviceLocked(false)
+        broadcast(Intent.ACTION_SCREEN_ON)
+        assertTrue(LockController.isLocked)
+        broadcast(Intent.ACTION_USER_PRESENT)
+        assertEquals(LockState.Unlocked, LockController.state)
+        assertEquals(UnlockReason.PHONE_UNLOCKED, LockController.lastUnlockReason)
+    }
+
+    @Test
+    fun `a lock screen that asked for nothing leaves the lock on`() {
+        // Swipe-only, or Smart Lock keeping the phone open: anyone gets through.
+        start(lockIntent())
+        idle()
+        broadcast(Intent.ACTION_SCREEN_OFF)
+        broadcast(Intent.ACTION_SCREEN_ON)
+        broadcast(Intent.ACTION_USER_PRESENT)
+        assertTrue(LockController.isLocked)
+    }
+
+    @Test
+    fun `a phone that locks a few seconds after the screen goes dark still counts`() {
+        start(lockIntent())
+        idle()
+        broadcast(Intent.ACTION_SCREEN_OFF)
+        keyguard().setIsDeviceLocked(true)
+        idle(7_000)
+        keyguard().setIsDeviceLocked(false)
+        broadcast(Intent.ACTION_USER_PRESENT)
+        assertEquals(LockState.Unlocked, LockController.state)
+    }
+
     @Test
     fun `locked notification names the unlock gesture and is ongoing`() {
-        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.VOLUME_CHORD) }
+        SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.VOLUME_SEQUENCE) }
         start(lockIntent())
         idle()
         val nm = TestSupport.app.getSystemService(NotificationManager::class.java)

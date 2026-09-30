@@ -110,7 +110,6 @@ class SettingsActivity : Activity() {
                     GestureType.VOLUME_SEQUENCE to (R.string.gesture_volume_sequence to R.string.gesture_volume_sequence_desc),
                     GestureType.CORNER_HOLD to (R.string.gesture_corner_hold to R.string.gesture_corner_hold_desc),
                     GestureType.BADGE_PIN to (R.string.gesture_badge_pin to R.string.gesture_badge_pin_desc),
-                    GestureType.VOLUME_CHORD to (R.string.gesture_volume_chord to R.string.gesture_volume_chord_desc),
                 )
                 for (g in GestureType.entries) {
                     val (title, desc) = titles.getValue(g)
@@ -211,7 +210,7 @@ class SettingsActivity : Activity() {
     private fun renderGestureDependents(s: LockSettings) {
         val g = s.gestures
         sequenceSection.visibility = if (GestureType.VOLUME_SEQUENCE in g) View.VISIBLE else View.GONE
-        holdSection.visibility = if (GestureType.CORNER_HOLD in g || GestureType.VOLUME_CHORD in g || GestureType.BADGE_PIN in g) View.VISIBLE else View.GONE
+        holdSection.visibility = if (GestureType.CORNER_HOLD in g || GestureType.BADGE_PIN in g) View.VISIBLE else View.GONE
         cornerPairSection.visibility = if (GestureType.CORNER_HOLD in g) View.VISIBLE else View.GONE
         pinSection.visibility = if (GestureType.BADGE_PIN in g) View.VISIBLE else View.GONE
         pinChip.removeAllViews()
@@ -353,7 +352,7 @@ class SettingsActivity : Activity() {
                 addView(switchRow(getString(R.string.relaunch_app), getString(R.string.relaunch_app_desc), s.relaunchApp) { v -> repo.update { it.copy(relaunchApp = v) } })
             },
         )
-        addView(caption(getString(R.string.safety_note)).apply { setPadding(dp(8), dp(4), dp(8), 0) })
+        addView(caption(com.gbhall.childlock.settings.GestureText.stuckNote(this@SettingsActivity)).apply { setPadding(dp(8), dp(4), dp(8), 0) })
     }
 
     // ---- Hand back after ---------------------------------------------------
@@ -448,7 +447,7 @@ class SettingsActivity : Activity() {
         )
         addView(
             card(getString(R.string.about_stuck), R.drawable.ic_warning) {
-                addView(body(getString(R.string.about_stuck_body), secondary = true))
+                addView(body(com.gbhall.childlock.settings.GestureText.stuckAbout(this@SettingsActivity), secondary = true))
             },
         )
     }
