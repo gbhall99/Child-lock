@@ -20,7 +20,6 @@ object GestureText {
         GestureType.VOLUME_SEQUENCE -> context.getString(R.string.hint_volume_sequence, patternWords(context, s))
         GestureType.CORNER_HOLD -> context.getString(R.string.hint_corner_hold)
         GestureType.BADGE_PIN -> context.getString(R.string.hint_badge_pin)
-        GestureType.VOLUME_CHORD -> context.getString(R.string.hint_volume_chord)
     }
 
     /** Every allowed unlock, the main one first, the rest each introduced with "Or". */
@@ -43,14 +42,43 @@ object GestureText {
         return if (exploring) context.getString(R.string.fallback_three_finger) else ""
     }
 
+    /** Whether getting past the phone's own lock screen takes a face, fingerprint or PIN. */
+    fun phoneLockIsSecure(context: Context): Boolean = try {
+        context.getSystemService(android.app.KeyguardManager::class.java)?.isDeviceSecure == true
+    } catch (e: Exception) {
+        false
+    }
+
+    /** Power and volume down is Samsung's restart; on every other phone it takes a screenshot. */
+    private fun isSamsung(): Boolean = android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+
     /** How to force a restart when nothing else works; the lock never survives one. */
-    fun forceRestart(context: Context): String = context.getString(R.string.force_restart)
+    fun forceRestart(context: Context): String =
+        context.getString(if (isSamsung()) R.string.force_restart_samsung else R.string.force_restart)
+
+    /** The short "if you're stuck" note under the big button and on the settings screen. */
+    fun stuckNote(context: Context): String = context.getString(
+        if (phoneLockIsSecure(context)) R.string.safety_note_phone else R.string.safety_note,
+        forceRestart(context),
+    )
+
+    /** The About page's version: unlocking the phone first where that works, then the restart. */
+    fun stuckAbout(context: Context): String {
+        val restart = context.getString(R.string.about_stuck_body, forceRestart(context).replaceFirstChar { it.uppercase() })
+        return if (phoneLockIsSecure(context)) context.getString(R.string.about_stuck_phone) + "\n\n" + restart else restart
+    }
+
+    /** The label a touch on the locked screen shows beside the padlock. */
+    fun touchHint(context: Context, s: LockSettings): String = when (s.gesture) {
+        GestureType.VOLUME_SEQUENCE -> context.getString(R.string.touch_hint_sequence, patternWords(context, s))
+        GestureType.CORNER_HOLD -> context.getString(R.string.touch_hint_corners)
+        GestureType.BADGE_PIN -> context.getString(R.string.touch_hint_pin)
+    }
 
     private fun name(context: Context, s: LockSettings, g: GestureType): String = when (g) {
         GestureType.VOLUME_SEQUENCE -> context.getString(R.string.gesture_name_sequence, patternWords(context, s))
         GestureType.CORNER_HOLD -> context.getString(R.string.gesture_name_corners)
         GestureType.BADGE_PIN -> context.getString(R.string.gesture_name_pin)
-        GestureType.VOLUME_CHORD -> context.getString(R.string.gesture_name_chord)
     }
 
     /** The allowed unlocks as a short label for the home screen tile. */
@@ -61,7 +89,6 @@ object GestureText {
         GestureType.VOLUME_SEQUENCE -> context.getString(R.string.banner_on_detail_sequence, patternWords(context, s))
         GestureType.CORNER_HOLD -> context.getString(R.string.banner_on_detail_corners)
         GestureType.BADGE_PIN -> context.getString(R.string.banner_on_detail_pin)
-        GestureType.VOLUME_CHORD -> context.getString(R.string.banner_on_detail_chord)
     }
 
     fun lockHint(context: Context, s: LockSettings): String =

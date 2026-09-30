@@ -181,7 +181,12 @@ class SetupActivity : Activity() {
         val s = repo.load()
         val unlock = (com.gbhall.childlock.settings.GestureText.unlockHint(this, s) + " " +
             com.gbhall.childlock.settings.GestureText.fallbackHint(this, s)).trim()
-        return getString(R.string.setup_escape_unlock, unlock) + "\n\n" +
+        val phone = if (com.gbhall.childlock.settings.GestureText.phoneLockIsSecure(this)) {
+            "\n\n" + getString(R.string.setup_escape_phone)
+        } else {
+            ""
+        }
+        return getString(R.string.setup_escape_unlock, unlock) + phone + "\n\n" +
             getString(R.string.setup_escape_restart, com.gbhall.childlock.settings.GestureText.forceRestart(this))
     }
 

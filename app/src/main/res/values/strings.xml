@@ -18,7 +18,6 @@
     <string name="banner_on_detail_sequence">Touches do nothing. Volume %1$s to unlock.</string>
     <string name="banner_on_detail_corners">Touches do nothing. Hold two corners to unlock.</string>
     <string name="banner_on_detail_pin">Touches do nothing. Hold the lock icon to enter your PIN.</string>
-    <string name="banner_on_detail_chord">Touches do nothing. Hold both volume buttons to unlock.</string>
     <string name="banner_off">Child Lock off</string>
     <string name="banner_off_detail">Touch works again.</string>
     <string name="banner_arming_title">Locking soon</string>
@@ -69,7 +68,6 @@
     <string name="gesture_name_sequence">Volume %1$s</string>
     <string name="gesture_name_corners">Hold two corners</string>
     <string name="gesture_name_pin">PIN</string>
-    <string name="gesture_name_chord">Hold both volume buttons</string>
 
     <string name="state_unlocked">Unlocked</string>
     <string name="state_unlocked_sub">Touch works as normal.</string>
@@ -112,8 +110,6 @@
     <string name="gesture_corner_hold_desc">One finger in each opposite corner.</string>
     <string name="gesture_badge_pin">PIN</string>
     <string name="gesture_badge_pin_desc">Hold the lock icon, then type a PIN.</string>
-    <string name="gesture_volume_chord">Hold both volume buttons</string>
-    <string name="gesture_volume_chord_desc">Press and hold up and down together.</string>
     <string name="volume_pattern">Order</string>
     <string name="pattern_option_up_down">Up, then down</string>
     <string name="pattern_option_down_up">Down, then up</string>
@@ -145,7 +141,6 @@
     <string name="hint_volume_sequence">Press volume %1$s again.</string>
     <string name="hint_corner_hold">Hold one finger in each corner until the phone buzzes.</string>
     <string name="hint_badge_pin">Hold the lock icon, then enter your PIN.</string>
-    <string name="hint_volume_chord">Hold both volume buttons until the phone buzzes.</string>
     <string name="hint_or">Or %1$s</string>
     <string name="toast_keep_one_unlock">Keep at least one way to unlock.</string>
 
@@ -227,12 +222,12 @@
     <string name="block_shade_desc">Closes as soon as it is pulled down.</string>
     <string name="relaunch_app">Bring the app back</string>
     <string name="relaunch_app_desc">If the home screen appears, the app returns.</string>
-    <string name="safety_note">Stuck? Hold the power button for 10 to 30 seconds (Samsung: power and volume down together) until the screen goes black. The phone restarts unlocked.</string>
+    <string name="safety_note">If you’re ever stuck, %1$s</string>
 
     <!-- About -->
     <string name="about_version">Version</string>
     <string name="about_stuck">If you get stuck</string>
-    <string name="about_stuck_body">Hold the power button for 10 to 30 seconds until the screen goes black. On Samsung phones hold power and volume down together. Every phone restarts this way, and Child Lock never survives a restart.</string>
+    <string name="about_stuck_body">%1$s Child Lock never survives a restart.</string>
     <string name="about_privacy_summary">Open source. No ads, no accounts, nothing leaves your phone.</string>
     <string name="about_privacy">Privacy policy</string>
     <string name="about_source">Source code</string>
@@ -254,7 +249,14 @@
     <string name="setup_escape_ack">Got it</string>
     <string name="setup_escape_unlock">To unlock: %1$s</string>
     <string name="setup_escape_restart">If nothing works: %1$s</string>
-    <string name="force_restart">hold the power button for 10 to 30 seconds (Samsung: power and volume down together) until the screen goes black. The phone restarts unlocked.</string>
+    <string name="force_restart">hold the power button for 10 to 30 seconds until the screen goes black. The phone restarts unlocked.</string>
+    <string name="force_restart_samsung">hold the power and volume down buttons together for about 10 seconds until the screen goes black. The phone restarts unlocked.</string>
+    <string name="safety_note_phone">If you’re ever stuck, press the power button and unlock your phone with your face, fingerprint or PIN: Child Lock switches off. If even that fails, %1$s</string>
+    <string name="about_stuck_phone">Press the power button, then unlock your phone with your face, fingerprint or PIN. Child Lock switches off as soon as you’re back in.</string>
+    <string name="setup_escape_phone">Or press the power button and unlock your phone with your face, fingerprint or PIN. Child Lock switches off.</string>
+    <string name="touch_hint_sequence">Locked. Volume %1$s to unlock</string>
+    <string name="touch_hint_corners">Locked. Hold two corners to unlock</string>
+    <string name="touch_hint_pin">Locked. Hold this icon to unlock</string>
     <string name="notif_unlock_setting">Notification button</string>
     <string name="notif_unlock_setting_desc">Two taps on Unlock in the lock notification.</string>
     <string name="help_notif_unlock">A way out for a parent whose gesture is not being recognised. The button needs two taps at least a second apart, so drumming on it does nothing, and the notification is hidden on the lock screen. While the helper keeps the notifications panel closed, nobody can reach it anyway.</string>

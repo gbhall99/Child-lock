@@ -145,7 +145,20 @@ you like the app, which Play forbids.
   selected.
 - **Badge long-press then PIN.** Hold the badge until a keypad appears beside
   it, then type your PIN. Three wrong PINs hide the keypad for 30 seconds.
-- **Volume chord.** Hold volume up and volume down together for the hold time.
+
+Holding both volume buttons is deliberately not offered: Android reserves that
+chord for its accessibility shortcut, which can open a Settings page before
+any app sees the hold.
+
+**Unlocking the phone ends the lock.** If the screen goes off while locked
+and the phone asks for your face, fingerprint, PIN, pattern or password to
+get back in, Child Lock is off once you are through: a child cannot get past
+that lock screen, so whoever does is you. A swipe-only lock screen (or one
+Smart Lock kept open) proves nothing, so the lock stays on.
+
+**Touching the screen shows the way out.** A short hint appears beside the
+padlock, such as "Locked. Volume up, then down to unlock", then fades. It
+shows at most once every few seconds, however much a child taps.
 
 The screen uses a colour-blind-safe palette (blue, orange, grey; no red or
 green) and every status also carries a distinct symbol and word.
@@ -168,7 +181,7 @@ lock's notification is silent and shows no status-bar icon.
 | Presses back or volume | Swallowed (with the accessibility guard) |
 | Drags down the notifications panel | Closed immediately (with the guard) |
 | Swipes home, back or recents | Blocked outright (with the guard and a volume gesture, Android 11 and newer; on by default); otherwise the app you handed over is brought straight back |
-| Presses the power button | Screen turns off; whatever was playing continues. The lock screen works as normal (PIN, fingerprint, swipe), and the lock is still there once the phone is unlocked |
+| Presses the power button | Screen turns off; whatever was playing continues. The lock screen works as normal. Getting past a face, fingerprint or PIN lock screen ends Child Lock; a swipe-only one leaves it on |
 | Receives a real phone call | Child Lock unlocks itself so the call can be answered |
 
 Without the accessibility guard, only the first row is enforced. Swipe

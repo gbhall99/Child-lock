@@ -119,6 +119,8 @@ class OverlayRoot(
         return super.dispatchTouchEvent(ev)
     }
 
+    fun showTouchHint() = shield.showHint()
+
     fun dispose() {
         handler.removeCallbacks(hidePad)
         shield.dispose()

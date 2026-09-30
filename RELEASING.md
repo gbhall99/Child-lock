@@ -73,8 +73,16 @@ gesture navigation, once per release:
 - More → "Preview the trial as over": the home screen says "Free trial
   over", the big button offers the purchase, the volume pattern and the tile
   no longer lock, Practise still does.
-- Press power while locked, then wake the phone. The lock screen must take
-  a PIN or a swipe as normal, and the lock must still be there afterwards.
+- Press power while locked, then wake the phone. With a PIN, pattern,
+  password, face or fingerprint set, unlocking the phone must end Child Lock
+  (the OFF banner shows). With a swipe-only lock screen, the lock must still
+  be there afterwards.
+- While locked, tap the screen: a hint naming the unlock appears beside the
+  padlock and fades after a couple of seconds; tapping again straight away
+  does not bring it back.
+- While locked, press power + volume down together on a Pixel: Android takes
+  a screenshot (it cannot be blocked). On Samsung the same chord held for
+  7 s must restart the phone unlocked.
 - Force a restart while locked (power for 10 to 30 s; Samsung power + volume
   down). The phone must come back unlocked.
 

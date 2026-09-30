@@ -1,9 +1,13 @@
 package com.gbhall.childlock.lock
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.os.Build
@@ -75,9 +79,49 @@ class LockOverlayService : Service() {
     private var wasLocked = false
     private var lockedSinceUptime = 0L
 
+    /**
+     * Getting back into the phone through its own lock screen with a face,
+     * fingerprint or PIN ends the lock: only the parent can do that, and it is
+     * the way out a stuck parent reaches for first. The lock screen is looked
+     * at when the screen goes dark, again shortly after (a phone may lock a few
+     * seconds later), and when it lights up; the verdict comes when it is gone.
+     */
+    private val phoneUnlock = PhoneUnlockWatch()
+    private val lookAtLockScreen = Runnable { observeLockScreen() }
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (LockController.state is LockState.Unlocked) return
+            when (intent.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    observeLockScreen()
+                    handler.removeCallbacks(lookAtLockScreen)
+                    for (delay in LOCK_SCREEN_RECHECKS_MS) handler.postDelayed(lookAtLockScreen, delay)
+                }
+                Intent.ACTION_SCREEN_ON -> observeLockScreen()
+                Intent.ACTION_USER_PRESENT -> {
+                    handler.removeCallbacks(lookAtLockScreen)
+                    if (phoneUnlock.onPhoneUnlocked()) {
+                        Log.i(TAG, "The phone was unlocked by its owner; ending the lock")
+                        LockController.unlock(UnlockReason.PHONE_UNLOCKED)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun observeLockScreen() {
+        val locked = try {
+            getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true
+        } catch (e: Exception) {
+            false
+        }
+        phoneUnlock.observe(locked)
+    }
+
     private val stateListener: (LockState) -> Unit = { state ->
         if (state is LockState.Locked && !wasLocked) {
             wasLocked = true
+            phoneUnlock.reset()
             lockedSinceUptime = state.sinceMs
             if (!rehearsal) ReviewSignals.onLocked(this)
         }
@@ -105,6 +149,20 @@ class LockOverlayService : Service() {
         windowManager = getSystemService(WindowManager::class.java)
         startForegroundCompat(getString(R.string.notif_arming))
         LockController.addListener(stateListener)
+        try {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(screenReceiver, filter)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Screen receiver not registered", e)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -192,6 +250,7 @@ class LockOverlayService : Service() {
         try {
             windowManager.addView(root, params)
             overlay = root
+            LockController.touchSink = root::showTouchHint
             LockController.set(LockState.Locked(protectedPackage, SystemClock.uptimeMillis()))
             updateNotification(notificationText())
             banner.show(BannerWindow.Kind.ON, GestureText.unlockShort(this, settings))
@@ -221,6 +280,7 @@ class LockOverlayService : Service() {
     private fun teardown() {
         pendingAttach?.let(handler::removeCallbacks)
         pendingAttach = null
+        LockController.touchSink = null
         overlay?.let { view ->
             view.dispose()
             try {
@@ -234,6 +294,8 @@ class LockOverlayService : Service() {
 
     override fun onDestroy() {
         LockController.removeListener(stateListener)
+        try { unregisterReceiver(screenReceiver) } catch (e: Exception) { Log.w(TAG, "Screen receiver already gone") }
+        handler.removeCallbacks(lookAtLockScreen)
         handler.removeCallbacks(stopAfterBanner)
         handler.removeCallbacks(maxDurationStop)
         handler.removeCallbacks(callWatch)
@@ -357,6 +419,9 @@ class LockOverlayService : Service() {
         /** No lock outlives this. The parent is never stranded, whatever else fails. */
         const val MAX_LOCK_MS = 90 * 60 * 1000L
         private const val CALL_WATCH_MS = 1000L
+
+        /** Second and third looks at the lock screen after the screen goes dark. */
+        private val LOCK_SCREEN_RECHECKS_MS = longArrayOf(1_000L, 6_000L)
 
         /** A practice lock releases itself after this long, whatever happens. */
         const val REHEARSAL_MS = 60_000L

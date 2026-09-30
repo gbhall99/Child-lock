@@ -63,6 +63,20 @@ class GuardPolicyTest {
     }
 
     @Test
+    fun `a settings page that opens mid-lock is pushed aside`() {
+        // The volume-key accessibility shortcut can open one; leaving it in
+        // front stranded a parent on a colour filter page.
+        assertEquals(RelaunchDecision.Relaunch, decide(foreground = GuardPolicy.SETTINGS))
+    }
+
+    @Test
+    fun `settings and system dialogs are never the app to hand over`() {
+        assertFalse(GuardPolicy.canBeProtected(GuardPolicy.SETTINGS))
+        assertFalse(GuardPolicy.canBeProtected("com.google.android.permissioncontroller"))
+        assertTrue(GuardPolicy.canBeProtected("com.netflix.mediaclient"))
+    }
+
+    @Test
     fun `relaunches are debounced`() {
         assertTrue(decide(now = 1000, last = 0) is RelaunchDecision.Skip)
         assertEquals(RelaunchDecision.Relaunch, decide(now = 1600, last = 0))

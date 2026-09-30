@@ -120,7 +120,7 @@ class MainActivity : Activity() {
             addView(attentionCard())
             addView(howCard())
             addView(tiles())
-            addView(caption(getString(R.string.safety_note)).apply { setPadding(dp(6), dp(4), dp(6), 0) })
+            addView(caption(com.gbhall.childlock.settings.GestureText.stuckNote(this@MainActivity)).apply { setPadding(dp(6), dp(4), dp(6), 0) })
         }
         val scroll = ScrollView(this).apply {
             isFillViewport = true

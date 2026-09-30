@@ -25,6 +25,20 @@ object GuardPolicy {
         pkg == "android" || pkg.contains("permissioncontroller") || pkg == "com.google.android.gms" ||
             pkg == "com.android.settings" || pkg.endsWith(".packageinstaller") || pkg == "com.android.vending"
 
+    const val SETTINGS = "com.android.settings"
+
+    /**
+     * Left in front while locked. Settings is deliberately not on this list:
+     * nothing can be done there through the shield, and a Settings page that
+     * appears mid-lock is Android answering a hardware shortcut, such as the
+     * volume-key accessibility shortcut. Leaving it in front stranded a parent
+     * on a colour filter page.
+     */
+    fun leftInFrontWhileLocked(pkg: String): Boolean = isSystemDialogPackage(pkg) && pkg != SETTINGS
+
+    /** Whether an app in front may become the app a lock protects and brings back. */
+    fun canBeProtected(pkg: String): Boolean = !isSystemDialogPackage(pkg)
+
     sealed interface RelaunchDecision {
         data object Relaunch : RelaunchDecision
         data class Skip(val reason: String) : RelaunchDecision
@@ -48,7 +62,7 @@ object GuardPolicy {
         if (foregroundPackage == protectedPackage) return RelaunchDecision.Skip("already in front")
         if (foregroundPackage == selfPackage) return RelaunchDecision.Skip("child lock itself")
         if (foregroundPackage == SYSTEM_UI) return RelaunchDecision.Skip("system ui")
-        if (isSystemDialogPackage(foregroundPackage)) return RelaunchDecision.Skip("system dialog")
+        if (leftInFrontWhileLocked(foregroundPackage)) return RelaunchDecision.Skip("system dialog")
         if (dialerPackage != null && foregroundPackage == dialerPackage) return RelaunchDecision.Skip("phone call")
         if (foregroundPackage.contains("incallui")) return RelaunchDecision.Skip("phone call")
         if (keyguardLocked) return RelaunchDecision.Skip("keyguard")

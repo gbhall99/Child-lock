@@ -19,6 +19,8 @@ enum class UnlockReason {
     CALL,
     /** The app gave up (permission lost, overlay failed). */
     SYSTEM,
+    /** The parent got back into the phone through its own lock screen: face, fingerprint or PIN. */
+    PHONE_UNLOCKED,
 }
 
 sealed interface LockState {
@@ -52,6 +54,18 @@ object LockController {
 
     fun removeListener(listener: (LockState) -> Unit) {
         listeners -= listener
+    }
+
+    /**
+     * Set by the overlay while it is up. With swipe blocking on, Android turns
+     * the child's touches into explore-by-touch before the shield sees them,
+     * so the guard reports each touch here and the shield shows its hint.
+     */
+    @Volatile
+    var touchSink: (() -> Unit)? = null
+
+    fun touchedWhileLocked() {
+        if (isLocked) touchSink?.invoke()
     }
 
     /**
