@@ -362,6 +362,7 @@ scene "Hand over with a video playing"; sleep 3; scene_end
 scene "Volume up then volume down = locked"
 if pattern 1; then locked=1; else
   log "pattern did not lock; arming from the app instead"
+  { echo "--- app log ---"; adb logcat -d -t 300 --pid="$(adb shell pidof "$PKG" | tr -d '\r')" 2>/dev/null | tail -60; } >>"$LOG"
   launch .ui.MainActivity; tap_text "Lock in" 10 && sleep 13
   if shield_up; then locked=1; else locked=0; log "WARNING: shield is not up"; fi
 fi
@@ -372,7 +373,8 @@ still 7-locked
 # every edge (shade, home gesture, back gestures), the back key.
 cx=$((W / 2)); cy=$((H / 2))
 scene "Taps and swipes do nothing"
-tap $((W / 4)) $((H * 3 / 4)); sleep 0.6
+tap $((W / 4)) $((H * 3 / 4)); sleep 0.5
+still 7b-touch-hint                           # a touch names the way out beside the padlock
 tap $((W * 3 / 4)) $((H / 2)); sleep 0.6
 swipe $cx 5 $cx $cy; sleep 0.8                 # shade
 swipe $cx $((H - 5)) $cx $cy; sleep 0.8        # home gesture

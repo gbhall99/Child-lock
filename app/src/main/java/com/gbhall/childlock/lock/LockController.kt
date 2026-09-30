@@ -57,6 +57,18 @@ object LockController {
     }
 
     /**
+     * Set by the overlay while it is up. With swipe blocking on, Android turns
+     * the child's touches into explore-by-touch before the shield sees them,
+     * so the guard reports each touch here and the shield shows its hint.
+     */
+    @Volatile
+    var touchSink: (() -> Unit)? = null
+
+    fun touchedWhileLocked() {
+        if (isLocked) touchSink?.invoke()
+    }
+
+    /**
      * Asks the overlay service to lock, after [delayMs]. Returns false if the
      * system refused to start the service (Android 12+ background-start rules),
      * in which case nothing is locked and the caller should tell the user.

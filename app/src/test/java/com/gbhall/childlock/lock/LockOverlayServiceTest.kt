@@ -12,6 +12,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -120,6 +121,21 @@ class LockOverlayServiceTest {
         }
         walk(v)
         return out.toString()
+    }
+
+    @Test
+    fun `a touch the guard reports shows the hint, and only while the overlay is up`() {
+        start(lockIntent())
+        idle()
+        val root = overlayViews().single() as OverlayRoot
+        val shield = (0 until root.childCount).map(root::getChildAt).filterIsInstance<TouchShieldView>().single()
+        assertFalse(shield.isHintShowing)
+        LockController.touchedWhileLocked()
+        assertTrue(shield.isHintShowing)
+
+        LockController.unlock()
+        idle()
+        assertNull("the overlay lets go of the hook when it comes down", LockController.touchSink)
     }
 
     @Test

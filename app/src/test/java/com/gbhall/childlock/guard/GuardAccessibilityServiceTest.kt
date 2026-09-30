@@ -81,7 +81,7 @@ class GuardAccessibilityServiceTest {
     }
 
     @Test
-    fun `block keys off lets keys through unless the volume chord needs them`() {
+    fun `block keys off lets keys through unless the volume pattern needs them`() {
         SettingsRepository.get(TestSupport.app).update { it.copy(blockKeys = false, gesture = GestureType.CORNER_HOLD) }
         LockController.set(LockState.Locked("com.example.call", 0))
         TestSupport.idle()
@@ -95,6 +95,28 @@ class GuardAccessibilityServiceTest {
         TestSupport.idle()
         assertTrue(service.onKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP)))
         assertFalse(service.onKeyEvent(key(KeyEvent.KEYCODE_BACK)))
+    }
+
+    @Test
+    fun `a touch hidden by explore-by-touch still shows the shield's hint`() {
+        var hints = 0
+        LockController.touchSink = { hints++ }
+        try {
+            val touch = AccessibilityEvent.obtain(AccessibilityEvent.TYPE_TOUCH_INTERACTION_START)
+            service.onAccessibilityEvent(touch)
+            assertEquals("unlocked: nothing to hint", 0, hints)
+
+            LockController.set(LockState.Locked("com.example.call", 0))
+            TestSupport.idle()
+            assertTrue(
+                "touch-start events are asked for while locked",
+                (service.requestedEvents and AccessibilityEvent.TYPE_TOUCH_INTERACTION_START) != 0,
+            )
+            service.onAccessibilityEvent(AccessibilityEvent.obtain(AccessibilityEvent.TYPE_TOUCH_INTERACTION_START))
+            assertEquals(1, hints)
+        } finally {
+            LockController.touchSink = null
+        }
     }
 
     private fun tap(code: Int, t: Long, holdMs: Long = 120) {

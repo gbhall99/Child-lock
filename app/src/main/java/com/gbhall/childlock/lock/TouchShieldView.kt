@@ -101,7 +101,8 @@ class TouchShieldView(
         invalidate()
     }
 
-    private fun showHint() {
+    /** Shows the way out beside the badge, unless it is up already or resting. */
+    fun showHint() {
         if (disposed || isHintShowing || hintText.isEmpty()) return
         if (SystemClock.uptimeMillis() < hintAllowedAt) return
         isHintShowing = true

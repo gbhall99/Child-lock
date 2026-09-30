@@ -250,6 +250,7 @@ class LockOverlayService : Service() {
         try {
             windowManager.addView(root, params)
             overlay = root
+            LockController.touchSink = root::showTouchHint
             LockController.set(LockState.Locked(protectedPackage, SystemClock.uptimeMillis()))
             updateNotification(notificationText())
             banner.show(BannerWindow.Kind.ON, GestureText.unlockShort(this, settings))
@@ -279,6 +280,7 @@ class LockOverlayService : Service() {
     private fun teardown() {
         pendingAttach?.let(handler::removeCallbacks)
         pendingAttach = null
+        LockController.touchSink = null
         overlay?.let { view ->
             view.dispose()
             try {

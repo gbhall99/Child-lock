@@ -62,7 +62,9 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     @Volatile
     var requestedFlags: Int = BASE_FLAGS
         private set
-    private var requestedEvents: Int = MANIFEST_EVENTS
+    /** Event types we last asked for, likewise. */
+    var requestedEvents: Int = MANIFEST_EVENTS
+        private set
 
     // ---- auto-lock ------------------------------------------------------------
 
@@ -216,7 +218,8 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
      * Base flags always; touch-exploration + multi-finger only while locked with a
      * volume gesture (blocks one-finger home/back swipes) and the device lock
      * screen is not in front; content-change events and view ids only while
-     * skip-ad tapping can actually run.
+     * skip-ad tapping can actually run; touch-start events only while locked,
+     * for the shield's hint.
      */
     private fun applyServiceFlags(locked: Boolean) {
         val extra = if (otherScreenReaderActive()) {
@@ -225,7 +228,9 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
             GuardPolicy.gestureBlockFlags(locked && !onDeviceLockScreen(), settings.blockGestures, settings.hasVolumeGesture, Build.VERSION.SDK_INT)
         }
         val wanted = BASE_FLAGS or extra or (if (skipAdsActive()) AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS else 0)
-        val events = MANIFEST_EVENTS or (if (skipAdsActive()) AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED else 0)
+        val events = MANIFEST_EVENTS or
+            (if (skipAdsActive()) AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED else 0) or
+            (if (locked) AccessibilityEvent.TYPE_TOUCH_INTERACTION_START else 0)
         if (wanted == requestedFlags && events == requestedEvents) return
         // Mutate the info the system granted us where we can: it carries the manifest's
         // settings, and only the handful of properties in MUTABLE_FLAGS are ours to change.
@@ -295,6 +300,11 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     // ---- events -------------------------------------------------------------
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        if (event.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_START) {
+            // Explore-by-touch keeps this touch from the shield; show the hint for it.
+            LockController.touchedWhileLocked()
+            return
+        }
         val pkg = event.packageName?.toString()
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> if (pkg != null) onWindowChanged(pkg)
