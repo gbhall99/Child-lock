@@ -375,6 +375,11 @@ cx=$((W / 2)); cy=$((H / 2))
 scene "Taps and swipes do nothing"
 tap $((W / 4)) $((H * 3 / 4)); sleep 0.5
 still 7b-touch-hint                           # a touch names the way out beside the padlock
+{ echo "--- after the first tap ---"
+  adb shell dumpsys accessibility 2>/dev/null | grep -iE "touchExplor|flags|eventTypes|Child Lock" | head -12
+  adb shell dumpsys window windows 2>/dev/null | grep -E "Window #|mHasSurface|ty=" | grep -iE "childlock|Window #" | head -12
+  adb logcat -d -t 400 --pid="$(adb shell pidof "$PKG" | tr -d '\r')" 2>/dev/null | grep -iE "hint|explor|shield|Guard" | tail -20
+} >>"$LOG"
 tap $((W * 3 / 4)) $((H / 2)); sleep 0.6
 swipe $cx 5 $cx $cy; sleep 0.8                 # shade
 swipe $cx $((H - 5)) $cx $cy; sleep 0.8        # home gesture
