@@ -135,7 +135,7 @@ class SettingsRepositoryTest {
         assertEquals(GestureType.VOLUME_SEQUENCE, v.gesture)
         assertEquals(setOf(GestureType.BADGE_PIN), v.extraGestures)
         assertTrue(v.hasVolumeGesture)
-        assertTrue(s.hasVolumeGesture)
+        assertTrue(v.hasTouchGesture)
         assertTrue(s.hasTouchGesture)
         // The main one is never also listed as an extra, even if the stored set says so.
         val prefs = TestSupport.app.getSharedPreferences("childlock", 0)
