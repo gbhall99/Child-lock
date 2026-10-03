@@ -18,7 +18,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-PACKAGE = "com.gbhall.childlock"
+PACKAGE = "ai.inovata.childlock"
 LANG = "en-GB"
 ROOT = Path(__file__).resolve().parent.parent
 LISTING = ROOT / "store" / "listing.md"

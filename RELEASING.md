@@ -88,7 +88,7 @@ gesture navigation, once per release:
 
 ## First submission checklist
 
-- Play Console app created, package `com.gbhall.childlock` (cannot change later).
+- Play Console app created, package `ai.inovata.childlock` (cannot change later).
 - Store listing from `store/listing.md`, assets from `store/assets/`.
 - Privacy policy and terms URLs point at `PRIVACY.md` and `TERMS.md` on the
   default branch. Play and users must be able to open them without signing

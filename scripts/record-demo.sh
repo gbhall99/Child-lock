@@ -23,8 +23,9 @@
 set -uo pipefail
 APK=${1:-app/build/outputs/apk/play/debug/app-play-debug.apk}
 OUT=${2:-store/media}
-PKG=com.gbhall.childlock
-GUARD="$PKG/$PKG.guard.GuardAccessibilityService"
+PKG=ai.inovata.childlock
+NS=com.gbhall.childlock   # Kotlin package of the classes; differs from the app id
+GUARD="$PKG/$NS.guard.GuardAccessibilityService"
 mkdir -p "$OUT"
 LOG="$OUT/demo.log"
 SCENES="$OUT/scenes.txt"
@@ -171,7 +172,7 @@ pattern() {
   done
   return 1
 }
-launch() { adb shell am start -W -n "$PKG/$1" >/dev/null 2>&1; }
+launch() { adb shell am start -W -n "$PKG/$NS$1" >/dev/null 2>&1; }
 open_target() { adb shell monkey -p "$TARGET" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1; }
 # The main activity only redirects to the guide once per process, so the
 # process is restarted before each on-camera visit to the guide.
@@ -395,7 +396,7 @@ if shield_up; then log "shield still up after the prods"; else log "WARNING: shi
 scene "Volume up then volume down = unlocked"
 if pattern 0; then unlocked=1; else
   unlocked=0; log "WARNING: shield still up after the pattern; unlocking through the service so the clip ends unlocked"
-  adb shell am start-foreground-service -n "$PKG/.lock.LockOverlayService" -a com.gbhall.childlock.action.UNLOCK >/dev/null 2>&1
+  adb shell am start-foreground-service -n "$PKG/$NS.lock.LockOverlayService" -a com.gbhall.childlock.action.UNLOCK >/dev/null 2>&1
   sleep 2
 fi
 sleep 1; scene_end

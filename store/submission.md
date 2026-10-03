@@ -41,7 +41,7 @@ All apps → Create app:
   free later, a free app can sell in-app products)
 - Declarations: tick both.
 
-Package name is fixed by the first bundle: `com.gbhall.childlock`.
+Package name is fixed by the first bundle: `ai.inovata.childlock`.
 
 ## 3. Test and release → Internal testing
 

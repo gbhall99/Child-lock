@@ -3,11 +3,13 @@ rem One-shot install + permission setup over adb (Windows).
 rem Usage: scripts\setup-phone.cmd [path\to\childlock.apk]
 rem Needs: adb on this computer, USB debugging enabled on the phone.
 setlocal
-set PKG=com.gbhall.childlock
+set PKG=ai.inovata.childlock
+rem Kotlin package of the classes; differs from the app id
+set NS=com.gbhall.childlock
 set APK=%~1
 if "%APK%"=="" set APK=app\build\outputs\apk\debug\app-debug.apk
-set GUARD=%PKG%/%PKG%.guard.GuardAccessibilityService
-set TILE=%PKG%/.tile.LockTileService
+set GUARD=%PKG%/%NS%.guard.GuardAccessibilityService
+set TILE=%PKG%/%NS%.tile.LockTileService
 
 where adb >nul 2>nul || (echo adb not found. Install Android platform-tools first. & exit /b 1)
 if not exist "%APK%" (echo APK not found: %APK% & exit /b 1)

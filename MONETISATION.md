@@ -72,8 +72,8 @@ Two policy items need care before submission:
 
 ## Launch plan
 
-1. Rename the package to something you own (`com.gbhall.childlock` is fine if
-   you hold the domain or accept it as the identifier forever).
+1. Package name: `ai.inovata.childlock`, after the inovata.ai developer
+   account. Fixed for good by the first Play upload.
 2. Create the Play Console app and the one non-consumable product
    `childlock_full` (see RELEASING.md); add licence testers.
 3. Play Billing is wired behind `FeatureGate`; the purchase state and the
