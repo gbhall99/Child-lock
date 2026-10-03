@@ -2,6 +2,7 @@
 # Renders Play Store assets with headless Chromium from HTML templates.
 # Inputs: store/assets/src/settings-light.png, setup-light.png (from the
 # Robolectric ScreenshotTest). Outputs: store/assets/*.png
+# Needs Node with playwright-core (or playwright) resolvable, e.g. via NODE_PATH.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 CHROME=${CHROME:-$(command -v chromium || command -v google-chrome || ls /opt/pw-browsers/chromium-*/chrome-linux/chrome 2>/dev/null | head -1)}
@@ -9,8 +10,7 @@ CHROME=${CHROME:-$(command -v chromium || command -v google-chrome || ls /opt/pw
 OUT=store/assets; SRC=$PWD/store/assets/src; TMP=$(mktemp -d)
 LOCK='M18,8h-1V6c0,-2.76 -2.24,-5 -5,-5S7,3.24 7,6v2H6c-1.1,0 -2,0.9 -2,2v10c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2V10c0,-1.1 -0.9,-2 -2,-2zM12,17c-1.1,0 -2,-0.9 -2,-2s0.9,-2 2,-2 2,0.9 2,2 -0.9,2 -2,2zM15.1,8H8.9V6c0,-1.71 1.39,-3.1 3.1,-3.1 1.71,0 3.1,1.39 3.1,3.1v2z'
 
-shot() { "$CHROME" --headless=new --no-sandbox --disable-gpu --hide-scrollbars --force-device-scale-factor=1 \
-  --window-size="$2" --screenshot="$OUT/$1" "file://$TMP/$1.html" >/dev/null 2>&1; echo "wrote $OUT/$1"; }
+shot() { node "$PWD/scripts/shot.cjs" "$TMP/$1.html" "$OUT/$1" "${2%,*}" "${2#*,}" "$CHROME"; echo "wrote $OUT/$1"; }
 
 CSS='<style>*{margin:0;box-sizing:border-box}body{font-family:Roboto,"Segoe UI",Helvetica,Arial,sans-serif;background:#0072B2;overflow:hidden}
 .bg{position:absolute;inset:0;background:linear-gradient(160deg,#0B5C8F 0%,#0072B2 55%,#2C8FCB 100%)}
@@ -25,9 +25,9 @@ CSS='<style>*{margin:0;box-sizing:border-box}body{font-family:Roboto,"Segoe UI",
 </style>'
 ICON() { echo "<svg width=\"$1\" height=\"$1\" viewBox=\"0 0 24 24\"><path fill=\"$2\" d=\"$LOCK\"/></svg>"; }
 
-# 1. Icon 512
+# 1. Icon 512: a full square; Play rounds the corners itself.
 cat > "$TMP/icon-512.png.html" <<H
-$CSS<body style="width:512px;height:512px;background:#fff"><div style="width:512px;height:512px;border-radius:112px;background:linear-gradient(160deg,#0B5C8F,#0072B2 60%,#2C8FCB);display:flex;align-items:center;justify-content:center">$(ICON 300 '#fff')</div></body>
+$CSS<body style="width:512px;height:512px"><div style="width:512px;height:512px;background:linear-gradient(160deg,#0B5C8F,#0072B2 60%,#2C8FCB);display:flex;align-items:center;justify-content:center">$(ICON 300 '#fff')</div></body>
 H
 shot icon-512.png 512,512
 
