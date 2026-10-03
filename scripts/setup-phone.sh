@@ -7,10 +7,11 @@
 # Needs: adb on this computer, USB debugging enabled on the phone.
 set -euo pipefail
 
-PKG=com.gbhall.childlock
+PKG=ai.inovata.childlock
+NS=com.gbhall.childlock   # Kotlin package of the classes; differs from the app id
 APK=${1:-app/build/outputs/apk/debug/app-debug.apk}
-GUARD="$PKG/$PKG.guard.GuardAccessibilityService"
-TILE="$PKG/.tile.LockTileService"
+GUARD="$PKG/$NS.guard.GuardAccessibilityService"
+TILE="$PKG/$NS.tile.LockTileService"
 
 command -v adb >/dev/null || { echo "adb not found. Install Android platform-tools first."; exit 1; }
 [ -f "$APK" ] || { echo "APK not found: $APK"; exit 1; }

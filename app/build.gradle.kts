@@ -20,7 +20,9 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.gbhall.childlock"
+        // The store identity, fixed for good by the first Play upload. The Kotlin
+        // package (namespace) stays com.gbhall.childlock; the two need not match.
+        applicationId = "ai.inovata.childlock"
         minSdk = 26
         targetSdk = 36
         // CI derives the version code from the release tag; 1 is the local default.
@@ -30,6 +32,15 @@ android {
     }
 
     signingConfigs {
+        // One shared debug key, so every test build (CI runs included) installs
+        // over the last one instead of needing an uninstall. It signs nothing
+        // that ships: Play and release builds use the release key.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         if (hasReleaseKey) {
             create("release") {
                 storeFile = file(signingValue("storeFile")!!)
