@@ -383,6 +383,7 @@ class SettingsActivity : Activity() {
                     ) { sec -> repo.update { it.copy(armDelaySec = sec) } },
                 )
                 addView(switchRow(getString(R.string.keep_screen_on), getString(R.string.keep_screen_on_desc), s.keepScreenOn) { v -> repo.update { it.copy(keepScreenOn = v) } })
+                addView(switchRow(getString(R.string.wake_after_power), getString(R.string.wake_after_power_desc), s.wakeAfterPowerPress) { v -> repo.update { it.copy(wakeAfterPowerPress = v) } })
                 addView(switchRow(getString(R.string.keep_orientation), getString(R.string.keep_orientation_desc), s.keepOrientation) { v -> repo.update { it.copy(keepOrientation = v) } })
             },
         )

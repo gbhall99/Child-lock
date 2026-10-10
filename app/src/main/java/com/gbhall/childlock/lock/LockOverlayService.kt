@@ -14,10 +14,12 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.Toast
@@ -62,11 +64,13 @@ class LockOverlayService : Service() {
     private val callWatch = object : Runnable {
         override fun run() {
             if (!LockController.isLocked) return
+            val audio = getSystemService(android.media.AudioManager::class.java)
             val mode = try {
-                getSystemService(android.media.AudioManager::class.java)?.mode ?: 0
+                audio?.mode ?: 0
             } catch (e: Exception) {
                 0
             }
+            noteMedia(audio)
             if (mode == android.media.AudioManager.MODE_RINGTONE || mode == android.media.AudioManager.MODE_IN_CALL) {
                 Log.i(TAG, "Phone call in progress; unlocking so it can be answered")
                 LockController.unlock(UnlockReason.CALL)
@@ -96,8 +100,15 @@ class LockOverlayService : Service() {
                     observeLockScreen()
                     handler.removeCallbacks(lookAtLockScreen)
                     for (delay in LOCK_SCREEN_RECHECKS_MS) handler.postDelayed(lookAtLockScreen, delay)
+                    noteMedia(getSystemService(android.media.AudioManager::class.java))
+                    handler.removeCallbacks(resumeMedia)
+                    handler.removeCallbacks(undoScreenOff)
+                    handler.postDelayed(undoScreenOff, WAKE_CHECK_MS)
                 }
-                Intent.ACTION_SCREEN_ON -> observeLockScreen()
+                Intent.ACTION_SCREEN_ON -> {
+                    handler.removeCallbacks(undoScreenOff)
+                    observeLockScreen()
+                }
                 Intent.ACTION_USER_PRESENT -> {
                     handler.removeCallbacks(lookAtLockScreen)
                     if (phoneUnlock.onPhoneUnlocked()) {
@@ -106,6 +117,68 @@ class LockOverlayService : Service() {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Undoes a child's press of the power button (see [ScreenWakeGuard]). It is
+     * judged a moment after the screen goes dark, once the phone has had the
+     * chance to lock itself, and it only ever turns the screen back on.
+     */
+    private val screenWake = ScreenWakeGuard()
+    private val undoScreenOff = Runnable { maybeWakeScreen() }
+    private val resumeMedia = Runnable { pressPlay() }
+
+    private fun noteMedia(audio: android.media.AudioManager?) {
+        val playing = try {
+            audio?.isMusicActive == true
+        } catch (e: Exception) {
+            false
+        }
+        if (playing) screenWake.onMediaPlaying(SystemClock.uptimeMillis())
+    }
+
+    private fun maybeWakeScreen() {
+        if (!LockController.isLocked) return
+        val power = getSystemService(PowerManager::class.java) ?: return
+        if (power.isInteractive) return // back on already
+        val settings = SettingsRepository.get(this).load()
+        // If the lock screen cannot be read, treat the phone as locked: leaving the screen off is always safe.
+        val phoneLocked = try {
+            getSystemService(KeyguardManager::class.java)?.isDeviceLocked != false
+        } catch (e: Exception) {
+            true
+        }
+        val decision = screenWake.decide(SystemClock.uptimeMillis(), settings.wakeAfterPowerPress, settings.keepScreenOn, phoneLocked)
+        if (decision == ScreenWakeGuard.Decision.LEAVE) return
+        try {
+            // The replacement, Activity.setTurnScreenOn, needs an activity in front of the video.
+            @Suppress("DEPRECATION")
+            val flags = PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP
+            power.newWakeLock(flags, "childlock:undo-power-button").acquire(WAKE_HOLD_MS)
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not turn the screen back on", e)
+            return
+        }
+        Log.i(TAG, "Screen switched off during a lock; turned it back on")
+        if (decision == ScreenWakeGuard.Decision.WAKE_AND_RESUME) handler.postDelayed(resumeMedia, RESUME_DELAY_MS)
+    }
+
+    /** Most players pause when the screen goes dark; press play for the child, once. */
+    private fun pressPlay() {
+        if (!LockController.isLocked) return
+        try {
+            val power = getSystemService(PowerManager::class.java)
+            val keyguard = getSystemService(KeyguardManager::class.java)
+            if (power?.isInteractive != true || keyguard?.isKeyguardLocked == true) return
+            val audio = getSystemService(android.media.AudioManager::class.java) ?: return
+            if (audio.isMusicActive) return // carried on by itself
+            val now = SystemClock.uptimeMillis()
+            audio.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY, 0))
+            audio.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY, 0))
+            Log.i(TAG, "Pressed play after turning the screen back on")
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not resume playback", e)
         }
     }
 
@@ -122,6 +195,7 @@ class LockOverlayService : Service() {
         if (state is LockState.Locked && !wasLocked) {
             wasLocked = true
             phoneUnlock.reset()
+            screenWake.reset()
             lockedSinceUptime = state.sinceMs
             if (!rehearsal) ReviewSignals.onLocked(this)
         }
@@ -132,6 +206,8 @@ class LockOverlayService : Service() {
             teardown()
             handler.removeCallbacks(maxDurationStop)
             handler.removeCallbacks(callWatch)
+            handler.removeCallbacks(undoScreenOff)
+            handler.removeCallbacks(resumeMedia)
             if (wasLocked) {
                 // Touch is already free (overlay gone); keep the process alive just
                 // long enough for the OFF banner to be seen.
@@ -296,6 +372,8 @@ class LockOverlayService : Service() {
         LockController.removeListener(stateListener)
         try { unregisterReceiver(screenReceiver) } catch (e: Exception) { Log.w(TAG, "Screen receiver already gone") }
         handler.removeCallbacks(lookAtLockScreen)
+        handler.removeCallbacks(undoScreenOff)
+        handler.removeCallbacks(resumeMedia)
         handler.removeCallbacks(stopAfterBanner)
         handler.removeCallbacks(maxDurationStop)
         handler.removeCallbacks(callWatch)
@@ -419,6 +497,13 @@ class LockOverlayService : Service() {
         /** No lock outlives this. The parent is never stranded, whatever else fails. */
         const val MAX_LOCK_MS = 90 * 60 * 1000L
         private const val CALL_WATCH_MS = 1000L
+
+        /** How long after the screen goes dark to judge it, and how long to hold it on. */
+        private const val WAKE_CHECK_MS = 400L
+        private const val WAKE_HOLD_MS = 1_000L
+
+        /** Gives the player time to come back to the front before play is pressed. */
+        private const val RESUME_DELAY_MS = 800L
 
         /** Second and third looks at the lock screen after the screen goes dark. */
         private val LOCK_SCREEN_RECHECKS_MS = longArrayOf(1_000L, 6_000L)

@@ -29,7 +29,7 @@ WHAT STOPS WORKING FOR THE CHILD
 • The back button and the volume buttons
 • Pulling down the notifications panel
 • Swiping home or opening recent apps
-The power button still works, and an incoming call unlocks the phone so you can answer it. If the screen goes off, unlocking the phone with your face, fingerprint or PIN also ends Child Lock.
+An incoming call unlocks the phone so you can answer it. If a small finger finds the power button, the screen comes straight back on (on phones that don't lock the moment the screen goes off), and holding the power button to restart always works. If the phone does lock, unlocking it with your face, fingerprint or PIN also ends Child Lock.
 
 AUTO-LOCK
 Choose the apps you hand over and the moment that should lock them: a video call connecting, a video going full screen, anything playing, or simply opening. A five-second countdown gives you time to hand over; switch away or press the pattern to cancel. Unlock, and it locks again by itself only if the same moment ends and happens again.

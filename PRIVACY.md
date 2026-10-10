@@ -38,6 +38,9 @@ source contains neither and sells nothing.
   Android for a foreground service.
 - **Foreground service (special use).** Keeps the touch lock alive while it is
   on.
+- **Keep the screen awake (wake lock).** If the power button is pressed while
+  the lock is on, turns the screen straight back on. Can be switched off in
+  Settings.
 
 ## Data storage
 

@@ -181,7 +181,7 @@ lock's notification is silent and shows no status-bar icon.
 | Presses back or volume | Swallowed (with the accessibility guard) |
 | Drags down the notifications panel | Closed immediately (with the guard) |
 | Swipes home, back or recents | Blocked outright (with the guard and a volume gesture, Android 11 and newer; on by default); otherwise the app you handed over is brought straight back |
-| Presses the power button | Screen turns off; whatever was playing continues. The lock screen works as normal. Getting past a face, fingerprint or PIN lock screen ends Child Lock; a swipe-only one leaves it on |
+| Presses the power button | No app can block it, but Child Lock undoes it: the screen comes straight back on and a paused video carries on. Pressing it again within 10 seconds keeps the screen off. This works when the phone doesn't lock the moment the screen goes off (no PIN, swipe only, or "Power button instantly locks" switched off); a phone that does lock shows its lock screen as normal, and getting past a face, fingerprint or PIN lock screen ends Child Lock. Holding power to restart always works |
 | Receives a real phone call | Child Lock unlocks itself so the call can be answered |
 
 Without the accessibility guard, only the first row is enforced. Swipe

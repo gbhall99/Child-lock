@@ -208,6 +208,8 @@
     <string name="arm_delay">Lock button countdown</string>
     <string name="keep_screen_on">Keep the screen on</string>
     <string name="keep_screen_on_desc">No dimming or sleep while locked.</string>
+    <string name="wake_after_power">Undo the power button</string>
+    <string name="wake_after_power_desc">If your child presses it, the screen comes straight back on and the video carries on. Press it twice to really switch the screen off. Works when your phone doesn’t lock the moment the screen goes off; needs “Keep the screen on”.</string>
     <string name="keep_orientation">Don’t rotate the screen</string>
     <string name="keep_orientation_desc">The video stays put when the phone is tilted.</string>
     <string name="keep_inside_title">Block leaving the app</string>
@@ -251,9 +253,9 @@
     <string name="setup_escape_restart">If nothing works: %1$s</string>
     <string name="force_restart">hold the power button for 10 to 30 seconds until the screen goes black. The phone restarts unlocked.</string>
     <string name="force_restart_samsung">hold the power and volume down buttons together for about 10 seconds until the screen goes black. The phone restarts unlocked.</string>
-    <string name="safety_note_phone">If you’re ever stuck, press the power button and unlock your phone with your face, fingerprint or PIN: Child Lock switches off. If even that fails, %1$s</string>
-    <string name="about_stuck_phone">Press the power button, then unlock your phone with your face, fingerprint or PIN. Child Lock switches off as soon as you’re back in.</string>
-    <string name="setup_escape_phone">Or press the power button and unlock your phone with your face, fingerprint or PIN. Child Lock switches off.</string>
+    <string name="safety_note_phone">If you’re ever stuck, press the power button (twice if the screen comes back on) and unlock your phone with your face, fingerprint or PIN: Child Lock switches off. If even that fails, %1$s</string>
+    <string name="about_stuck_phone">Press the power button (twice if the screen comes back on), then unlock your phone with your face, fingerprint or PIN. Child Lock switches off as soon as you’re back in.</string>
+    <string name="setup_escape_phone">Or press the power button (twice if the screen comes back on) and unlock your phone with your face, fingerprint or PIN. Child Lock switches off.</string>
     <string name="touch_hint_sequence">Locked. Volume %1$s to unlock</string>
     <string name="touch_hint_corners">Locked. Hold two corners to unlock</string>
     <string name="touch_hint_pin">Locked. Hold this icon to unlock</string>

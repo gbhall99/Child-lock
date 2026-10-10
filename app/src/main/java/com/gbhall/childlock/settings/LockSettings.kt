@@ -54,6 +54,8 @@ data class LockSettings(
     /** 1 = press the pattern once, 2 = twice in a row. */
     val volumeRepeats: Int = 1,
     val keepScreenOn: Boolean = true,
+    /** Turn the screen straight back on if a child presses the power button while locked. */
+    val wakeAfterPowerPress: Boolean = true,
     val armDelaySec: Int = 10,
     val blockKeys: Boolean = true,
     val blockShade: Boolean = true,
@@ -159,6 +161,7 @@ class SettingsRepository private constructor(context: Context) {
         volumeRepeats = prefs.getInt(KEY_VOLUME_REPEATS, 1).coerceIn(1, 3),
         notificationUnlock = prefs.getBoolean(KEY_NOTIFICATION_UNLOCK, true),
         keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
+        wakeAfterPowerPress = prefs.getBoolean(KEY_WAKE_AFTER_POWER, true),
         armDelaySec = prefs.getInt(KEY_ARM_DELAY, 10).coerceIn(LockSettings.MIN_ARM_DELAY_SEC, LockSettings.MAX_ARM_DELAY_SEC),
         blockKeys = prefs.getBoolean(KEY_BLOCK_KEYS, true),
         blockShade = prefs.getBoolean(KEY_BLOCK_SHADE, true),
@@ -191,6 +194,7 @@ class SettingsRepository private constructor(context: Context) {
             .putInt(KEY_VOLUME_REPEATS, s.volumeRepeats)
             .putBoolean(KEY_NOTIFICATION_UNLOCK, s.notificationUnlock)
             .putBoolean(KEY_KEEP_SCREEN_ON, s.keepScreenOn)
+            .putBoolean(KEY_WAKE_AFTER_POWER, s.wakeAfterPowerPress)
             .putInt(KEY_ARM_DELAY, s.armDelaySec)
             .putBoolean(KEY_BLOCK_KEYS, s.blockKeys)
             .putBoolean(KEY_BLOCK_SHADE, s.blockShade)
@@ -250,6 +254,7 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_VOLUME_REPEATS = "volume_repeats"
         private const val KEY_NOTIFICATION_UNLOCK = "notification_unlock"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+        private const val KEY_WAKE_AFTER_POWER = "wake_after_power"
         private const val KEY_ARM_DELAY = "arm_delay_sec"
         private const val KEY_BLOCK_KEYS = "block_keys"
         private const val KEY_BLOCK_SHADE = "block_shade"

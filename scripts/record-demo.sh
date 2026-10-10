@@ -212,6 +212,9 @@ adb shell settings put global hide_error_dialogs 1
 adb shell svc power stayon true
 adb shell settings put system screen_off_timeout 1800000
 adb shell settings put system show_touches 1
+# No lock screen, like a phone with "Power button instantly locks" off: the
+# power-button check below needs the screen to come back to the video.
+adb shell locksettings set-disabled true >/dev/null 2>&1 || true
 adb shell settings put system time_12_24 24
 adb shell input keyevent KEYCODE_WAKEUP >/dev/null
 adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
@@ -391,6 +394,21 @@ back_key; sleep 1.5
 scene_end
 still 8-after-swipes
 if shield_up; then log "shield still up after the prods"; else log "WARNING: shield gone after the prods"; fi
+
+# Off camera: a child's press of the power button is undone (the screen comes
+# back on, still locked, and the video carries on); a second press straight
+# after is left alone.
+awake() { adb shell dumpsys power | sed -n 's/.*mWakefulness=\([A-Za-z]*\).*/\1/p' | head -1 | tr -d '\r'; }
+playing() { adb shell dumpsys media_session | grep -m1 -o 'state=PlaybackState {state=[0-9]*' | grep -o '[0-9]*$'; }
+adb shell input keyevent KEYCODE_POWER; sleep 3
+w=$(awake); p=$(playing); shield_up && sh=up || sh=gone
+if [ "$w" = Awake ] && [ "$sh" = up ]; then log "power pressed once: screen back on, still locked (media state ${p:-none})"
+else log "WARNING: power pressed once: screen $w, shield $sh"; fi
+adb shell input keyevent KEYCODE_POWER; sleep 3   # again, within 10 s of the screen coming back
+w=$(awake)
+if [ "$w" != Awake ]; then log "power pressed again: screen stays off"; else log "WARNING: power pressed again: screen came back on"; fi
+adb shell input keyevent KEYCODE_WAKEUP; sleep 2
+adb logcat -d -s LockOverlayService:I 2>/dev/null | grep -E "turned it back on|Pressed play" | tail -3 >>"$LOG"
 
 # 5. The volume pattern unlocks.
 scene "Volume up then volume down = unlocked"

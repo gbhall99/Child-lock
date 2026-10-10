@@ -144,6 +144,8 @@ class SettingsActivityTest {
         assertEquals(8, repo.load().armDelaySec)
         UiTestSupport.switch(a, a.getString(R.string.keep_screen_on))!!.performClick()
         assertFalse(repo.load().keepScreenOn)
+        UiTestSupport.switch(a, a.getString(R.string.wake_after_power))!!.performClick()
+        assertFalse(repo.load().wakeAfterPowerPress)
         UiTestSupport.radio(a, a.getString(R.string.corner_br))!!.performClick()
         assertEquals(Corner.BOTTOM_RIGHT, repo.load().badgeCorner)
         UiTestSupport.button(a, a.getString(R.string.open))!!.performClick()

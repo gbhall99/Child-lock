@@ -356,6 +356,79 @@ class LockOverlayServiceTest {
         assertEquals(LockState.Unlocked, LockController.state)
     }
 
+    private fun power() = TestSupport.app.getSystemService(android.os.PowerManager::class.java)
+
+    /** The child presses power: the screen goes dark, and stays dark unless something wakes it. */
+    private fun pressPower() {
+        org.robolectric.shadows.ShadowPowerManager.clearWakeLocks()
+        shadowOf(power()).setIsInteractive(false)
+        broadcast(Intent.ACTION_SCREEN_OFF)
+        idle(1_000)
+    }
+
+    private fun screenWoken() = org.robolectric.shadows.ShadowPowerManager.getLatestWakeLock() != null
+
+    @Test
+    fun `a child's press of the power button is undone`() {
+        start(lockIntent())
+        idle()
+        pressPower()
+        assertTrue("the screen is turned back on", screenWoken())
+        assertTrue(LockController.isLocked)
+    }
+
+    @Test
+    fun `a phone that locked itself keeps its lock screen`() {
+        start(lockIntent())
+        idle()
+        keyguard().setIsDeviceLocked(true)
+        pressPower()
+        assertFalse(screenWoken())
+        assertTrue(LockController.isLocked)
+    }
+
+    @Test
+    fun `pressing power again straight after keeps the screen off`() {
+        start(lockIntent())
+        idle()
+        pressPower()
+        assertTrue(screenWoken())
+        shadowOf(power()).setIsInteractive(true)
+        broadcast(Intent.ACTION_SCREEN_ON)
+        pressPower()
+        assertFalse("a second press means it", screenWoken())
+    }
+
+    @Test
+    fun `switched off in settings, the screen stays off`() {
+        SettingsRepository.get(TestSupport.app).update { it.copy(wakeAfterPowerPress = false) }
+        start(lockIntent())
+        idle()
+        pressPower()
+        assertFalse(screenWoken())
+    }
+
+    @Test
+    fun `when the screen may sleep by itself, it is never woken`() {
+        SettingsRepository.get(TestSupport.app).update { it.copy(keepScreenOn = false) }
+        start(lockIntent())
+        idle()
+        pressPower()
+        assertFalse(screenWoken())
+    }
+
+    @Test
+    fun `the screen is not woken once the lock is over`() {
+        start(lockIntent())
+        idle()
+        org.robolectric.shadows.ShadowPowerManager.clearWakeLocks()
+        shadowOf(power()).setIsInteractive(false)
+        broadcast(Intent.ACTION_SCREEN_OFF)
+        LockController.unlock()
+        idle(1_000)
+        assertFalse(screenWoken())
+    }
+
     @Test
     fun `locked notification names the unlock gesture and is ongoing`() {
         SettingsRepository.get(TestSupport.app).update { it.copy(gesture = GestureType.VOLUME_SEQUENCE) }
