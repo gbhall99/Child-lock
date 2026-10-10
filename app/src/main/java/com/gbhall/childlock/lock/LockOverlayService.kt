@@ -141,7 +141,10 @@ class LockOverlayService : Service() {
     private fun maybeWakeScreen() {
         if (!LockController.isLocked) return
         val power = getSystemService(PowerManager::class.java) ?: return
-        if (power.isInteractive) return // back on already
+        if (power.isInteractive) {
+            Log.i(TAG, "Screen off during a lock, but it is back on already")
+            return
+        }
         val settings = SettingsRepository.get(this).load()
         // If the lock screen cannot be read, treat the phone as locked: leaving the screen off is always safe.
         val phoneLocked = try {
@@ -150,6 +153,7 @@ class LockOverlayService : Service() {
             true
         }
         val decision = screenWake.decide(SystemClock.uptimeMillis(), settings.wakeAfterPowerPress, settings.keepScreenOn, phoneLocked)
+        Log.i(TAG, "Screen off during a lock: $decision (phone locked: $phoneLocked)")
         if (decision == ScreenWakeGuard.Decision.LEAVE) return
         try {
             // The replacement, Activity.setTurnScreenOn, needs an activity in front of the video.

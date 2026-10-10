@@ -408,7 +408,7 @@ adb shell input keyevent KEYCODE_POWER; sleep 3   # again, within 10 s of the sc
 w=$(awake)
 if [ "$w" != Awake ]; then log "power pressed again: screen stays off"; else log "WARNING: power pressed again: screen came back on"; fi
 adb shell input keyevent KEYCODE_WAKEUP; sleep 2
-adb logcat -d -s LockOverlayService:I 2>/dev/null | grep -E "turned it back on|Pressed play" | tail -3 >>"$LOG"
+{ echo "--- lock service log ---"; adb logcat -d -s LockOverlayService:V GuardService:V PowerManagerService:V 2>/dev/null | tail -25; adb shell dumpsys power | grep -iE "childlock|mWakefulness=|Wake Locks" | head -8; } >>"$LOG"
 
 # 5. The volume pattern unlocks.
 scene "Volume up then volume down = unlocked"
