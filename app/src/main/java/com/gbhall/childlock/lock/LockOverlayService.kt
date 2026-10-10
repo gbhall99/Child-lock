@@ -71,6 +71,7 @@ class LockOverlayService : Service() {
                 0
             }
             noteMedia(audio)
+            noticeDarkScreen()
             if (mode == android.media.AudioManager.MODE_RINGTONE || mode == android.media.AudioManager.MODE_IN_CALL) {
                 Log.i(TAG, "Phone call in progress; unlocking so it can be answered")
                 LockController.unlock(UnlockReason.CALL)
@@ -100,12 +101,10 @@ class LockOverlayService : Service() {
                     observeLockScreen()
                     handler.removeCallbacks(lookAtLockScreen)
                     for (delay in LOCK_SCREEN_RECHECKS_MS) handler.postDelayed(lookAtLockScreen, delay)
-                    noteMedia(getSystemService(android.media.AudioManager::class.java))
-                    handler.removeCallbacks(resumeMedia)
-                    handler.removeCallbacks(undoScreenOff)
-                    handler.postDelayed(undoScreenOff, WAKE_CHECK_MS)
+                    noticeDarkScreen()
                 }
                 Intent.ACTION_SCREEN_ON -> {
+                    screenWasOn = true
                     handler.removeCallbacks(undoScreenOff)
                     observeLockScreen()
                 }
@@ -128,6 +127,31 @@ class LockOverlayService : Service() {
     private val screenWake = ScreenWakeGuard()
     private val undoScreenOff = Runnable { maybeWakeScreen() }
     private val resumeMedia = Runnable { pressPlay() }
+    private var screenWasOn = true
+
+    /**
+     * Android can announce the screen going off seconds after the press (while
+     * an always-on display fades), so the once-a-second call watch also looks.
+     * Either way each dark spell is judged once, and a late announcement for a
+     * screen that is already back on is ignored.
+     */
+    private fun noticeDarkScreen() {
+        val on = try {
+            getSystemService(PowerManager::class.java)?.isInteractive != false
+        } catch (e: Exception) {
+            true
+        }
+        if (!on && screenWasOn) onScreenDark()
+        screenWasOn = on
+    }
+
+    private fun onScreenDark() {
+        screenWasOn = false
+        noteMedia(getSystemService(android.media.AudioManager::class.java))
+        handler.removeCallbacks(resumeMedia)
+        handler.removeCallbacks(undoScreenOff)
+        handler.postDelayed(undoScreenOff, WAKE_CHECK_MS)
+    }
 
     private fun noteMedia(audio: android.media.AudioManager?) {
         val playing = try {
@@ -200,6 +224,7 @@ class LockOverlayService : Service() {
             wasLocked = true
             phoneUnlock.reset()
             screenWake.reset()
+            screenWasOn = true
             lockedSinceUptime = state.sinceMs
             if (!rehearsal) ReviewSignals.onLocked(this)
         }

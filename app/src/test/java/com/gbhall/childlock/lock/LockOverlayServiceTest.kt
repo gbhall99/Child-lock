@@ -400,6 +400,35 @@ class LockOverlayServiceTest {
     }
 
     @Test
+    fun `a dark screen is noticed even before Android announces it`() {
+        start(lockIntent())
+        idle()
+        org.robolectric.shadows.ShadowPowerManager.clearWakeLocks()
+        shadowOf(power()).setIsInteractive(false)
+        idle(2_000)
+        assertTrue(screenWoken())
+    }
+
+    @Test
+    fun `a late announcement never undoes a deliberate second press`() {
+        start(lockIntent())
+        idle()
+        pressPower()
+        assertTrue(screenWoken())
+        shadowOf(power()).setIsInteractive(true)
+        idle(1_000)
+        // The parent presses again; the watch sees it first and leaves it dark.
+        org.robolectric.shadows.ShadowPowerManager.clearWakeLocks()
+        shadowOf(power()).setIsInteractive(false)
+        idle(1_500)
+        assertFalse(screenWoken())
+        // Android's announcement for that press arrives late: still dark.
+        broadcast(Intent.ACTION_SCREEN_OFF)
+        idle(1_000)
+        assertFalse(screenWoken())
+    }
+
+    @Test
     fun `switched off in settings, the screen stays off`() {
         SettingsRepository.get(TestSupport.app).update { it.copy(wakeAfterPowerPress = false) }
         start(lockIntent())
