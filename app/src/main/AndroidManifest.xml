@@ -9,11 +9,17 @@
     <!-- Turns the screen back on if a child presses the power button mid-lock. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- Needed on Android 11+ to resolve the launch intent of the app being protected. -->
+    <!-- Needed on Android 11+ to resolve the launch intent of the app being protected,
+         and to recognise the home screen: without it the home screen app is invisible,
+         and a lock started there would bring back the last app instead. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
         </intent>
     </queries>
 
