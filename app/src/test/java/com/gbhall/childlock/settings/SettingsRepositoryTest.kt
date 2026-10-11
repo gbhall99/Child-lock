@@ -34,6 +34,7 @@ class SettingsRepositoryTest {
         assertFalse(s.hasPin)
         assertTrue(s.keepScreenOn)
         assertTrue("undoing the power button is on unless switched off", s.wakeAfterPowerPress)
+        assertEquals("two hours unless changed", 120, s.sessionMinutes)
         assertEquals(10, s.armDelaySec)
         assertEquals(5, s.autoLockDelaySec)
         assertEquals(setOf(GestureType.VOLUME_SEQUENCE), s.gestures)
@@ -154,4 +155,12 @@ class SettingsRepositoryTest {
         assertEquals(GestureType.VOLUME_SEQUENCE, s.gesture)
         assertEquals(setOf(GestureType.CORNER_HOLD), s.extraGestures)
     }
+
+    @Test
+    fun `the old "No timer" becomes the two-hour default`() {
+        TestSupport.app.getSharedPreferences("childlock", 0).edit().putInt("session_minutes", 0).commit()
+        SettingsRepository.resetForTests()
+        assertEquals(LockSettings.DEFAULT_SESSION_MINUTES, SettingsRepository.get(TestSupport.app).load().sessionMinutes)
+    }
+
 }

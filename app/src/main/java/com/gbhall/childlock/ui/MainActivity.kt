@@ -267,7 +267,7 @@ class MainActivity : Activity() {
             },
         )
         timerTile.setTileSubtitle(
-            if (s.sessionMinutes == 0) getString(R.string.session_off) else getString(R.string.session_minutes, s.sessionMinutes),
+            com.gbhall.childlock.settings.GestureText.sessionLength(this, s.sessionMinutes),
         )
     }
 

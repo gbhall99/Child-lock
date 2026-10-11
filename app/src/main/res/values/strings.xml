@@ -20,6 +20,7 @@
     <string name="banner_on_detail_pin">Touches do nothing. Hold the lock icon to enter your PIN.</string>
     <string name="banner_off">Child Lock off</string>
     <string name="banner_off_detail">Touch works again.</string>
+    <string name="banner_off_call">A call is ringing. Touch works again so you can answer.</string>
     <string name="banner_arming_title">Locking soon</string>
     <string name="banner_arming_detail">Touches stop in %1$d s. Switch apps to cancel.</string>
     <string name="toast_lock_failed">Couldn’t lock. The phone is still unlocked.</string>
@@ -170,9 +171,11 @@
     <string name="relock_desc">Locks again if the same moment happens after you unlock.</string>
     <string name="help_relock">After you unlock, Child Lock waits for the moment to end and happen again, for example the video leaving full screen and going back. It never re-locks while the same moment continues, and gives up on an app after three unlocks in a row until you leave it.</string>
     <string name="session_title">Timer</string>
-    <string name="session_off">No timer</string>
     <string name="session_minutes">%1$d minutes</string>
-    <string name="session_desc">Unlocks by itself when the time is up.</string>
+    <string name="session_hour">1 hour</string>
+    <string name="session_hours">%1$d hours</string>
+    <string name="session_hours_minutes">%1$d h %2$d min</string>
+    <string name="session_desc">Child Lock switches itself off after this long, however it was started. Volume up then down ends it sooner.</string>
     <string name="rehearse_title">Practise</string>
     <string name="rehearse_desc">Lock this screen and unlock it. Ends by itself after a minute.</string>
     <string name="rehearse_go">Start</string>

@@ -19,7 +19,7 @@ import org.robolectric.shadows.ShadowSettings
 
 @RunWith(RobolectricTestRunner::class)
 class LockTileServiceTest {
-    @Before fun setUp() { TestSupport.resetLock(); ShadowSettings.setCanDrawOverlays(true) }
+    @Before fun setUp() { TestSupport.resetLock(); ForegroundTracker.reset(); ShadowSettings.setCanDrawOverlays(true) }
     @After fun tearDown() = TestSupport.resetLock()
 
     private fun tile() = Robolectric.buildService(LockTileService::class.java).create().get()
@@ -35,6 +35,19 @@ class LockTileServiceTest {
         assertEquals(LockOverlayService.ACTION_LOCK, intent.action)
         assertEquals("com.example.call", intent.getStringExtra(LockOverlayService.EXTRA_PACKAGE))
         assertEquals(2500L, intent.getLongExtra(LockOverlayService.EXTRA_DELAY_MS, -1))
+        t.onStopListening()
+    }
+
+    @Test
+    fun `tap on the home screen locks the home screen, not an older app`() {
+        ForegroundTracker.lastApp = "com.example.call"
+        ForegroundTracker.homeInFront = true
+        val t = tile()
+        t.onStartListening()
+        t.onClick()
+        val intent = shadowOf(TestSupport.app).nextStartedService
+        assertNotNull(intent)
+        assertNull(intent.getStringExtra(LockOverlayService.EXTRA_PACKAGE))
         t.onStopListening()
     }
 

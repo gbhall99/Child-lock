@@ -6,6 +6,7 @@ import com.gbhall.childlock.TestSupport
 import com.gbhall.childlock.gesture.Corner
 import com.gbhall.childlock.settings.AutoLockTrigger
 import com.gbhall.childlock.settings.GestureType
+import com.gbhall.childlock.settings.LockSettings
 import com.gbhall.childlock.settings.SettingsRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -129,12 +130,16 @@ class SettingsActivityTest {
     }
 
     @Test
-    fun `timer page - the slider sets the hand-back time in five minute steps`() {
+    fun `timer page - the slider sets the time limit, from five minutes to four hours`() {
         val a = page(SettingsActivity.Page.TIMER)
-        UiTestSupport.drag(UiTestSupport.seek(a, a.getString(R.string.session_title))!!, 4)
+        val seek = UiTestSupport.seek(a, a.getString(R.string.session_title))!!
+        assertEquals("starts at two hours", LockSettings.sessionStepIndex(120), seek.progress)
+        UiTestSupport.drag(seek, 3)
         assertEquals(20, repo.load().sessionMinutes)
-        UiTestSupport.drag(UiTestSupport.seek(a, a.getString(R.string.session_title))!!, 0)
-        assertEquals(0, repo.load().sessionMinutes)
+        UiTestSupport.drag(seek, 0)
+        assertEquals("never unlimited", 5, repo.load().sessionMinutes)
+        UiTestSupport.drag(seek, LockSettings.SESSION_STEPS.lastIndex)
+        assertEquals(240, repo.load().sessionMinutes)
     }
 
     @Test

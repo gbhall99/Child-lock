@@ -29,7 +29,7 @@ WHAT STOPS WORKING FOR THE CHILD
 • The back button and the volume buttons
 • Pulling down the notifications panel
 • Swiping home or opening recent apps
-An incoming call unlocks the phone so you can answer it. If a small finger finds the power button, the screen comes straight back on (on phones that don't lock the moment the screen goes off), and holding the power button to restart always works. If the phone does lock, unlocking it with your face, fingerprint or PIN also ends Child Lock.
+An incoming call, on the phone or in WhatsApp and similar apps, unlocks the phone so you can answer it. If a small finger finds the power button, the screen comes straight back on (on phones that don't lock the moment the screen goes off), and holding the power button to restart always works. If the phone does lock, unlocking it with your face, fingerprint or PIN also ends Child Lock.
 
 AUTO-LOCK
 Choose the apps you hand over and the moment that should lock them: a video call connecting, a video going full screen, anything playing, or simply opening. A five-second countdown gives you time to hand over; switch away or press the pattern to cancel. Unlock, and it locks again by itself only if the same moment ends and happens again.
@@ -56,7 +56,8 @@ Child Lock uses Android's accessibility service as a parental control, not as an
 Purpose: parental touch lock. Core functionality: observe hardware volume-key
 presses to switch the lock on and off; while locked, filter navigation keys,
 block system gestures via touch-exploration mode, dismiss the notification
-shade, and return to the foreground app the parent chose; while unlocked,
+shade, return to the foreground app the parent chose, and notice a call
+ringing in any app (notification category only) to end the lock; while unlocked,
 observe the foreground package for the auto-lock feature. The service reads no
 window content: this build is the `play` product flavour, which is compiled
 without any node-reading capability, so it cannot read window content at all.
@@ -67,7 +68,7 @@ lock also works with the service disabled.
 Mitigations to state in the declaration, alongside the required screen
 recording: the lock is always started by the user, it shows a visible badge
 for its whole duration, it is never persisted so a restart always ends it, it
-releases itself when the phone rings and after at most 90 minutes, and it
+releases itself when a call rings and after at most four hours (two by default), and it
 refuses to start when the way out would not work.
 
 ### Foreground service, type "specialUse"

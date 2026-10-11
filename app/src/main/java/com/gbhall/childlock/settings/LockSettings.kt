@@ -84,8 +84,8 @@ data class LockSettings(
     /** Packages that arm the lock automatically, each with the moment that arms it (needs the guard). */
     val autoLockRules: Map<String, AutoLockTrigger> = emptyMap(),
     val autoLockDelaySec: Int = 5,
-    /** Hand the phone back after this many minutes. 0 means no timer. */
-    val sessionMinutes: Int = 0,
+    /** Child Lock switches itself off after this many minutes, however it was started. */
+    val sessionMinutes: Int = DEFAULT_SESSION_MINUTES,
 ) {
     val autoLockApps: Set<String> get() = autoLockRules.keys
 
@@ -116,7 +116,14 @@ data class LockSettings(
         const val MAX_ARM_DELAY_SEC = 10
         const val MIN_AUTO_LOCK_DELAY_SEC = 3
         const val MAX_AUTO_LOCK_DELAY_SEC = 60
-        const val MAX_SESSION_MINUTES = 60
+        /** The time-limit choices: never unlimited, so a lock always ends by itself. */
+        val SESSION_STEPS = listOf(5, 10, 15, 20, 30, 45, 60, 90, 120, 150, 180, 240)
+        const val DEFAULT_SESSION_MINUTES = 120
+        const val MIN_SESSION_MINUTES = 5
+        const val MAX_SESSION_MINUTES = 240
+
+        /** The slider position closest to [minutes]. */
+        fun sessionStepIndex(minutes: Int): Int = SESSION_STEPS.indices.minBy { kotlin.math.abs(SESSION_STEPS[it] - minutes) }
     }
 }
 
@@ -177,7 +184,10 @@ class SettingsRepository private constructor(context: Context) {
             entry.substring(0, i) to trigger
         }.toMap(),
         autoLockDelaySec = prefs.getInt(KEY_AUTO_LOCK_DELAY, 5).coerceIn(LockSettings.MIN_AUTO_LOCK_DELAY_SEC, LockSettings.MAX_AUTO_LOCK_DELAY_SEC),
-        sessionMinutes = prefs.getInt(KEY_SESSION_MIN, 0).coerceIn(0, LockSettings.MAX_SESSION_MINUTES),
+        // 0 was "No timer", which meant a hidden 90-minute cap; it becomes the new default.
+        sessionMinutes = prefs.getInt(KEY_SESSION_MIN, 0).let {
+            if (it <= 0) LockSettings.DEFAULT_SESSION_MINUTES else it.coerceIn(LockSettings.MIN_SESSION_MINUTES, LockSettings.MAX_SESSION_MINUTES)
+        },
     )
 
     fun save(s: LockSettings) {

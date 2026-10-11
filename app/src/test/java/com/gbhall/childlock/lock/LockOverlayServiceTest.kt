@@ -262,12 +262,67 @@ class LockOverlayServiceTest {
     }
 
     @Test
+    fun `an app call connecting during a lock says how to unlock, once, and stays locked`() {
+        val audio = TestSupport.app.getSystemService(android.media.AudioManager::class.java)
+        start(lockIntent())
+        idle()
+        idle(2000)
+        assertEquals("ON banner gone", 0, banners().size)
+        audio.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+        try {
+            idle(1500)
+            assertTrue("the child's call is still protected", LockController.isLocked)
+            assertTrue(bannerText(banners().single()).contains("Child Lock on"))
+            idle(3000)
+            assertEquals("said once, not every second", 0, banners().size)
+        } finally {
+            audio.mode = android.media.AudioManager.MODE_NORMAL
+        }
+    }
+
+    @Test
+    fun `a lock started during an app call does not announce that call again`() {
+        val audio = TestSupport.app.getSystemService(android.media.AudioManager::class.java)
+        audio.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+        try {
+            start(lockIntent())
+            idle()
+            idle(2000)
+            idle(1500)
+            assertTrue(LockController.isLocked)
+            assertEquals(0, banners().size)
+        } finally {
+            audio.mode = android.media.AudioManager.MODE_NORMAL
+        }
+    }
+
+    @Test
+    fun `a lock ended by a ringing call says why`() {
+        start(lockIntent())
+        idle()
+        LockController.unlock(UnlockReason.CALL)
+        idle()
+        assertTrue(bannerText(banners().single()).contains("A call is ringing"))
+    }
+
+    @Test
     fun `a lock never outlives the maximum duration`() {
         start(lockIntent())
         idle()
         assertTrue(LockController.isLocked)
         idle(LockOverlayService.MAX_LOCK_MS + 1000)
         assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    @Test
+    fun `a lock lasts two hours unless the parent chose otherwise`() {
+        start(lockIntent())
+        idle()
+        idle(91 * 60_000L)
+        assertTrue("no longer the old 90-minute cap", LockController.isLocked)
+        idle(30 * 60_000L)
+        assertEquals(LockState.Unlocked, LockController.state)
+        assertEquals(UnlockReason.TIMER, LockController.lastUnlockReason)
     }
 
     @Test

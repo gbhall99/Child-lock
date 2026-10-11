@@ -28,6 +28,7 @@ import com.gbhall.childlock.review.ReviewSignals
 import com.gbhall.childlock.ChildLockApp
 import com.gbhall.childlock.R
 import com.gbhall.childlock.settings.GestureText
+import com.gbhall.childlock.settings.LockSettings
 import com.gbhall.childlock.settings.SettingsRepository
 import com.gbhall.childlock.ui.MainActivity
 
@@ -77,12 +78,23 @@ class LockOverlayService : Service() {
                 LockController.unlock(UnlockReason.CALL)
                 return
             }
+            if (mode == android.media.AudioManager.MODE_IN_COMMUNICATION && !appCallSeen) {
+                // An app call connected during the lock (answered from its pop-up, or
+                // dialled just before locking). Leave it locked, but say so plainly:
+                // whoever is holding the phone must know touch is off and how to get out.
+                appCallSeen = true
+                Log.i(TAG, "An app call connected during the lock; showing how to unlock")
+                banner.show(BannerWindow.Kind.ON, GestureText.unlockShort(this@LockOverlayService, SettingsRepository.get(this@LockOverlayService).load()))
+            }
             handler.postDelayed(this, CALL_WATCH_MS)
         }
     }
 
     private var wasLocked = false
     private var lockedSinceUptime = 0L
+
+    /** An app call was already connected, at the lock or since: not news to announce. */
+    private var appCallSeen = false
 
     /**
      * Getting back into the phone through its own lock screen with a face,
@@ -240,7 +252,8 @@ class LockOverlayService : Service() {
             if (wasLocked) {
                 // Touch is already free (overlay gone); keep the process alive just
                 // long enough for the OFF banner to be seen.
-                banner.show(BannerWindow.Kind.OFF, getString(R.string.banner_off_detail))
+                val detail = if (LockController.lastUnlockReason == UnlockReason.CALL) R.string.banner_off_call else R.string.banner_off_detail
+                banner.show(BannerWindow.Kind.OFF, getString(detail))
                 handler.postDelayed(stopAfterBanner, BannerWindow.DURATION_MS + 100)
             } else {
                 stopSelfResult(latestStartId)
@@ -360,11 +373,16 @@ class LockOverlayService : Service() {
             updateNotification(notificationText())
             banner.show(BannerWindow.Kind.ON, GestureText.unlockShort(this, settings))
             handler.removeCallbacks(maxDurationStop)
-            // The parent's own timer if they set one, and the hard cap regardless.
-            val sessionMs = settings.sessionMinutes.takeIf { it > 0 }?.times(60_000L) ?: MAX_LOCK_MS
+            // The parent's time limit (two hours unless changed), and the hard cap regardless.
+            val sessionMs = settings.sessionMinutes * 60_000L
             // A practice run always ends by itself, so trying it out can never strand anyone.
             val cap = if (rehearsal) REHEARSAL_MS else minOf(sessionMs, MAX_LOCK_MS)
             handler.postDelayed(maxDurationStop, cap)
+            appCallSeen = try {
+                getSystemService(android.media.AudioManager::class.java)?.mode == android.media.AudioManager.MODE_IN_COMMUNICATION
+            } catch (e: Exception) {
+                true
+            }
             handler.removeCallbacks(callWatch)
             handler.postDelayed(callWatch, CALL_WATCH_MS)
         } catch (e: Exception) {
@@ -524,7 +542,7 @@ class LockOverlayService : Service() {
         private const val TAG = "LockOverlayService"
 
         /** No lock outlives this. The parent is never stranded, whatever else fails. */
-        const val MAX_LOCK_MS = 90 * 60 * 1000L
+        const val MAX_LOCK_MS = LockSettings.MAX_SESSION_MINUTES * 60_000L
         private const val CALL_WATCH_MS = 1000L
 
         /** How long after the screen goes dark to judge it, and how long to hold it on. */

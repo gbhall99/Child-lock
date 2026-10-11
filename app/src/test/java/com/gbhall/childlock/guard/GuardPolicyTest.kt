@@ -164,4 +164,20 @@ class GuardPolicyTest {
         assertTrue(GuardPolicy.consumeKey(HardwareKey.VOLUME_UP, blockKeys = false, chordActive = true))
         assertFalse(GuardPolicy.consumeKey(HardwareKey.VOLUME_DOWN, blockKeys = false, chordActive = false))
     }
+
+    @Test
+    fun `a call ringing in an app is incoming, one already under way is not`() {
+        assertTrue("CallStyle incoming", GuardPolicy.isIncomingCall("call", callType = 1, hasFullScreenIntent = false))
+        assertFalse("the call the child is on", GuardPolicy.isIncomingCall("call", callType = 2, hasFullScreenIntent = true))
+        assertFalse("call screening", GuardPolicy.isIncomingCall("call", callType = 3, hasFullScreenIntent = true))
+        assertTrue("older apps ring with a full-screen intent", GuardPolicy.isIncomingCall("call", callType = 0, hasFullScreenIntent = true))
+        assertFalse(GuardPolicy.isIncomingCall("call", callType = 0, hasFullScreenIntent = false))
+        assertFalse("not a call", GuardPolicy.isIncomingCall("msg", callType = 1, hasFullScreenIntent = true))
+        assertFalse(GuardPolicy.isIncomingCall(null, callType = 1, hasFullScreenIntent = true))
+        assertFalse(
+            "during a connected app call nothing counts, so the call being protected is never ended",
+            GuardPolicy.isIncomingCall("call", callType = 0, hasFullScreenIntent = true, inAppCall = true),
+        )
+    }
+
 }

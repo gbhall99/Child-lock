@@ -111,7 +111,7 @@ class MainActivityTest {
         fun sub(res: Int) = UiTestSupport.tileSubtitle(UiTestSupport.tile(activity, activity.getString(res))!!)
         assertEquals(activity.getString(com.gbhall.childlock.R.string.home_off), sub(com.gbhall.childlock.R.string.section_autolock))
         assertEquals(activity.getString(com.gbhall.childlock.R.string.home_on), sub(com.gbhall.childlock.R.string.section_inside))
-        assertEquals(activity.getString(com.gbhall.childlock.R.string.session_off), sub(com.gbhall.childlock.R.string.session_title))
+        assertEquals("two hours unless changed", activity.getString(com.gbhall.childlock.R.string.session_hours, 2), sub(com.gbhall.childlock.R.string.session_title))
         assertTrue(sub(com.gbhall.childlock.R.string.section_gesture).startsWith("Volume"))
 
         repo.update {

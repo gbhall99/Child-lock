@@ -159,4 +159,30 @@ object GuardPolicy {
             com.gbhall.childlock.gesture.HardwareKey.VOLUME_DOWN -> blockKeys || chordActive
             com.gbhall.childlock.gesture.HardwareKey.BACK -> blockKeys
         }
+
+    /**
+     * A call that is ringing now in an app (WhatsApp, Meet, Teams, Signal...),
+     * judged from the notification's category and call type alone, never its
+     * text. A call already under way (the video call the child is on) is not
+     * one: only a new, ringing call ends the lock, as a phone call does.
+     * [callType] is Notification.EXTRA_CALL_TYPE (Android 12+, 0 when absent);
+     * apps that predate it mark a ringing call with a full-screen intent.
+     * While an app call is already connected ([inAppCall], the audio in
+     * communication mode) nothing counts: that call is the one being protected.
+     */
+    fun isIncomingCall(category: String?, callType: Int, hasFullScreenIntent: Boolean, inAppCall: Boolean = false): Boolean {
+        if (inAppCall) return false
+        if (category != android.app.Notification.CATEGORY_CALL) return false
+        return when (callType) {
+            CALL_TYPE_INCOMING -> true
+            CALL_TYPE_ONGOING, CALL_TYPE_SCREENING -> false
+            else -> hasFullScreenIntent
+        }
+    }
+
+    // Notification.CALL_TYPE_* (API 31), spelled out so older phones can read them.
+    private const val CALL_TYPE_INCOMING = 1
+    private const val CALL_TYPE_ONGOING = 2
+    private const val CALL_TYPE_SCREENING = 3
+
 }

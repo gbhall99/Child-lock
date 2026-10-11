@@ -29,7 +29,9 @@ source contains neither and sells nothing.
   not as an accessibility aid. While the lock is on it observes volume-button
   presses for the lock/unlock pattern, blocks the back and volume buttons and
   home/back swipes, closes the notification shade, and brings back the app you
-  handed over. While the lock is off it only observes which app is in the
+  handed over, and it notices when a call starts ringing in any app (from
+  the notification's type only, never its content) so the lock ends and the
+  call can be answered. While the lock is off it only observes which app is in the
   foreground, for the auto-lock feature and to remember what to return to. It
   never reads, stores or transmits screen content, text, or any other data.
   The capability to read screen content is compiled out of the app, so it

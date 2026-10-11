@@ -78,6 +78,14 @@ gesture navigation, once per release:
   the lock screen shows as normal and unlocking the phone must end Child Lock
   (the OFF banner shows). With a swipe-only lock screen, the screen must come
   straight back on and the lock must still be there.
+- While locked, have someone ring you on WhatsApp: Child Lock switches off
+  ("A call is ringing") and Answer works. During a WhatsApp video call that
+  is already connected, the lock stays on. Lock while a WhatsApp call is
+  still dialling: when it connects, the "Child Lock on" banner shows once,
+  and the lock stays on.
+- Lock with the volume pattern on the home screen: the home screen stays, no
+  older app comes back. Lock inside a video app: that app stays.
+- Timer shows "2 hours" by default; a lock left alone ends after it.
 - With "Power button instantly locks" off (or no PIN), play a video full
   screen, lock, and tap power once: within about a second the screen comes
   back on, still locked, and the video carries on. Tap power twice: the

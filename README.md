@@ -182,7 +182,7 @@ lock's notification is silent and shows no status-bar icon.
 | Drags down the notifications panel | Closed immediately (with the guard) |
 | Swipes home, back or recents | Blocked outright (with the guard and a volume gesture, Android 11 and newer; on by default); otherwise the app you handed over is brought straight back |
 | Presses the power button | No app can block it, but Child Lock undoes it: the screen comes straight back on and a paused video carries on. Pressing it again within 10 seconds keeps the screen off. This works when the phone doesn't lock the moment the screen goes off (no PIN, swipe only, or "Power button instantly locks" switched off); a phone that does lock shows its lock screen as normal, and getting past a face, fingerprint or PIN lock screen ends Child Lock. Holding power to restart always works |
-| Receives a real phone call | Child Lock unlocks itself so the call can be answered |
+| Receives a phone call, or a call rings in WhatsApp or another app | Child Lock unlocks itself so the call can be answered, and says why. A call already under way (the video call the child is on) never unlocks it; an app call that connects mid-lock brings back the "Child Lock on" banner with the way out |
 
 Without the accessibility guard, only the first row is enforced. Swipe
 blocking uses Android's touch-exploration mode while locked, the same switch
@@ -221,7 +221,8 @@ Manufacturer notes:
   full-screen video does not flip when the phone is tilted (switchable in
   More options).
 - An incoming or connected phone call always releases the lock.
-- No lock outlives 90 minutes, whatever else fails.
+- Every lock ends by itself: after two hours unless the parent picks another
+  limit under Timer (5 minutes to 4 hours). There is no unlimited setting.
 - The app refuses to lock when the way out would not work: a volume gesture
   with the helper switched off, or a touch gesture while a screen reader is
   exploring by touch.

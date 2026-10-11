@@ -408,6 +408,25 @@ adb shell input keyevent KEYCODE_POWER; sleep 3   # again, within 10 s of the sc
 w=$(awake)
 if [ "$w" != Awake ]; then log "power pressed again: screen stays off"; else log "WARNING: power pressed again: screen came back on"; fi
 adb shell input keyevent KEYCODE_WAKEUP; sleep 2
+
+# Off camera: while locked the screen never sleeps by itself, even with the
+# video paused (so the player is not the one keeping it awake) and a 15 s
+# screen timeout.
+adb shell input keyevent KEYCODE_MEDIA_PAUSE; sleep 1
+darks() { adb logcat -d -s LockOverlayService:I 2>/dev/null | grep -c "Screen off during a lock"; }
+d0=$(darks)
+adb shell svc power stayon false
+adb shell settings put system screen_off_timeout 15000
+sleep 25
+w=$(awake)
+holder=$(adb shell dumpsys window | grep -m1 -o 'mHoldScreenWindow=[^ ]* [^ ]* [^ }]*' | tr -d '\r')
+d1=$(darks)
+if [ "$w" = Awake ] && [ "$d1" = "$d0" ]; then log "locked with a 15 s timeout and the video paused: screen still on after 25 s ($holder)"
+else log "WARNING: locked with a 15 s timeout: the screen went dark ($w now, $((d1 - d0)) dark spells; $holder)"; fi
+adb shell settings put system screen_off_timeout 1800000
+adb shell svc power stayon true
+adb shell input keyevent KEYCODE_WAKEUP; sleep 1
+adb shell input keyevent KEYCODE_MEDIA_PLAY; sleep 2
 { echo "--- lock service log ---"; adb logcat -d -s LockOverlayService:V GuardService:V PowerManagerService:V 2>/dev/null | tail -25; adb shell dumpsys power | grep -iE "childlock|mWakefulness=|Wake Locks" | head -8; } >>"$LOG"
 
 # 5. The volume pattern unlocks.
