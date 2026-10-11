@@ -409,24 +409,6 @@ w=$(awake)
 if [ "$w" != Awake ]; then log "power pressed again: screen stays off"; else log "WARNING: power pressed again: screen came back on"; fi
 adb shell input keyevent KEYCODE_WAKEUP; sleep 2
 
-# Off camera: while locked the screen never sleeps by itself, even with the
-# video paused (so the player is not the one keeping it awake) and a 15 s
-# screen timeout.
-adb shell input keyevent KEYCODE_MEDIA_PAUSE; sleep 1
-darks() { adb logcat -d -s LockOverlayService:I 2>/dev/null | grep -c "Screen off during a lock"; }
-d0=$(darks)
-adb shell svc power stayon false
-adb shell settings put system screen_off_timeout 15000
-sleep 25
-w=$(awake)
-holder=$(adb shell dumpsys window | grep -m1 -o 'mHoldScreenWindow=[^ ]* [^ ]* [^ }]*' | tr -d '\r')
-d1=$(darks)
-if [ "$w" = Awake ] && [ "$d1" = "$d0" ]; then log "locked with a 15 s timeout and the video paused: screen still on after 25 s ($holder)"
-else log "WARNING: locked with a 15 s timeout: the screen went dark ($w now, $((d1 - d0)) dark spells; $holder)"; fi
-adb shell settings put system screen_off_timeout 1800000
-adb shell svc power stayon true
-adb shell input keyevent KEYCODE_WAKEUP; sleep 1
-adb shell input keyevent KEYCODE_MEDIA_PLAY; sleep 2
 { echo "--- lock service log ---"; adb logcat -d -s LockOverlayService:V GuardService:V PowerManagerService:V 2>/dev/null | tail -25; adb shell dumpsys power | grep -iE "childlock|mWakefulness=|Wake Locks" | head -8; } >>"$LOG"
 
 # 5. The volume pattern unlocks.
@@ -454,6 +436,33 @@ adb shell pkill -2 screenrecord || true
 wait $REC 2>/dev/null || true
 sleep 3
 adb pull /sdcard/demo.mp4 "$OUT/raw-recording.mp4" >>"$LOG" 2>&1 && log "raw video $(du -h "$OUT/raw-recording.mp4" | cut -f1)"
+
+# Off camera, after the clip: a lock started on the home screen keeps the home
+# screen (the video app must not come back), and with nothing else asking for
+# it, Child Lock alone keeps the screen on through a 15 s screen timeout.
+resumed() { adb shell dumpsys activity activities | grep -m1 -E 'topResumedActivity|mResumedActivity' | tr -d '\r'; }
+darks() { adb logcat -d -s LockOverlayService:I 2>/dev/null | grep -c "Screen off during a lock"; }
+adb shell input keyevent KEYCODE_MEDIA_PAUSE; adb shell input keyevent KEYCODE_HOME; sleep 3
+if pattern 1; then
+  sleep 4
+  top=$(resumed)
+  if echo "$top" | grep -qF "$TARGET"; then log "WARNING: locked on the home screen but the video app came back ($top)"
+  else log "locked on the home screen: it stays in front ($top)"; fi
+  d0=$(darks)
+  adb shell svc power stayon false
+  adb shell settings put system screen_off_timeout 15000
+  sleep 25
+  w=$(awake); d1=$(darks)
+  holder=$(adb shell dumpsys window | grep -m1 -o 'mHoldScreenWindow=[^ ]* [^ ]* [^ }]*' | tr -d '\r')
+  if [ "$w" = Awake ] && [ "$d1" = "$d0" ]; then log "locked on the home screen with a 15 s timeout: screen still on after 25 s ($holder)"
+  else log "WARNING: locked with a 15 s timeout: the screen went dark ($w now, $((d1 - d0)) dark spells; $holder)"; fi
+  adb shell settings put system screen_off_timeout 1800000
+  adb shell svc power stayon true
+  adb shell input keyevent KEYCODE_WAKEUP; sleep 1
+  pattern 0 || adb shell am start-foreground-service -n "$PKG/$NS.lock.LockOverlayService" -a com.gbhall.childlock.action.UNLOCK >/dev/null 2>&1
+else
+  log "WARNING: the volume pattern did not lock on the home screen"
+fi
 adb shell settings put system show_touches 0
 
 # Cuts the raw recording down to the scenes in one ffmpeg run (the concat
