@@ -38,7 +38,10 @@ jobs:
           CHILDLOCK_SHOTS="$PWD/store/media/shots" ./gradlew --no-daemon testPlayDebugUnitTest --tests '*ScreenshotTest*'
 
       - name: Compose the store assets
-        run: scripts/render-store-assets.sh
+        run: |
+          # Playwright sizes the page exactly; Chrome's --screenshot clips the bottom.
+          npm install --no-save --silent --prefix "$RUNNER_TEMP/pw" playwright-core
+          NODE_PATH="$RUNNER_TEMP/pw/node_modules" scripts/render-store-assets.sh
 
       - uses: actions/upload-artifact@v4
         with:

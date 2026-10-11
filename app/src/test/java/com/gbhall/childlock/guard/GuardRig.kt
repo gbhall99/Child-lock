@@ -23,7 +23,7 @@ internal object GuardRig {
     fun start(): GuardAccessibilityService {
         TestSupport.clearSettings()
         TestSupport.resetLock()
-        ForegroundTracker.lastApp = null
+        ForegroundTracker.reset()
         val pm = shadowOf(TestSupport.app.packageManager)
         val app = ComponentName(APP, "$APP.Main")
         pm.addActivityIfNotPresent(app)

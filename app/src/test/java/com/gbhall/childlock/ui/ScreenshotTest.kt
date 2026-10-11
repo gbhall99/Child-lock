@@ -25,7 +25,15 @@ import java.io.FileOutputStream
 class ScreenshotTest {
     private val outDir: File? = System.getenv("CHILDLOCK_SHOTS")?.let(::File)?.takeIf { it.isDirectory }
 
-    private fun shoot(name: String, night: Boolean, overlay: Boolean, setup: Boolean = false, page: SettingsActivity.Page? = null) {
+    private fun shoot(
+        name: String,
+        night: Boolean,
+        overlay: Boolean,
+        setup: Boolean = false,
+        page: SettingsActivity.Page? = null,
+        widthPx: Int = 1080,
+        minHeightPx: Int = 2400,
+    ) {
         val dir = outDir ?: return
         ShadowSettings.setCanDrawOverlays(overlay)
         TestSupport.clearSettings()
@@ -37,12 +45,12 @@ class ScreenshotTest {
             else -> Robolectric.buildActivity(MainActivity::class.java).setup().get()
         }
         val root = activity.window.decorView
-        val w = 1080
+        val w = widthPx
         root.measure(
             View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
         )
-        val h = root.measuredHeight.coerceAtLeast(2400)
+        val h = root.measuredHeight.coerceAtLeast(minHeightPx)
         root.layout(0, 0, w, h)
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         root.draw(Canvas(bitmap))
@@ -77,5 +85,12 @@ class ScreenshotTest {
     @Test fun dark() = shoot("settings-dark", night = true, overlay = false)
     @Test fun setupLight() = shoot("setup-light", night = false, overlay = true, setup = true)
     @Test fun setupDark() = shoot("setup-dark", night = true, overlay = false, setup = true)
+    // A 10-inch tablet held upright (800 x 1280 dp at xhdpi), for the tablet store screenshots.
+    @Test @Config(sdk = [35], qualifiers = "w800dp-h1280dp-xhdpi")
+    fun tabletLight() = shoot("settings-tablet", night = false, overlay = true, widthPx = 1600, minHeightPx = 2560)
+
+    @Test @Config(sdk = [35], qualifiers = "w800dp-h1280dp-xhdpi")
+    fun tabletSetup() = shoot("setup-tablet", night = false, overlay = true, setup = true, widthPx = 1600, minHeightPx = 2560)
+
     @Test fun pages() = SettingsActivity.Page.entries.forEach { shoot("page-${it.name.lowercase()}", night = false, overlay = true, page = it) }
 }

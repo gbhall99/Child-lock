@@ -262,12 +262,67 @@ class LockOverlayServiceTest {
     }
 
     @Test
+    fun `an app call connecting during a lock says how to unlock, once, and stays locked`() {
+        val audio = TestSupport.app.getSystemService(android.media.AudioManager::class.java)
+        start(lockIntent())
+        idle()
+        idle(2000)
+        assertEquals("ON banner gone", 0, banners().size)
+        audio.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+        try {
+            idle(1500)
+            assertTrue("the child's call is still protected", LockController.isLocked)
+            assertTrue(bannerText(banners().single()).contains("Child Lock on"))
+            idle(3000)
+            assertEquals("said once, not every second", 0, banners().size)
+        } finally {
+            audio.mode = android.media.AudioManager.MODE_NORMAL
+        }
+    }
+
+    @Test
+    fun `a lock started during an app call does not announce that call again`() {
+        val audio = TestSupport.app.getSystemService(android.media.AudioManager::class.java)
+        audio.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+        try {
+            start(lockIntent())
+            idle()
+            idle(2000)
+            idle(1500)
+            assertTrue(LockController.isLocked)
+            assertEquals(0, banners().size)
+        } finally {
+            audio.mode = android.media.AudioManager.MODE_NORMAL
+        }
+    }
+
+    @Test
+    fun `a lock ended by a ringing call says why`() {
+        start(lockIntent())
+        idle()
+        LockController.unlock(UnlockReason.CALL)
+        idle()
+        assertTrue(bannerText(banners().single()).contains("A call is ringing"))
+    }
+
+    @Test
     fun `a lock never outlives the maximum duration`() {
         start(lockIntent())
         idle()
         assertTrue(LockController.isLocked)
         idle(LockOverlayService.MAX_LOCK_MS + 1000)
         assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    @Test
+    fun `a lock lasts two hours unless the parent chose otherwise`() {
+        start(lockIntent())
+        idle()
+        idle(91 * 60_000L)
+        assertTrue("no longer the old 90-minute cap", LockController.isLocked)
+        idle(30 * 60_000L)
+        assertEquals(LockState.Unlocked, LockController.state)
+        assertEquals(UnlockReason.TIMER, LockController.lastUnlockReason)
     }
 
     @Test
@@ -354,6 +409,108 @@ class LockOverlayServiceTest {
         keyguard().setIsDeviceLocked(false)
         broadcast(Intent.ACTION_USER_PRESENT)
         assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    private fun power() = TestSupport.app.getSystemService(android.os.PowerManager::class.java)
+
+    /** The child presses power: the screen goes dark, and stays dark unless something wakes it. */
+    private fun pressPower() {
+        org.robolectric.shadows.ShadowPowerManager.clearWakeLocks()
+        shadowOf(power()).setIsInteractive(false)
+        broadcast(Intent.ACTION_SCREEN_OFF)
+        idle(1_000)
+    }
+
+    private fun screenWoken() = org.robolectric.shadows.ShadowPowerManager.getLatestWakeLock() != null
+
+    @Test
+    fun `a child's press of the power button is undone`() {
+        start(lockIntent())
+        idle()
+        pressPower()
+        assertTrue("the screen is turned back on", screenWoken())
+        assertTrue(LockController.isLocked)
+    }
+
+    @Test
+    fun `a phone that locked itself keeps its lock screen`() {
+        start(lockIntent())
+        idle()
+        keyguard().setIsDeviceLocked(true)
+        pressPower()
+        assertFalse(screenWoken())
+        assertTrue(LockController.isLocked)
+    }
+
+    @Test
+    fun `pressing power again straight after keeps the screen off`() {
+        start(lockIntent())
+        idle()
+        pressPower()
+        assertTrue(screenWoken())
+        shadowOf(power()).setIsInteractive(true)
+        broadcast(Intent.ACTION_SCREEN_ON)
+        pressPower()
+        assertFalse("a second press means it", screenWoken())
+    }
+
+    @Test
+    fun `a dark screen is noticed even before Android announces it`() {
+        start(lockIntent())
+        idle()
+        org.robolectric.shadows.ShadowPowerManager.clearWakeLocks()
+        shadowOf(power()).setIsInteractive(false)
+        idle(2_000)
+        assertTrue(screenWoken())
+    }
+
+    @Test
+    fun `a late announcement never undoes a deliberate second press`() {
+        start(lockIntent())
+        idle()
+        pressPower()
+        assertTrue(screenWoken())
+        shadowOf(power()).setIsInteractive(true)
+        idle(1_000)
+        // The parent presses again; the watch sees it first and leaves it dark.
+        org.robolectric.shadows.ShadowPowerManager.clearWakeLocks()
+        shadowOf(power()).setIsInteractive(false)
+        idle(1_500)
+        assertFalse(screenWoken())
+        // Android's announcement for that press arrives late: still dark.
+        broadcast(Intent.ACTION_SCREEN_OFF)
+        idle(1_000)
+        assertFalse(screenWoken())
+    }
+
+    @Test
+    fun `switched off in settings, the screen stays off`() {
+        SettingsRepository.get(TestSupport.app).update { it.copy(wakeAfterPowerPress = false) }
+        start(lockIntent())
+        idle()
+        pressPower()
+        assertFalse(screenWoken())
+    }
+
+    @Test
+    fun `when the screen may sleep by itself, it is never woken`() {
+        SettingsRepository.get(TestSupport.app).update { it.copy(keepScreenOn = false) }
+        start(lockIntent())
+        idle()
+        pressPower()
+        assertFalse(screenWoken())
+    }
+
+    @Test
+    fun `the screen is not woken once the lock is over`() {
+        start(lockIntent())
+        idle()
+        org.robolectric.shadows.ShadowPowerManager.clearWakeLocks()
+        shadowOf(power()).setIsInteractive(false)
+        broadcast(Intent.ACTION_SCREEN_OFF)
+        LockController.unlock()
+        idle(1_000)
+        assertFalse(screenWoken())
     }
 
     @Test

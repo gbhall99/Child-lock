@@ -54,6 +54,8 @@ data class LockSettings(
     /** 1 = press the pattern once, 2 = twice in a row. */
     val volumeRepeats: Int = 1,
     val keepScreenOn: Boolean = true,
+    /** Turn the screen straight back on if a child presses the power button while locked. */
+    val wakeAfterPowerPress: Boolean = true,
     val armDelaySec: Int = 10,
     val blockKeys: Boolean = true,
     val blockShade: Boolean = true,
@@ -82,8 +84,8 @@ data class LockSettings(
     /** Packages that arm the lock automatically, each with the moment that arms it (needs the guard). */
     val autoLockRules: Map<String, AutoLockTrigger> = emptyMap(),
     val autoLockDelaySec: Int = 5,
-    /** Hand the phone back after this many minutes. 0 means no timer. */
-    val sessionMinutes: Int = 0,
+    /** Child Lock switches itself off after this many minutes, however it was started. */
+    val sessionMinutes: Int = DEFAULT_SESSION_MINUTES,
 ) {
     val autoLockApps: Set<String> get() = autoLockRules.keys
 
@@ -114,7 +116,14 @@ data class LockSettings(
         const val MAX_ARM_DELAY_SEC = 10
         const val MIN_AUTO_LOCK_DELAY_SEC = 3
         const val MAX_AUTO_LOCK_DELAY_SEC = 60
-        const val MAX_SESSION_MINUTES = 60
+        /** The time-limit choices: never unlimited, so a lock always ends by itself. */
+        val SESSION_STEPS = listOf(5, 10, 15, 20, 30, 45, 60, 90, 120, 150, 180, 240)
+        const val DEFAULT_SESSION_MINUTES = 120
+        const val MIN_SESSION_MINUTES = 5
+        const val MAX_SESSION_MINUTES = 240
+
+        /** The slider position closest to [minutes]. */
+        fun sessionStepIndex(minutes: Int): Int = SESSION_STEPS.indices.minBy { kotlin.math.abs(SESSION_STEPS[it] - minutes) }
     }
 }
 
@@ -159,6 +168,7 @@ class SettingsRepository private constructor(context: Context) {
         volumeRepeats = prefs.getInt(KEY_VOLUME_REPEATS, 1).coerceIn(1, 3),
         notificationUnlock = prefs.getBoolean(KEY_NOTIFICATION_UNLOCK, true),
         keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
+        wakeAfterPowerPress = prefs.getBoolean(KEY_WAKE_AFTER_POWER, true),
         armDelaySec = prefs.getInt(KEY_ARM_DELAY, 10).coerceIn(LockSettings.MIN_ARM_DELAY_SEC, LockSettings.MAX_ARM_DELAY_SEC),
         blockKeys = prefs.getBoolean(KEY_BLOCK_KEYS, true),
         blockShade = prefs.getBoolean(KEY_BLOCK_SHADE, true),
@@ -174,7 +184,10 @@ class SettingsRepository private constructor(context: Context) {
             entry.substring(0, i) to trigger
         }.toMap(),
         autoLockDelaySec = prefs.getInt(KEY_AUTO_LOCK_DELAY, 5).coerceIn(LockSettings.MIN_AUTO_LOCK_DELAY_SEC, LockSettings.MAX_AUTO_LOCK_DELAY_SEC),
-        sessionMinutes = prefs.getInt(KEY_SESSION_MIN, 0).coerceIn(0, LockSettings.MAX_SESSION_MINUTES),
+        // 0 was "No timer", which meant a hidden 90-minute cap; it becomes the new default.
+        sessionMinutes = prefs.getInt(KEY_SESSION_MIN, 0).let {
+            if (it <= 0) LockSettings.DEFAULT_SESSION_MINUTES else it.coerceIn(LockSettings.MIN_SESSION_MINUTES, LockSettings.MAX_SESSION_MINUTES)
+        },
     )
 
     fun save(s: LockSettings) {
@@ -191,6 +204,7 @@ class SettingsRepository private constructor(context: Context) {
             .putInt(KEY_VOLUME_REPEATS, s.volumeRepeats)
             .putBoolean(KEY_NOTIFICATION_UNLOCK, s.notificationUnlock)
             .putBoolean(KEY_KEEP_SCREEN_ON, s.keepScreenOn)
+            .putBoolean(KEY_WAKE_AFTER_POWER, s.wakeAfterPowerPress)
             .putInt(KEY_ARM_DELAY, s.armDelaySec)
             .putBoolean(KEY_BLOCK_KEYS, s.blockKeys)
             .putBoolean(KEY_BLOCK_SHADE, s.blockShade)
@@ -250,6 +264,7 @@ class SettingsRepository private constructor(context: Context) {
         private const val KEY_VOLUME_REPEATS = "volume_repeats"
         private const val KEY_NOTIFICATION_UNLOCK = "notification_unlock"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+        private const val KEY_WAKE_AFTER_POWER = "wake_after_power"
         private const val KEY_ARM_DELAY = "arm_delay_sec"
         private const val KEY_BLOCK_KEYS = "block_keys"
         private const val KEY_BLOCK_SHADE = "block_shade"

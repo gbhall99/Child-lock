@@ -74,9 +74,23 @@ gesture navigation, once per release:
   over", the big button offers the purchase, the volume pattern and the tile
   no longer lock, Practise still does.
 - Press power while locked, then wake the phone. With a PIN, pattern,
-  password, face or fingerprint set, unlocking the phone must end Child Lock
-  (the OFF banner shows). With a swipe-only lock screen, the lock must still
-  be there afterwards.
+  password, face or fingerprint set (and "Power button instantly locks" on),
+  the lock screen shows as normal and unlocking the phone must end Child Lock
+  (the OFF banner shows). With a swipe-only lock screen, the screen must come
+  straight back on and the lock must still be there.
+- While locked, have someone ring you on WhatsApp: Child Lock switches off
+  ("A call is ringing") and Answer works. During a WhatsApp video call that
+  is already connected, the lock stays on. Lock while a WhatsApp call is
+  still dialling: when it connects, the "Child Lock on" banner shows once,
+  and the lock stays on.
+- Lock with the volume pattern on the home screen: the home screen stays, no
+  older app comes back. Lock inside a video app: that app stays.
+- Timer shows "2 hours" by default; a lock left alone ends after it.
+- With "Power button instantly locks" off (or no PIN), play a video full
+  screen, lock, and tap power once: within about a second the screen comes
+  back on, still locked, and the video carries on. Tap power twice: the
+  screen stays off. Holding power still opens the power menu, and a forced
+  restart still restarts the phone unlocked.
 - While locked, tap the screen: a hint naming the unlock appears beside the
   padlock and fades after a couple of seconds; tapping again straight away
   does not bring it back.

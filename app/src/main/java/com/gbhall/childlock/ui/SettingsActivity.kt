@@ -362,9 +362,9 @@ class SettingsActivity : Activity() {
             card(null) {
                 addView(
                     seekRow(
-                        getString(R.string.session_title), 0, LockSettings.MAX_SESSION_MINUTES / 5, s.sessionMinutes / 5,
-                        format = { if (it == 0) getString(R.string.session_off) else getString(R.string.session_minutes, it * 5) },
-                    ) { steps -> repo.update { it.copy(sessionMinutes = steps * 5) } },
+                        getString(R.string.session_title), 0, LockSettings.SESSION_STEPS.lastIndex, LockSettings.sessionStepIndex(s.sessionMinutes),
+                        format = { com.gbhall.childlock.settings.GestureText.sessionLength(this@SettingsActivity, LockSettings.SESSION_STEPS[it]) },
+                    ) { i -> repo.update { it.copy(sessionMinutes = LockSettings.SESSION_STEPS[i]) } },
                 )
                 addView(body(getString(R.string.session_desc), secondary = true))
             },
@@ -383,6 +383,7 @@ class SettingsActivity : Activity() {
                     ) { sec -> repo.update { it.copy(armDelaySec = sec) } },
                 )
                 addView(switchRow(getString(R.string.keep_screen_on), getString(R.string.keep_screen_on_desc), s.keepScreenOn) { v -> repo.update { it.copy(keepScreenOn = v) } })
+                addView(switchRow(getString(R.string.wake_after_power), getString(R.string.wake_after_power_desc), s.wakeAfterPowerPress) { v -> repo.update { it.copy(wakeAfterPowerPress = v) } })
                 addView(switchRow(getString(R.string.keep_orientation), getString(R.string.keep_orientation_desc), s.keepOrientation) { v -> repo.update { it.copy(keepOrientation = v) } })
             },
         )

@@ -50,7 +50,7 @@ class LockTileService : TileService() {
             LockState.Unlocked -> {
                 if (!FeatureGate.isUnlocked(this) || !Settings.canDrawOverlays(this)) {
                     openSettingsScreen() // the app screen explains what is missing
-                } else if (!LockController.requestLock(this, ForegroundTracker.lastApp, TILE_ARM_DELAY_MS)) {
+                } else if (!LockController.requestLock(this, ForegroundTracker.current, TILE_ARM_DELAY_MS)) {
                     openSettingsScreen() // the app screen can always start the service
                 }
             }

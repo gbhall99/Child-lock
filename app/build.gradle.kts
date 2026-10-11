@@ -111,6 +111,9 @@ kotlin {
 dependencies {
     "playImplementation"(libs.billing)
     "playImplementation"(libs.play.review)
+    // Not used directly: Play's billing and review libraries pull in fragment 1.1.0,
+    // which Play Console flags as outdated. Pinning a current one replaces it.
+    "playImplementation"(libs.androidx.fragment)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
 }

@@ -97,4 +97,17 @@ object GestureText {
         } else {
             context.getString(R.string.lock_hint_other)
         }
+
+    /** "45 minutes", "1 hour", "2 hours", "1 h 30 min". */
+    fun sessionLength(context: Context, minutes: Int): String {
+        val h = minutes / 60
+        val m = minutes % 60
+        return when {
+            h == 0 -> context.getString(R.string.session_minutes, m)
+            m != 0 -> context.getString(R.string.session_hours_minutes, h, m)
+            h == 1 -> context.getString(R.string.session_hour)
+            else -> context.getString(R.string.session_hours, h)
+        }
+    }
+
 }

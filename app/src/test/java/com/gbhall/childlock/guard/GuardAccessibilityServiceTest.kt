@@ -13,6 +13,7 @@ import com.gbhall.childlock.settings.SettingsRepository
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -29,7 +30,7 @@ class GuardAccessibilityServiceTest {
     fun setUp() {
         TestSupport.clearSettings()
         TestSupport.resetLock()
-        ForegroundTracker.lastApp = null
+        ForegroundTracker.reset()
         val pm = shadowOf(TestSupport.app.packageManager)
         val call = ComponentName("com.example.call", "com.example.call.Main")
         pm.addActivityIfNotPresent(call)
@@ -62,6 +63,20 @@ class GuardAccessibilityServiceTest {
         assertEquals("com.example.call", ForegroundTracker.lastApp)
         service.onAccessibilityEvent(windowEvent("com.android.systemui"))
         assertEquals("com.example.call", ForegroundTracker.lastApp)
+    }
+
+    @Test
+    fun `the home screen in front means a lock keeps the home screen`() {
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        assertEquals("com.example.call", ForegroundTracker.current)
+        service.onAccessibilityEvent(windowEvent(GuardRig.HOME))
+        assertNull("nothing to bring back", ForegroundTracker.current)
+        assertEquals("the in-app button still goes back to it", "com.example.call", ForegroundTracker.lastApp)
+        service.onAccessibilityEvent(windowEvent(TestSupport.app.packageName))
+        assertEquals("locking from inside Child Lock goes back to the last app", "com.example.call", ForegroundTracker.current)
+        service.onAccessibilityEvent(windowEvent(GuardRig.HOME))
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        assertEquals("com.example.call", ForegroundTracker.current)
     }
 
     @Test
@@ -116,6 +131,48 @@ class GuardAccessibilityServiceTest {
             assertEquals(1, hints)
         } finally {
             LockController.touchSink = null
+        }
+    }
+
+    private fun callNotification(callType: Int, category: String = android.app.Notification.CATEGORY_CALL) =
+        AccessibilityEvent.obtain(AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED).apply {
+            packageName = "com.whatsapp"
+            parcelableData = android.app.Notification().apply {
+                this.category = category
+                extras.putInt(android.app.Notification.EXTRA_CALL_TYPE, callType)
+            }
+        }
+
+    @Test
+    fun `a call ringing in an app ends the lock so it can be answered`() {
+        LockController.set(LockState.Locked("com.example.call", 0))
+        TestSupport.idle()
+        assertTrue(
+            "call notifications are listened for while locked",
+            (service.requestedEvents and AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) != 0,
+        )
+        service.onAccessibilityEvent(callNotification(callType = 1))
+        TestSupport.idle()
+        assertEquals(LockState.Unlocked, LockController.state)
+        assertEquals(com.gbhall.childlock.lock.UnlockReason.CALL, LockController.lastUnlockReason)
+    }
+
+    @Test
+    fun `the call the child is on, and other notifications, leave the lock on`() {
+        LockController.set(LockState.Locked("com.whatsapp", 0))
+        TestSupport.idle()
+        service.onAccessibilityEvent(callNotification(callType = 2))
+        service.onAccessibilityEvent(callNotification(callType = 1, category = android.app.Notification.CATEGORY_MESSAGE))
+        TestSupport.idle()
+        assertTrue(LockController.isLocked)
+        val audio = TestSupport.app.getSystemService(android.media.AudioManager::class.java)
+        audio.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+        try {
+            service.onAccessibilityEvent(callNotification(callType = 0))
+            TestSupport.idle()
+            assertTrue("a call notification during the connected call is that call", LockController.isLocked)
+        } finally {
+            audio.mode = android.media.AudioManager.MODE_NORMAL
         }
     }
 

@@ -85,7 +85,8 @@ If an OEM battery manager stopped the helper mid-lock with a volume gesture
 selected, nothing saw the keys, the shield still swallowed every touch, and
 the corner-hold fallback did not work under touch exploration. Recovery was
 a reboot. Two changes: the app now refuses to lock when the chosen way out
-would not work, and no lock outlives 90 minutes.
+would not work, and no lock outlives its time limit (two hours by default,
+four at most).
 
 **A3. A re-lock immediately after an unlock was silently undone. Fixed.**
 Unlocking scheduled the service to stop once the "off" notice had been seen.
@@ -234,8 +235,8 @@ not-exported.
 
 Ranked by value at the actual moment of use.
 
-1. **A session timer that hands the phone back. Done.** Settable in five
-   minute steps up to an hour, off by default, alongside the 90-minute cap.
+1. **A session timer that hands the phone back. Done.** Settable from five
+   minutes to four hours, two hours by default; there is no unlimited setting.
 2. **A rehearsal step. Done.** A "Practise" button locks the app's own screen
    so the parent can try unlocking before it matters.
 3. **The unlock instruction where it survives. Already true**: the lock

@@ -33,6 +33,8 @@ class SettingsRepositoryTest {
         assertEquals(Corner.TOP_LEFT, s.badgeCorner)
         assertFalse(s.hasPin)
         assertTrue(s.keepScreenOn)
+        assertTrue("undoing the power button is on unless switched off", s.wakeAfterPowerPress)
+        assertEquals("two hours unless changed", 120, s.sessionMinutes)
         assertEquals(10, s.armDelaySec)
         assertEquals(5, s.autoLockDelaySec)
         assertEquals(setOf(GestureType.VOLUME_SEQUENCE), s.gestures)
@@ -43,7 +45,7 @@ class SettingsRepositoryTest {
     fun `settings round-trip`() {
         val wanted = LockSettings(
             gesture = GestureType.BADGE_PIN, holdMs = 2200, cornerPair = CornerPair.TOP_RIGHT_BOTTOM_LEFT,
-            badgeCorner = Corner.BOTTOM_RIGHT, pinHash = "abc", pinSalt = "beef", pinLength = 6, keepScreenOn = false,
+            badgeCorner = Corner.BOTTOM_RIGHT, pinHash = "abc", pinSalt = "beef", pinLength = 6, keepScreenOn = false, wakeAfterPowerPress = false,
             volumePattern = VolumePattern.DOWN_THEN_UP, volumeRepeats = 2,
             armDelaySec = 8, blockKeys = false, blockShade = false, relaunchApp = false, blockGestures = false,
             autoLockRules = mapOf("com.a" to AutoLockTrigger.CALL, "com.b" to AutoLockTrigger.FULLSCREEN_PLAYBACK), autoLockDelaySec = 30,
@@ -153,4 +155,12 @@ class SettingsRepositoryTest {
         assertEquals(GestureType.VOLUME_SEQUENCE, s.gesture)
         assertEquals(setOf(GestureType.CORNER_HOLD), s.extraGestures)
     }
+
+    @Test
+    fun `the old "No timer" becomes the two-hour default`() {
+        TestSupport.app.getSharedPreferences("childlock", 0).edit().putInt("session_minutes", 0).commit()
+        SettingsRepository.resetForTests()
+        assertEquals(LockSettings.DEFAULT_SESSION_MINUTES, SettingsRepository.get(TestSupport.app).load().sessionMinutes)
+    }
+
 }

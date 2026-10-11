@@ -145,10 +145,11 @@ Core functionality that needs the service:
 1. Observe hardware volume-key presses so the parent can lock and unlock with a volume up, volume down pattern without touching the screen (the screen is what the child is holding).
 2. While locked: filter the back and volume keys, block the home, back and recents system gestures via touch-exploration mode, dismiss the notification shade if it opens, and return to the app the parent handed over if it is left.
 3. While unlocked: observe which package is in the foreground, so the optional auto-lock can lock when a chosen app starts a call or a video.
+4. While locked: notice when a call starts ringing in any app, from the notification's category and call type only (never its text), and end the lock so the call can be answered.
 
 It never reads window content. The Play build is compiled without any node-reading code path, so it cannot read text on screen at all.
 
-User protections: a prominent disclosure with explicit consent is shown in the app before the user is sent to enable the service. The lock is always started by the user, shows a visible badge for its whole duration, is never persisted (a restart always ends it), releases itself when the phone rings, when the parent unlocks the phone through its own secure lock screen, and after at most 90 minutes, and refuses to start if the way out would not work. The core touch lock also works with the service disabled; the service only hardens it.
+User protections: a prominent disclosure with explicit consent is shown in the app before the user is sent to enable the service. The lock is always started by the user, shows a visible badge for its whole duration, is never persisted (a restart always ends it), releases itself when a call rings (on the phone or in an app), when the parent unlocks the phone through its own secure lock screen, and after a time limit the parent sets (two hours by default, four at most), and refuses to start if the way out would not work. The core touch lock also works with the service disabled; the service only hardens it.
 ```
 
 - Video: the URL from section 0.

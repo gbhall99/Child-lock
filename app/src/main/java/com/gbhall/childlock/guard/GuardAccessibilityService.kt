@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityGestureEvent
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.KeyguardManager
+import android.app.Notification
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
@@ -230,7 +231,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         val wanted = BASE_FLAGS or extra or (if (skipAdsActive()) AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS else 0)
         val events = MANIFEST_EVENTS or
             (if (skipAdsActive()) AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED else 0) or
-            (if (locked) AccessibilityEvent.TYPE_TOUCH_INTERACTION_START else 0)
+            (if (locked) AccessibilityEvent.TYPE_TOUCH_INTERACTION_START or AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED else 0)
         if (wanted == requestedFlags && events == requestedEvents) return
         // Mutate the info the system granted us where we can: it carries the manifest's
         // settings, and only the handful of properties in MUTABLE_FLAGS are ours to change.
@@ -290,7 +291,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
                     Toast.makeText(this, R.string.toast_trial_over, Toast.LENGTH_SHORT).show()
                 } else if (!Settings.canDrawOverlays(this)) {
                     Toast.makeText(this, R.string.toast_no_overlay_permission, Toast.LENGTH_SHORT).show()
-                } else if (!LockController.requestLock(this, ForegroundTracker.lastApp, 0)) {
+                } else if (!LockController.requestLock(this, ForegroundTracker.current, 0)) {
                     Toast.makeText(this, R.string.toast_lock_failed, Toast.LENGTH_SHORT).show()
                 }
             }
@@ -303,6 +304,10 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         if (event.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_START) {
             // Explore-by-touch keeps this touch from the shield; show the hint for it.
             LockController.touchedWhileLocked()
+            return
+        }
+        if (event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) {
+            onNotification(event)
             return
         }
         val pkg = event.packageName?.toString()
@@ -321,14 +326,37 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         if (settings.relaunchApp) maybeRelaunch(locked.protectedPackage)
     }
 
+    /**
+     * A call ringing in an app (WhatsApp and the like) ends the lock, as a phone
+     * call does: with swipes blocked, the Answer button cannot be pressed. Only
+     * the notification's category and call type are looked at, never its text.
+     */
+    private fun onNotification(event: AccessibilityEvent) {
+        if (!LockController.isLocked) return
+        val n = event.parcelableData as? Notification ?: return
+        val callType = n.extras?.getInt(Notification.EXTRA_CALL_TYPE, 0) ?: 0
+        val inAppCall = try {
+            getSystemService(android.media.AudioManager::class.java)?.mode == android.media.AudioManager.MODE_IN_COMMUNICATION
+        } catch (e: Exception) {
+            false
+        }
+        if (GuardPolicy.isIncomingCall(n.category, callType, n.fullScreenIntent != null, inAppCall)) {
+            Log.i(TAG, "A call is ringing in ${event.packageName}; unlocking so it can be answered")
+            LockController.unlock(UnlockReason.CALL)
+        }
+    }
+
     /** Only real apps and the home screen count as "the user moved"; dialogs, keyboards and SystemUI do not. */
     private fun onWindowChanged(pkg: String) {
+        // Locking from inside Child Lock goes back to the last app, as its button does.
+        if (pkg == packageName) ForegroundTracker.homeInFront = false
         if (isIgnoredForeground(pkg)) return
         val app = isLaunchable(pkg)
         val home = isHome(pkg)
         if (!app && !home) return // a system dialog or a transient window over the app
+        ForegroundTracker.homeInFront = home
         // Settings and system dialogs are never the app to hand over.
-        if (app && GuardPolicy.canBeProtected(pkg)) ForegroundTracker.lastApp = pkg
+        if (!home && GuardPolicy.canBeProtected(pkg)) ForegroundTracker.lastApp = pkg
         engine.onForeground(pkg)
         ensureAutoLockTicking()
     }

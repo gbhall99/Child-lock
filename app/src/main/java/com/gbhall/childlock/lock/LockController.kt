@@ -6,7 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import java.util.concurrent.CopyOnWriteArraySet
-
+/** Why a lock ended. The review prompt and the "off" banner read it. */
 /** Why a lock ended. The review prompt reads it; nothing else does. */
 enum class UnlockReason {
     /** The parent's own gesture, the notification button or the tile. */
