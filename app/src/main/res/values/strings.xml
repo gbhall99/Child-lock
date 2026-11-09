@@ -23,6 +23,7 @@
     <string name="banner_off_call">A call is ringing. Touch works again so you can answer.</string>
     <string name="banner_arming_title">Locking soon</string>
     <string name="banner_arming_detail">Touches stop in %1$d s. Switch apps to cancel.</string>
+    <string name="banner_arming_manual">Touches stop in %1$d s. Get the video or game on screen.</string>
     <string name="toast_lock_failed">Couldn’t lock. The phone is still unlocked.</string>
     <string name="toast_no_overlay_permission">Turn on “Show over other apps” first</string>
     <string name="toast_need_pin">Set a PIN first</string>
@@ -80,7 +81,8 @@
     <string name="how_to_unlock">To unlock</string>
     <string name="turn_on">Turn on</string>
     <string name="arm_button">Lock in %1$d seconds</string>
-    <string name="arm_hint">Returns to the last app, then locks. The Quick Settings tile does the same.</string>
+    <string name="arm_hint">Goes back to your last app. Whatever is on screen when the countdown ends is what gets locked.</string>
+    <string name="arm_cancel">Cancel the countdown</string>
 
     <string name="perm_overlay">Show over other apps</string>
     <string name="perm_overlay_desc">Lets Child Lock sit over the video or game.</string>
@@ -175,7 +177,7 @@
     <string name="session_hour">1 hour</string>
     <string name="session_hours">%1$d hours</string>
     <string name="session_hours_minutes">%1$d h %2$d min</string>
-    <string name="session_desc">Child Lock switches itself off after this long, however it was started. Volume up then down ends it sooner.</string>
+    <string name="session_desc">Child Lock switches itself off after this long, however it was started. Unlocking ends it sooner.</string>
     <string name="rehearse_title">Practise</string>
     <string name="rehearse_desc">Lock this screen and unlock it. Ends by itself after a minute.</string>
     <string name="rehearse_go">Start</string>

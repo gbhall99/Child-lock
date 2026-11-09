@@ -32,6 +32,7 @@ import com.gbhall.childlock.gesture.VolumeSequenceGesture
 import com.gbhall.childlock.lock.LockController
 import com.gbhall.childlock.lock.LockState
 import com.gbhall.childlock.lock.UnlockReason
+import com.gbhall.childlock.lock.lockRefusal
 import com.gbhall.childlock.settings.GestureType
 import com.gbhall.childlock.settings.LockSettings
 import com.gbhall.childlock.settings.SettingsRepository
@@ -92,8 +93,16 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     }
 
     override fun requestArm(packageName: String) {
+        // A lock nobody could leave is refused here as it is on the Lock button, and
+        // this app is then left alone until the parent goes elsewhere and comes back.
+        val refusal = lockRefusal(this, settings)
+        if (refusal != null) {
+            Toast.makeText(this, refusal, Toast.LENGTH_LONG).show()
+            engine.onUnlocked(byParent = true)
+            return
+        }
         if (!FeatureGate.isUnlocked(this) || !Settings.canDrawOverlays(this) ||
-            !LockController.requestLock(this, packageName, settings.autoLockDelaySec * 1000L)
+            !LockController.requestLock(this, packageName, settings.autoLockDelaySec * 1000L, auto = true)
         ) {
             engine.onUnlocked(byParent = false)
         }
@@ -151,6 +160,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     public override fun onServiceConnected() {
         super.onServiceConnected()
         isConnected = true
+        ForegroundTracker.probe = ::inFront
         keyToolActive = keyFilteringToolActive()
         // Never inherit a stored touch-exploration request from a previous run.
         applyServiceFlags(locked = false)
@@ -176,6 +186,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
 
     override fun onUnbind(intent: Intent?): Boolean {
         isConnected = false
+        ForegroundTracker.probe = null
         keyToolActive = false
         // Leaving the phone in explore-by-touch would strand the user.
         try {
@@ -592,6 +603,32 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
         return launchable.getOrPut(pkg) { packageManager.getLaunchIntentForPackage(pkg) != null }
     }
 
+    /**
+     * What is on screen right now, read from the windows themselves rather than
+     * remembered from events. The app windows are looked at from the front
+     * (the focused one first, for split screen). Dialogs, keyboards and other
+     * windows that are not an app in their own right are looked through to the
+     * app beneath; a picture-in-picture video floating over something else is
+     * not what is in front.
+     */
+    internal fun inFront(): ForegroundTracker.Front {
+        val candidates = try {
+            windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION && !it.isInPictureInPictureMode }
+                .sortedWith(compareByDescending<AccessibilityWindowInfo> { it.isFocused }.thenByDescending { it.layer })
+        } catch (e: Exception) {
+            return ForegroundTracker.Front.Unknown
+        }
+        for (w in candidates) {
+            val pkg = (try { w.root?.packageName?.toString() } catch (e: Exception) { null }) ?: continue
+            if (pkg == packageName) return ForegroundTracker.Front.Other
+            if (pkg == GuardPolicy.SYSTEM_UI || pkg in imePackages()) continue
+            if (isHome(pkg)) return ForegroundTracker.Front.Home
+            if (!isLaunchable(pkg)) continue
+            return if (GuardPolicy.canBeProtected(pkg)) ForegroundTracker.Front.App(pkg) else ForegroundTracker.Front.Other
+        }
+        return ForegroundTracker.Front.Unknown
+    }
+
     private fun isShadeOpen(): Boolean {
         val screenHeight = windowBounds().height()
         val bounds = android.graphics.Rect()
@@ -626,9 +663,12 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
     private fun maybeRelaunch(protectedPackage: String?) {
         if (protectedPackage == null) return
         val now = SystemClock.uptimeMillis()
+        val foreground = rootInActiveWindow?.packageName?.toString()
+        // A keyboard is part of whatever app it is typing into, never somewhere the child went.
+        if (foreground != null && foreground in imePackages()) return
         val decision = GuardPolicy.relaunchDecision(
             protectedPackage = protectedPackage,
-            foregroundPackage = rootInActiveWindow?.packageName?.toString(),
+            foregroundPackage = foreground,
             selfPackage = packageName,
             dialerPackage = defaultDialer(),
             keyguardLocked = getSystemService(KeyguardManager::class.java).isKeyguardLocked,
@@ -675,7 +715,7 @@ class GuardAccessibilityService : AccessibilityService(), AutoLockEngine.Listene
 
         @Volatile
         var isConnected: Boolean = false
-            private set
+            internal set // internal, not private, so tests can stand in for a running helper
 
         /** Set while the helper is running, so the UI can pre-flight a lock. */
         @Volatile

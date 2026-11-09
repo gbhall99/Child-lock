@@ -6,11 +6,13 @@ import android.os.Build
 import android.provider.Settings
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import android.widget.Toast
 import com.gbhall.childlock.billing.FeatureGate
 import com.gbhall.childlock.R
 import com.gbhall.childlock.guard.ForegroundTracker
 import com.gbhall.childlock.lock.LockController
 import com.gbhall.childlock.lock.LockState
+import com.gbhall.childlock.lock.lockRefusal
 import com.gbhall.childlock.settings.SettingsRepository
 import com.gbhall.childlock.ui.MainActivity
 
@@ -48,12 +50,26 @@ class LockTileService : TileService() {
             is LockState.Locked -> Unit
             is LockState.Arming -> LockController.unlock() // second tap cancels the countdown
             LockState.Unlocked -> {
-                if (!FeatureGate.isUnlocked(this) || !Settings.canDrawOverlays(this)) {
-                    openSettingsScreen() // the app screen explains what is missing
-                } else if (!LockController.requestLock(this, ForegroundTracker.current, TILE_ARM_DELAY_MS)) {
-                    openSettingsScreen() // the app screen can always start the service
-                }
+                // Tapped on the phone's own lock screen: the phone is unlocked first, so
+                // the lock never starts behind a lock screen the parent has yet to pass.
+                val phoneLocked = try { isLocked } catch (e: Exception) { false }
+                if (phoneLocked) unlockAndRun { lock() } else lock()
             }
+        }
+    }
+
+    private fun lock() {
+        if (!FeatureGate.isUnlocked(this) || !Settings.canDrawOverlays(this)) {
+            openSettingsScreen() // the app screen explains what is missing
+            return
+        }
+        // The same check as the Lock button: never start a lock nobody could leave.
+        val refusal = lockRefusal(this, SettingsRepository.get(this).load())
+        if (refusal != null) {
+            Toast.makeText(this, refusal, Toast.LENGTH_LONG).show()
+            openSettingsScreen()
+        } else if (!LockController.requestLock(this, ForegroundTracker.current, TILE_ARM_DELAY_MS)) {
+            openSettingsScreen() // the app screen can always start the service
         }
     }
 

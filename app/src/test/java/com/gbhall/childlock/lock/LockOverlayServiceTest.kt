@@ -182,6 +182,58 @@ class LockOverlayServiceTest {
     }
 
     @Test
+    fun `the lock keeps what is on screen when it engages, not the app it was asked for`() {
+        // Asked to lock over the call app; by the end of the countdown the parent has a video up instead.
+        com.gbhall.childlock.guard.ForegroundTracker.probe =
+            { com.gbhall.childlock.guard.ForegroundTracker.Front.App("com.example.video") }
+        try {
+            start(lockIntent(pkg = "com.example.call", delay = 3000))
+            idle(3100)
+            assertEquals("com.example.video", (LockController.state as LockState.Locked).protectedPackage)
+            LockController.unlock()
+            idle()
+            controller?.destroy()
+            controller = null
+
+            // On the home screen there is nothing to bring back, whatever was asked for.
+            com.gbhall.childlock.guard.ForegroundTracker.probe = { com.gbhall.childlock.guard.ForegroundTracker.Front.Home }
+            start(lockIntent(pkg = "com.example.call"))
+            idle()
+            assertNull((LockController.state as LockState.Locked).protectedPackage)
+        } finally {
+            com.gbhall.childlock.guard.ForegroundTracker.probe = null
+        }
+    }
+
+    @Test
+    fun `the countdown banner stays up, counts down and says what to do with the time`() {
+        start(lockIntent(delay = 3000))
+        idle()
+        assertTrue(bannerText(banners().single()).contains("3 s"))
+        idle(2100)
+        val text = bannerText(banners().single())
+        assertTrue(text, text.contains("1 s"))
+        assertFalse("switching apps does not cancel a countdown the parent started", text.contains("Switch apps"))
+        LockController.unlock()
+        idle()
+        controller?.destroy()
+        controller = null
+
+        start(lockIntent(delay = 3000).putExtra(LockOverlayService.EXTRA_AUTO, true))
+        idle()
+        val auto = bannerText(banners().single())
+        assertTrue("leaving the app cancels auto-lock", auto.contains("Switch apps"))
+    }
+
+    @Test
+    fun `a stale unlock tap with nothing locked stops the service`() {
+        val service = start(Intent(TestSupport.app, LockOverlayService::class.java).setAction(LockOverlayService.ACTION_UNLOCK))
+        idle()
+        assertTrue(shadowOf(service).isStoppedBySelf)
+        assertEquals(LockState.Unlocked, LockController.state)
+    }
+
+    @Test
     fun `delayed lock arms first and only attaches after the delay`() {
         start(lockIntent(delay = 3000))
         idle()

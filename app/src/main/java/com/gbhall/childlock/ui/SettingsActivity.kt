@@ -233,10 +233,6 @@ class SettingsActivity : Activity() {
             toast(R.string.toast_no_overlay_permission)
             return
         }
-        if (s.gestures == setOf(GestureType.BADGE_PIN) && !s.hasPin) {
-            toast(R.string.toast_need_pin)
-            return
-        }
         if (lockPreflight(s) != null) return
         if (!LockController.requestLock(this, null, 0, rehearsal = true)) toast(R.string.toast_lock_failed)
     }
@@ -245,24 +241,28 @@ class SettingsActivity : Activity() {
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
             hint = getString(R.string.pin_hint, LockSettings.MIN_PIN_LENGTH, LockSettings.MAX_PIN_LENGTH)
+            filters = arrayOf(android.text.InputFilter.LengthFilter(LockSettings.MAX_PIN_LENGTH))
             val p = dp(20)
             setPadding(p, p, p, p)
         }
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.pin_title)
             .setView(input)
-            .setPositiveButton(R.string.save) { _, _ ->
-                val pin = input.text.toString()
-                if (pin.length !in LockSettings.MIN_PIN_LENGTH..LockSettings.MAX_PIN_LENGTH || !pin.all { it.isDigit() }) {
-                    toast(R.string.toast_pin_invalid)
-                } else {
-                    val salt = PinHasher.newSalt()
-                    repo.update { it.copy(pinHash = PinHasher.hash(pin, salt), pinSalt = salt, pinLength = pin.length) }
-                    renderGestureDependents(repo.load())
-                }
-            }
+            .setPositiveButton(R.string.save, null)
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+        // Set after show(), so a PIN that is too short keeps the dialog open to be corrected.
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val pin = input.text.toString()
+            if (pin.length !in LockSettings.MIN_PIN_LENGTH..LockSettings.MAX_PIN_LENGTH || !pin.all { it.isDigit() }) {
+                toast(R.string.toast_pin_invalid)
+            } else {
+                val salt = PinHasher.newSalt()
+                repo.update { it.copy(pinHash = PinHasher.hash(pin, salt), pinSalt = salt, pinLength = pin.length) }
+                renderGestureDependents(repo.load())
+                dialog.dismiss()
+            }
+        }
     }
 
     // ---- Lock automatically ------------------------------------------------

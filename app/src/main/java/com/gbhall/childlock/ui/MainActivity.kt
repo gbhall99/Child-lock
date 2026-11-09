@@ -31,7 +31,6 @@ import com.gbhall.childlock.lock.LockOverlayService
 import com.gbhall.childlock.lock.LockState
 import com.gbhall.childlock.review.Review
 import com.gbhall.childlock.settings.GestureText
-import com.gbhall.childlock.settings.GestureType
 import com.gbhall.childlock.settings.LockSettings
 import com.gbhall.childlock.settings.SettingsRepository
 
@@ -107,6 +106,7 @@ class MainActivity : Activity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_NOTIFICATIONS) NotificationAsk.onResult(this, grantResults)
         refreshPermissions()
     }
 
@@ -196,11 +196,7 @@ class MainActivity : Activity() {
             addView(restrictedHint, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
             notificationRow = row(
                 getString(R.string.perm_notifications), getString(R.string.status_optional) + ". " + getString(R.string.setup_notifications_desc),
-                actionButton(getString(R.string.allow)) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
-                    }
-                },
+                actionButton(getString(R.string.allow)) { NotificationAsk.ask(this@MainActivity, REQUEST_NOTIFICATIONS) },
                 null, R.drawable.ic_bell, Palette.GREY,
             )
             addView(notificationRow)
@@ -246,7 +242,7 @@ class MainActivity : Activity() {
 
     /** Everything on this screen that mirrors a setting changed on another page. */
     private fun renderSettings(s: LockSettings) {
-        renderAccess(s)
+        renderAccess()
         lockHow.text = GestureText.lockHint(this, s)
         unlockHow.text = (GestureText.unlockHint(this, s) + " " + GestureText.fallbackHint(this, s)).trim()
         unlockTile.setTileSubtitle(GestureText.gestureName(this, s))
@@ -272,17 +268,21 @@ class MainActivity : Activity() {
     }
 
     /** The trial line and the big button: a lock while the trial runs, the purchase once it is over. */
-    private fun renderAccess(s: LockSettings = repo.load()) {
+    private fun renderAccess() {
         val access = FeatureGate.access(this)
         trialRow.visibility = if (access is FeatureGate.Access.Trial) View.VISIBLE else View.GONE
         if (access is FeatureGate.Access.Trial) trialText.text = Paywall.daysLeft(this, access)
-        armButton.text = if (access is FeatureGate.Access.Expired) Paywall.buyLabel(this) else getString(R.string.arm_button, s.armDelaySec)
         renderStatus(LockController.state)
     }
 
     // ---- behaviour --------------------------------------------------------
 
     private fun arm() {
+        // During the countdown the big button is the way to call it off.
+        if (LockController.state is LockState.Arming) {
+            LockController.unlock()
+            return
+        }
         if (!FeatureGate.isUnlocked(this)) {
             Paywall.show(this)
             return
@@ -293,23 +293,48 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
             return
         }
-        if (s.gestures == setOf(GestureType.BADGE_PIN) && !s.hasPin) {
-            toast(R.string.toast_need_pin)
-            return
-        }
         if (lockPreflight(s) != null) return
         if (!LockController.requestLock(this, ForegroundTracker.lastApp, s.armDelaySec * 1000L)) {
             toast(R.string.toast_lock_failed)
             return
         }
-        moveTaskToBack(true)
+        returnToLastApp()
     }
+
+    /**
+     * Gets out of the way, back to the app the parent was in. Stepping back
+     * usually uncovers it exactly as it was left, which opening it afresh
+     * cannot promise. Only when that shows the home screen instead (Child Lock
+     * was opened from there) is the app opened, and straight away, while the
+     * countdown still leaves time to put the right thing on screen: a lock
+     * never moves anything once it is on.
+     */
+    private fun returnToLastApp() {
+        moveTaskToBack(true)
+        val pkg = ForegroundTracker.lastApp ?: return
+        val app = applicationContext
+        returnHandler.removeCallbacksAndMessages(null)
+        returnHandler.postDelayed({
+            if (LockController.state is LockState.Arming && ForegroundTracker.inFront() == ForegroundTracker.Front.Home) {
+                try {
+                    val launch = app.packageManager.getLaunchIntentForPackage(pkg)
+                    if (launch != null) {
+                        app.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED))
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w("MainActivity", "Could not return to $pkg", e)
+                }
+            }
+        }, RETURN_CHECK_MS)
+    }
+
+    private val returnHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     private fun refreshPermissions() {
         val overlay = Settings.canDrawOverlays(this)
         val helper = GuardAccessibilityService.isEnabled(this)
         val shortcut = helper && GuardAccessibilityService.isShortcutButtonOn(this)
-        val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && repo.overlayAttempted && (!overlay || !helper)
+        val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && isSideloaded() && repo.overlayAttempted && (!overlay || !helper)
         val notify = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         overlayRow.visibility = if (overlay) View.GONE else View.VISIBLE
@@ -318,10 +343,27 @@ class MainActivity : Activity() {
         restrictedHint.visibility = if (restricted) View.VISIBLE else View.GONE
         shortcutHint.visibility = if (shortcut) View.VISIBLE else View.GONE
         attentionCard.visibility = if (overlay && helper && notify && !shortcut) View.GONE else View.VISIBLE
-        armButton.isEnabled = overlay
+        renderArmButton(LockController.state)
+    }
+
+    /**
+     * The big button: the lock, the way to call a countdown off, or the purchase
+     * once the trial is over. It is only greyed out when a lock cannot start for
+     * want of the overlay permission; buying and cancelling never need it.
+     */
+    private fun renderArmButton(state: LockState) {
+        val expired = !FeatureGate.isUnlocked(this)
+        val arming = state is LockState.Arming
+        armButton.text = when {
+            arming -> getString(R.string.arm_cancel)
+            expired -> Paywall.buyLabel(this)
+            else -> getString(R.string.arm_button, repo.load().armDelaySec)
+        }
+        armButton.isEnabled = arming || expired || Settings.canDrawOverlays(this)
     }
 
     private fun renderStatus(state: LockState) {
+        renderArmButton(state)
         val (title, subtitle, tone, iconRes) = when (state) {
             LockState.Unlocked ->
                 if (FeatureGate.isUnlocked(this)) {
@@ -354,5 +396,8 @@ class MainActivity : Activity() {
 
     companion object {
         private const val REQUEST_NOTIFICATIONS = 1
+
+        /** Long enough for stepping back to have shown what is underneath. */
+        private const val RETURN_CHECK_MS = 500L
     }
 }

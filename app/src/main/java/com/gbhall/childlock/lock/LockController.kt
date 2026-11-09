@@ -7,7 +7,6 @@ import android.os.Looper
 import android.util.Log
 import java.util.concurrent.CopyOnWriteArraySet
 /** Why a lock ended. The review prompt and the "off" banner read it. */
-/** Why a lock ended. The review prompt reads it; nothing else does. */
 enum class UnlockReason {
     /** The parent's own gesture, the notification button or the tile. */
     PARENT,
@@ -69,7 +68,10 @@ object LockController {
     }
 
     /**
-     * Asks the overlay service to lock, after [delayMs]. Returns false if the
+     * Asks the overlay service to lock, after [delayMs]. [protectedPackage] is
+     * only a fallback: the lock keeps whatever is on screen when it engages.
+     * [auto] marks a lock that auto-lock started, whose countdown is cancelled
+     * by leaving the app. Returns false if the
      * system refused to start the service (Android 12+ background-start rules),
      * in which case nothing is locked and the caller should tell the user.
      */
@@ -78,12 +80,14 @@ object LockController {
         protectedPackage: String?,
         delayMs: Long,
         rehearsal: Boolean = false,
+        auto: Boolean = false,
     ): Boolean {
         val intent = Intent(context, LockOverlayService::class.java)
             .setAction(LockOverlayService.ACTION_LOCK)
             .putExtra(LockOverlayService.EXTRA_PACKAGE, protectedPackage)
             .putExtra(LockOverlayService.EXTRA_DELAY_MS, delayMs)
             .putExtra(LockOverlayService.EXTRA_REHEARSAL, rehearsal)
+            .putExtra(LockOverlayService.EXTRA_AUTO, auto)
         return try {
             context.startForegroundService(intent)
             true

@@ -607,24 +607,50 @@ internal fun Context.tileGrid(tiles: List<View>): LinearLayout = vertical {
  * Shows the reason as a toast and returns it, or null when it is safe.
  */
 internal fun android.app.Activity.lockPreflight(s: com.gbhall.childlock.settings.LockSettings): Int? {
-    val screenReader = try {
-        getSystemService(android.view.accessibility.AccessibilityManager::class.java)?.isTouchExplorationEnabled == true
-    } catch (e: Exception) {
-        false
-    }
-    val reason = when (
-        com.gbhall.childlock.lock.LockPreflight.check(
-            s.gestures,
-            com.gbhall.childlock.guard.GuardAccessibilityService.isConnected,
-            screenReader,
-            com.gbhall.childlock.guard.GuardAccessibilityService.keyToolActive,
-        )
-    ) {
-        com.gbhall.childlock.lock.LockPreflight.Result.HelperNeeded -> com.gbhall.childlock.R.string.toast_needs_helper
-        com.gbhall.childlock.lock.LockPreflight.Result.ScreenReaderNeedsVolume -> com.gbhall.childlock.R.string.toast_screen_reader
-        com.gbhall.childlock.lock.LockPreflight.Result.SwitchAccessNeedsTouch -> com.gbhall.childlock.R.string.toast_switch_access
-        com.gbhall.childlock.lock.LockPreflight.Result.Ok -> null
-    }
+    val reason = com.gbhall.childlock.lock.lockRefusal(this, s)
     if (reason != null) android.widget.Toast.makeText(this, reason, android.widget.Toast.LENGTH_LONG).show()
     return reason
+}
+
+/** Android's "Restricted setting" gate only ever stops apps that did not come from a store. */
+internal fun Context.isSideloaded(): Boolean {
+    val installer = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+        try { packageManager.getInstallSourceInfo(packageName).installingPackageName } catch (e: Exception) { null }
+    } else {
+        @Suppress("DEPRECATION") packageManager.getInstallerPackageName(packageName)
+    }
+    return installer != "com.android.vending"
+}
+
+/**
+ * Asks for the notification permission. Android stops showing its prompt once
+ * it has been turned down, and then answers "no" at once by itself; a button
+ * that asks again would do nothing at all, so that case opens the app's
+ * notification settings instead.
+ */
+internal object NotificationAsk {
+    private const val NO_PROMPT_MS = 500L
+    private var askedAt = 0L
+
+    fun ask(activity: android.app.Activity, requestCode: Int) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return
+        askedAt = android.os.SystemClock.elapsedRealtime()
+        activity.requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), requestCode)
+    }
+
+    /** Call from onRequestPermissionsResult. */
+    fun onResult(activity: android.app.Activity, grantResults: IntArray) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return
+        if (grantResults.isEmpty() || grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) return
+        val answeredAtOnce = android.os.SystemClock.elapsedRealtime() - askedAt < NO_PROMPT_MS
+        if (!answeredAtOnce || activity.shouldShowRequestPermissionRationale(android.Manifest.permission.POST_NOTIFICATIONS)) return
+        try {
+            activity.startActivity(
+                android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, activity.packageName),
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("NotificationAsk", "Could not open notification settings", e)
+        }
+    }
 }
