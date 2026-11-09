@@ -1,6 +1,32 @@
 package com.gbhall.childlock.lock
 
+import android.content.Context
+import com.gbhall.childlock.R
+import com.gbhall.childlock.guard.GuardAccessibilityService
 import com.gbhall.childlock.settings.GestureType
+import com.gbhall.childlock.settings.LockSettings
+
+/**
+ * Why a lock must not start right now, as the message to show, or null when
+ * it is safe. Every way of locking asks this first: the Lock button, the
+ * Quick Settings tile, auto-lock and practising.
+ */
+fun lockRefusal(context: Context, s: LockSettings): Int? {
+    // A PIN unlock with no PIN set opens nothing, so it is not a way out.
+    val usable = if (s.hasPin) s.gestures else s.gestures - GestureType.BADGE_PIN
+    if (usable.isEmpty()) return R.string.toast_need_pin
+    val exploring = try {
+        context.getSystemService(android.view.accessibility.AccessibilityManager::class.java)?.isTouchExplorationEnabled == true
+    } catch (e: Exception) {
+        false
+    }
+    return when (LockPreflight.check(usable, GuardAccessibilityService.isConnected, exploring, GuardAccessibilityService.keyToolActive)) {
+        LockPreflight.Result.HelperNeeded -> R.string.toast_needs_helper
+        LockPreflight.Result.ScreenReaderNeedsVolume -> R.string.toast_screen_reader
+        LockPreflight.Result.SwitchAccessNeedsTouch -> R.string.toast_switch_access
+        LockPreflight.Result.Ok -> null
+    }
+}
 
 /**
  * Refuses to lock when the chosen way out would not work. Pure, so every

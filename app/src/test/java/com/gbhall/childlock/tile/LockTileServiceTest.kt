@@ -2,6 +2,7 @@ package com.gbhall.childlock.tile
 
 import com.gbhall.childlock.TestSupport
 import com.gbhall.childlock.guard.ForegroundTracker
+import com.gbhall.childlock.guard.GuardAccessibilityService
 import com.gbhall.childlock.lock.LockController
 import com.gbhall.childlock.lock.LockOverlayService
 import com.gbhall.childlock.lock.LockState
@@ -19,8 +20,34 @@ import org.robolectric.shadows.ShadowSettings
 
 @RunWith(RobolectricTestRunner::class)
 class LockTileServiceTest {
-    @Before fun setUp() { TestSupport.resetLock(); ForegroundTracker.reset(); ShadowSettings.setCanDrawOverlays(true) }
-    @After fun tearDown() = TestSupport.resetLock()
+    @Before fun setUp() {
+        TestSupport.clearSettings()
+        TestSupport.resetLock()
+        ForegroundTracker.reset()
+        ShadowSettings.setCanDrawOverlays(true)
+        // The default unlock is the volume pattern, which only a running helper can see.
+        GuardAccessibilityService.isConnected = true
+    }
+
+    @After fun tearDown() {
+        GuardAccessibilityService.isConnected = false
+        TestSupport.resetLock()
+    }
+
+    @Test
+    @org.robolectric.annotation.Config(sdk = [33]) // Robolectric shadows the Intent overload of startActivityAndCollapse only
+    fun `tap never starts a lock that could not be unlocked`() {
+        GuardAccessibilityService.isConnected = false // volume unlock, and nothing running to see the keys
+        tile().onClick()
+        assertNull("no helper, no volume unlock", shadowOf(TestSupport.app).nextStartedService)
+
+        GuardAccessibilityService.isConnected = true
+        com.gbhall.childlock.settings.SettingsRepository.get(TestSupport.app)
+            .update { it.copy(gesture = com.gbhall.childlock.settings.GestureType.BADGE_PIN) }
+        tile().onClick()
+        assertNull("a PIN unlock with no PIN set opens nothing", shadowOf(TestSupport.app).nextStartedService)
+        assertEquals(LockState.Unlocked, LockController.state)
+    }
 
     private fun tile() = Robolectric.buildService(LockTileService::class.java).create().get()
 

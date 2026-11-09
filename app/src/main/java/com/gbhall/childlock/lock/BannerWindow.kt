@@ -33,7 +33,12 @@ class BannerWindow(private val context: Context) {
     private var view: View? = null
     private val hide = Runnable { dismiss(animated = true) }
 
-    fun show(kind: Kind, detail: String) {
+    /** Changes the detail line of the banner that is up, in place; nothing happens if none is. */
+    fun update(detail: String) {
+        view?.findViewWithTag<TextView>(DETAIL_TAG)?.text = detail
+    }
+
+    fun show(kind: Kind, detail: String, durationMs: Long = DURATION_MS) {
         dismiss(animated = false)
         val d = context.resources.displayMetrics.density
         val v = build(context, kind, detail)
@@ -60,7 +65,7 @@ class BannerWindow(private val context: Context) {
             v.alpha = 0f
             v.translationY = -16 * d
             v.animate().alpha(1f).translationY(0f).setDuration(220).setInterpolator(DecelerateInterpolator()).start()
-            handler.postDelayed(hide, DURATION_MS)
+            handler.postDelayed(hide, durationMs)
         } catch (e: Exception) {
             Log.w(TAG, "Banner not shown", e)
         }
@@ -89,6 +94,7 @@ class BannerWindow(private val context: Context) {
     companion object {
         private const val TAG = "BannerWindow"
         const val DURATION_MS = 1800L
+        private const val DETAIL_TAG = "detail"
         private const val SURFACE = 0xF2202124.toInt()
         private const val BLUE = 0xFF8AB4F8.toInt()
         private const val ORANGE = 0xFFFDD663.toInt()
@@ -130,6 +136,7 @@ class BannerWindow(private val context: Context) {
                         })
                         addView(TextView(context).apply {
                             text = detail
+                            tag = DETAIL_TAG
                             textSize = 13f
                             setTextColor(GREY)
                             includeFontPadding = false

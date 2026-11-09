@@ -65,6 +65,7 @@ class SetupActivity : Activity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_NOTIFICATIONS) NotificationAsk.onResult(this, grantResults)
         render()
     }
 
@@ -110,20 +111,10 @@ class SetupActivity : Activity() {
 
     // ---- steps ------------------------------------------------------------
 
-    /** Android's "Restricted setting" gate only ever stops apps that did not come from a store. */
-    private fun sideloaded(): Boolean {
-        val installer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            try { packageManager.getInstallSourceInfo(packageName).installingPackageName } catch (e: Exception) { null }
-        } else {
-            @Suppress("DEPRECATION") packageManager.getInstallerPackageName(packageName)
-        }
-        return installer != "com.android.vending"
-    }
-
     private fun currentSteps(): List<Step> {
         val overlay = Settings.canDrawOverlays(this)
         val helper = GuardAccessibilityService.isEnabled(this)
-        val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && sideloaded() && repo.overlayAttempted && (!overlay || !helper)
+        val restricted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && isSideloaded() && repo.overlayAttempted && (!overlay || !helper)
         val restrictedHint = if (restricted) {
             callout(getString(R.string.restricted_desc), actionButton(getString(R.string.app_info)) {
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
@@ -165,7 +156,7 @@ class SetupActivity : Activity() {
             list += Step(
                 getString(R.string.perm_notifications), getString(R.string.setup_notifications_desc), R.drawable.ic_bell,
                 required = false, done = granted, actionLabel = getString(R.string.allow),
-                action = { requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS) },
+                action = { NotificationAsk.ask(this, REQUEST_NOTIFICATIONS) },
             )
         }
         list += Step(

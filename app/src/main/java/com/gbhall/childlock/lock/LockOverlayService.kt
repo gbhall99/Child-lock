@@ -27,6 +27,7 @@ import com.gbhall.childlock.billing.FeatureGate
 import com.gbhall.childlock.review.ReviewSignals
 import com.gbhall.childlock.ChildLockApp
 import com.gbhall.childlock.R
+import com.gbhall.childlock.guard.ForegroundTracker
 import com.gbhall.childlock.settings.GestureText
 import com.gbhall.childlock.settings.LockSettings
 import com.gbhall.childlock.settings.SettingsRepository
@@ -290,8 +291,11 @@ class LockOverlayService : Service() {
                 intent.getStringExtra(EXTRA_PACKAGE),
                 intent.getLongExtra(EXTRA_DELAY_MS, 0L).coerceAtLeast(0L),
                 intent.getBooleanExtra(EXTRA_REHEARSAL, false),
+                intent.getBooleanExtra(EXTRA_AUTO, false),
             )
-            ACTION_UNLOCK -> onUnlockAction()
+            // A tap on a notification left behind by a lock that is long gone must
+            // not leave a service running with nothing to unlock.
+            ACTION_UNLOCK -> if (LockController.state is LockState.Unlocked) stopSelf() else onUnlockAction()
             else -> if (LockController.state is LockState.Unlocked) stopSelf()
         }
         // Never restart on our own after being killed: a restarted service
@@ -301,8 +305,29 @@ class LockOverlayService : Service() {
 
     private var rehearsal = false
 
-    private fun handleLock(protectedPackage: String?, delayMs: Long, isRehearsal: Boolean = false) {
+    /** Auto-lock started the countdown, so leaving the app cancels it. */
+    private var autoArmed = false
+
+    /** Keeps the countdown on the banner and in the notification true to the second. */
+    private val countdown = object : Runnable {
+        override fun run() {
+            val arming = LockController.state as? LockState.Arming ?: return
+            val left = arming.lockAtMs - SystemClock.uptimeMillis()
+            if (left <= 0) return
+            val seconds = ((left + 999) / 1000).toInt()
+            banner.update(armingText(seconds))
+            updateNotification(getString(R.string.notif_locking_in, seconds))
+            handler.postDelayed(this, (left - 1) % 1000 + 1)
+        }
+    }
+
+    /** Switching apps only cancels a countdown auto-lock started; a parent's own is told what to do with the time. */
+    private fun armingText(seconds: Int): String =
+        getString(if (autoArmed) R.string.banner_arming_detail else R.string.banner_arming_manual, seconds)
+
+    private fun handleLock(protectedPackage: String?, delayMs: Long, isRehearsal: Boolean = false, isAuto: Boolean = false) {
         rehearsal = isRehearsal
+        autoArmed = isAuto
         // A lock arriving during the OFF banner must cancel the pending stop.
         handler.removeCallbacks(stopAfterBanner)
         if (!Settings.canDrawOverlays(this)) {
@@ -324,8 +349,11 @@ class LockOverlayService : Service() {
         LockController.set(LockState.Arming(lockAt, protectedPackage))
         if (delayMs > 0) {
             val seconds = ((delayMs + 999) / 1000).toInt()
-            banner.show(BannerWindow.Kind.ARMING, getString(R.string.banner_arming_detail, seconds))
+            // Up for the whole countdown, counting down, so the moment of locking is never a surprise.
+            banner.show(BannerWindow.Kind.ARMING, armingText(seconds), durationMs = delayMs)
             updateNotification(getString(R.string.notif_locking_in, seconds))
+            handler.removeCallbacks(countdown)
+            handler.postDelayed(countdown, (delayMs - 1) % 1000 + 1)
             val r = Runnable { attach(protectedPackage) }
             pendingAttach = r
             handler.postDelayed(r, delayMs)
@@ -334,9 +362,15 @@ class LockOverlayService : Service() {
         }
     }
 
-    private fun attach(protectedPackage: String?) {
+    private fun attach(requestedPackage: String?) {
         pendingAttach = null
+        handler.removeCallbacks(countdown)
         if (LockController.state !is LockState.Arming) return // cancelled meanwhile
+        // The lock keeps what is on screen now. The app named in the request was
+        // chosen earlier, from memory, and the parent may have moved on since:
+        // bringing that one back would swap the page they just locked for another.
+        val protectedPackage = if (rehearsal) null else ForegroundTracker.protectNow(requestedPackage)
+        Log.i(TAG, "Locking over ${protectedPackage ?: "what is on screen"} (asked for $requestedPackage)")
         val settings = SettingsRepository.get(this).load()
         val root = OverlayRoot(this, settings, onUnlock = { LockController.unlock() })
         val params = WindowManager.LayoutParams(
@@ -403,6 +437,7 @@ class LockOverlayService : Service() {
     private fun teardown() {
         pendingAttach?.let(handler::removeCallbacks)
         pendingAttach = null
+        handler.removeCallbacks(countdown)
         LockController.touchSink = null
         overlay?.let { view ->
             view.dispose()
@@ -569,6 +604,7 @@ class LockOverlayService : Service() {
         const val EXTRA_PACKAGE = "package"
         const val EXTRA_DELAY_MS = "delay_ms"
         const val EXTRA_REHEARSAL = "rehearsal"
+        const val EXTRA_AUTO = "auto"
 
         /** Type-safe insets helper shared with the views. */
         fun systemInsets(insets: WindowInsets?): IntArray {

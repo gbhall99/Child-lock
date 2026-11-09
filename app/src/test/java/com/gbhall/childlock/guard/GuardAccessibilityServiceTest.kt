@@ -65,6 +65,48 @@ class GuardAccessibilityServiceTest {
         assertEquals("com.example.call", ForegroundTracker.lastApp)
     }
 
+    private fun appWindow(pkg: String) = GuardRig.window(
+        android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION, GuardRig.screen(service), pkg,
+    )
+
+    @Test
+    fun `what a lock keeps is read off the screen, not remembered`() {
+        // History says the call app, but the screen shows the home screen: a late
+        // event from the app just left, or a launcher page that announced nothing.
+        service.onAccessibilityEvent(windowEvent(GuardRig.HOME))
+        service.onAccessibilityEvent(windowEvent("com.example.call"))
+        assertEquals("com.example.call", ForegroundTracker.current)
+        GuardRig.setWindows(service, appWindow(GuardRig.HOME))
+        assertEquals(ForegroundTracker.Front.Home, ForegroundTracker.inFront())
+        assertNull("a lock on the home screen stays there", ForegroundTracker.protectNow("com.example.call"))
+
+        // The other way round: history says nothing, the screen shows an app.
+        GuardRig.setWindows(service, appWindow("com.example.call"))
+        assertEquals("com.example.call", ForegroundTracker.protectNow(null))
+
+        // The notifications panel and a permission prompt are looked through to the app beneath.
+        GuardRig.setWindows(
+            service, GuardRig.shade(service), appWindow("com.google.android.permissioncontroller"), appWindow("com.example.call"),
+        )
+        assertEquals(ForegroundTracker.Front.App("com.example.call"), ForegroundTracker.inFront())
+
+        // Child Lock's own screen is never brought back.
+        GuardRig.setWindows(service, appWindow(TestSupport.app.packageName))
+        assertNull(ForegroundTracker.protectNow("com.example.call"))
+
+        // Nothing readable: only then does the app that was asked for stand.
+        GuardRig.setWindows(service)
+        assertEquals(ForegroundTracker.Front.Unknown, ForegroundTracker.inFront())
+        assertEquals("com.example.call", ForegroundTracker.protectNow("com.example.call"))
+    }
+
+    @Test
+    fun `the screen is only read while the helper runs`() {
+        GuardRig.setWindows(service, appWindow("com.example.call"))
+        service.onUnbind(null)
+        assertEquals(ForegroundTracker.Front.Unknown, ForegroundTracker.inFront())
+    }
+
     @Test
     fun `the home screen in front means a lock keeps the home screen`() {
         service.onAccessibilityEvent(windowEvent("com.example.call"))
